@@ -946,11 +946,11 @@ public:
 	int16 setlook_head_top, setlook_head_mid, setlook_head_bottom, setlook_robe; ///< Stores 'setlook' script command values.
 
 	struct s_pandas {
-		unsigned char at_sex = 0;       // 'M' or 'F' (if used)
-		unsigned char at_dir = 0;       // body direction backup (0..7)
-		unsigned char at_head_dir = 0;  // head direction backup (0..2)
-		unsigned char at_sit = 0;       // sit flag (0/1)
-		// add other pandas-specific fields here if required
+		bool multitransfer = false;		// 用于标记接下来的 pc_setpos 调用是一次多人传送
+		unsigned char at_sex;				// 性别 (M 表示男性, F 表示女性)
+		unsigned char at_dir;				// 纸娃娃身体朝向
+		unsigned char at_head_dir;			// 纸娃娃头部朝向
+		unsigned char at_sit;				// 是否坐下
 	}pandas;
 
 	struct{

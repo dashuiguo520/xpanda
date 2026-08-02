@@ -11086,6 +11086,7 @@
 	/* Player_Suspend_System */
 	export_constant(SUSPEND_MODE_NONE);
 	export_constant(SUSPEND_MODE_OFFLINE);
+	export_constant(SUSPEND_MODE_OFFLINEBOT);
 	export_constant(SUSPEND_MODE_AFK);
 	export_constant(SUSPEND_MODE_NORMAL);
 
