@@ -55,6 +55,8 @@ struct s_autotrader {
 	map_session_data *sd;
 };
 
+void buyingstore_autotrader_cleardb(map_session_data* sd);
+
 int8 buyingstore_setup(map_session_data* sd, unsigned char slots);
 int8 buyingstore_create(map_session_data* sd, int32 zenylimit, unsigned char result, const char* storename, const struct PACKET_CZ_REQ_OPEN_BUYING_STORE_sub* itemlist, uint32 count, struct s_autotrader *at);
 void buyingstore_close(map_session_data* sd);

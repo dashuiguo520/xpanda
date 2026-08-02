@@ -34,7 +34,8 @@
 using namespace rathena;
 using namespace rathena::server_login;
 
-#define LOGIN_MAX_MSG 30				/// Max number predefined in msg_conf
+//#define LOGIN_MAX_MSG 30				/// Max number predefined in msg_conf
+#define LOGIN_MAX_MSG ALL_EXTEND_MSG	/// Max number predefined in msg_conf
 static char* msg_table[LOGIN_MAX_MSG];	/// Login Server messages_conf
 
 //definition of exported var declared in header

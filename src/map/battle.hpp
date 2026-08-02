@@ -782,6 +782,23 @@ struct Battle_Config
 	int32 hide_cloaked_units;
 	int32 oridecon_research_fix;
 
+	int32 suspend_monsterignore;            // 当玩家使用挂机系列指令时, 处于哪些模式不会被魔物攻击
+	int32 suspend_whisper_response;         // 当玩家使用挂机系列指令时, 处于哪些模式会自动回复私聊讯息
+	int32 suspend_offline_bodydirection;    // 当玩家进入离线挂机模式时, 地图服务器重启后的身体朝向哪里
+	int32 suspend_offline_headdirection;    // 当玩家进入离线挂机模式时, 地图服务器重启后的头部朝向哪里
+	int32 suspend_offline_sitdown;          // 当玩家进入离线挂机模式时, 地图服务器重启后处于站立还是坐下状态
+	int32 suspend_offlinebot_bodydirection; // 当玩家进入离线挂机模式时, 地图服务器重启后的身体朝向哪里
+	int32 suspend_offlinebot_headdirection; // 当玩家进入离线挂机模式时, 地图服务器重启后的头部朝向哪里
+	int32 suspend_offlinebot_sitdown;       // 当玩家进入离线挂机模式时, 地图服务器重启后处于站立还是坐下状态
+	int32 suspend_afk_bodydirection;        // 当玩家进入离开模式时, 地图服务器重启后的身体朝向哪里
+	int32 suspend_afk_headdirection;        // 当玩家进入离开模式时, 地图服务器重启后的头部朝向哪里
+	int32 suspend_afk_sitdown;              // 当玩家进入离开模式时, 地图服务器重启后处于站立还是坐下状态
+	int32 suspend_afk_headtop_viewid;       // 当玩家进入离开模式时, 将头饰上的更换为哪一个指定的头饰外观编号
+	int32 suspend_normal_bodydirection;     // 当玩家进入普通模式时, 被拉上线的角色身体朝向哪里
+	int32 suspend_normal_headdirection;     // 当玩家进入普通模式时, 被拉上线的角色头部朝向哪里
+	int32 suspend_normal_sitdown;           // 当玩家进入普通模式时, 被拉上线的角色处于站立还是坐下状态
+	int32 multiplayer_recall_behavior;      // 控制多人召唤时是否避开在线摆摊玩家
+
 #include <custom/battle_config_struct.inc>
 };
 

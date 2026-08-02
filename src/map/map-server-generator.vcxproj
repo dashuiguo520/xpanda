@@ -240,6 +240,7 @@
     <ClInclude Include="skill.hpp" />
     <ClInclude Include="status.hpp" />
     <ClInclude Include="storage.hpp" />
+    <ClInclude Include="suspend.hpp" />
     <ClInclude Include="trade.hpp" />
     <ClInclude Include="unit.hpp" />
     <ClInclude Include="vending.hpp" />
@@ -286,6 +287,7 @@
     <ClCompile Include="skill.cpp" />
     <ClCompile Include="status.cpp" />
     <ClCompile Include="storage.cpp" />
+    <ClCompile Include="suspend.cpp" />
     <ClCompile Include="trade.cpp" />
     <ClCompile Include="unit.cpp" />
     <ClCompile Include="vending.cpp" />

@@ -22,6 +22,8 @@ DBMap * vending_getdb();
 void do_final_vending(void);
 void do_init_vending(void);
 void do_init_vending_autotrade( void );
+
+void vending_autotrader_cleardb(map_session_data* sd);
  
 void vending_reopen( map_session_data& sd );
 void vending_closevending(map_session_data* sd);

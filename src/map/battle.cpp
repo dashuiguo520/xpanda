@@ -8909,6 +8909,20 @@ static const struct _battle_data {
 	{ "hide_cloaked_units",                 &battle_config.hide_cloaked_units,              0,      0,      BL_ALL,         },
 	{ "oridecon_research_fix",              &battle_config.oridecon_research_fix,           0,      0,      1,              },
 
+	{ "suspend_monsterignore",              &battle_config.suspend_monsterignore,           3,      0,      7, },
+	{ "suspend_whisper_response",           &battle_config.suspend_whisper_response,        2,      0,      7, },
+	{ "suspend_offline_bodydirection",      &battle_config.suspend_offline_bodydirection,   -1,     -1,     7, },
+	{ "suspend_offline_headdirection",      &battle_config.suspend_offline_headdirection,   -1,     -1,     2, },
+	{ "suspend_offline_sitdown",            &battle_config.suspend_offline_sitdown,         -1,     -1,     1, },
+	{ "suspend_afk_bodydirection",          &battle_config.suspend_afk_bodydirection,       -1,     -1,     7, },
+	{ "suspend_afk_headdirection",          &battle_config.suspend_afk_headdirection,       -1,     -1,     2, },
+	{ "suspend_afk_sitdown",                &battle_config.suspend_afk_sitdown,             1,      -1,     1, },
+	{ "suspend_afk_headtop_viewid",         &battle_config.suspend_afk_headtop_viewid,      471,    0,      INT_MAX, },
+	{ "suspend_normal_bodydirection",       &battle_config.suspend_normal_bodydirection,    -1,     -1,     7, },
+	{ "suspend_normal_headdirection",       &battle_config.suspend_normal_headdirection,    -1,     -1,     2, },
+	{ "suspend_normal_sitdown",             &battle_config.suspend_normal_sitdown,          -1,     -1,     1, },
+	{ "multiplayer_recall_behavior",        &battle_config.multiplayer_recall_behavior,     3,      0,      3, },
+
 #include <custom/battle_config_init.inc>
 };
 

@@ -27,6 +27,10 @@
 #include "unit.hpp" // unit_data
 #include "vending.hpp" // struct s_vending
 
+#include "suspend.hpp"
+#include "npc.hpp"
+#include <stack> 
+
 enum AtCommandType : uint8;
 enum e_instance_mode : uint8;
 //enum e_log_chat_type : uint8;
@@ -378,6 +382,19 @@ struct s_qi_display {
 	e_questinfo_markcolor color;
 };
 
+enum e_autotrade_mode : uint32 {
+	AUTOTRADE_DISABLED = 0x0000,
+	AUTOTRADE_ENABLED = 0x0001,
+	AUTOTRADE_VENDING = 0x0002,
+	AUTOTRADE_BUYINGSTORE = 0x0004,
+	AUTOTRADE_OFFLINE = 0x0008,		// 离线挂机
+	AUTOTRADE_AFK = 0x0010,		// 离开模式 (AFK)
+	AUTOTRADE_NORMAL = 0x0020,		// 普通模式
+	AUTOTRADE_OFFLINEBOT = 0x0040,		// 离线机器人模式
+};
+
+bool pc_autotrade_suspend(map_session_data* sd);
+
 class map_session_data : public block_list {
 public:
 	struct unit_data ud;
@@ -401,7 +418,8 @@ public:
 		uint32 snovice_dead_flag : 1; //Explosion spirits on death: 0 off, 1 used.
 		uint32 abra_flag : 2; // Abracadabra bugfix by Aru
 		uint32 autocast : 1; // Autospell flag [Inkfish]
-		uint32 autotrade : 3;	//By Fantik. &2 Requested by vending autotrade; &4 Requested by buyingstore autotrade
+		//uint32 autotrade : 3;	//By Fantik. &2 Requested by vending autotrade; &4 Requested by buyingstore autotrade
+		uint32 autotrade;
 		uint32 showdelay :1;
 		uint32 showexp :1;
 		uint32 showzeny :1;
@@ -442,6 +460,7 @@ public:
 		uint32 workinprogress : 2; // See clif.hpp::e_workinprogress
 		bool pc_loaded; // Ensure inventory data and status data is loaded before we calculate player stats
 		bool keepshop; // Whether shop data should be removed when the player disconnects
+		bool keepsuspend; // 是否保持挂起状态, 若保持下次地图服务器重启还能自动上线 [Sola丶小克]
 		bool mail_writing; // Whether the player is currently writing a mail in RODEX or not
 		bool cashshop_open;
 		bool sale_open;
@@ -925,6 +944,14 @@ public:
 	e_instance_mode instance_mode; ///< Mode of instance player last leaves from (used for instance destruction button)
 
 	int16 setlook_head_top, setlook_head_mid, setlook_head_bottom, setlook_robe; ///< Stores 'setlook' script command values.
+
+	struct s_pandas {
+		unsigned char at_sex = 0;       // 'M' or 'F' (if used)
+		unsigned char at_dir = 0;       // body direction backup (0..7)
+		unsigned char at_head_dir = 0;  // head direction backup (0..2)
+		unsigned char at_sit = 0;       // sit flag (0/1)
+		// add other pandas-specific fields here if required
+	}pandas;
 
 	struct{
 		int32 tid;

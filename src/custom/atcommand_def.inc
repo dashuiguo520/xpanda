@@ -9,3 +9,5 @@
  **/
 
 //ACMD_DEF(newcommand),
+ACMD_DEF(suspend),
+ACMD_DEF(afk),

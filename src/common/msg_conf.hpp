@@ -7,24 +7,18 @@
 #include <config/core.hpp>
 
 enum lang_types {
-	LANG_RUS = 0x01,
-	LANG_SPN = 0x02,
-	LANG_GRM = 0x04,
-	LANG_CHN = 0x08,
-	LANG_MAL = 0x10,
-	LANG_IDN = 0x20,
-	LANG_FRN = 0x40,
-	LANG_POR = 0x80,
-	LANG_THA = 0x100,
+	LANG_CHS = 0x01,
+	LANG_CHT = 0x02,
 	LANG_MAX
 };
 
 #ifndef LANG_ENABLE
-	// Multilanguage System.
-	// Define which languages to enable (bitmask).
-	// 0xFFF will enable all, while 0x000 will enable English only.
-	#define LANG_ENABLE 0x000
+// 除了英语, 我们额外启用两种语言, 分别是: 简体中文, 繁体中文 [Sola丶小克]
+#define LANG_ENABLE (LANG_CHS | LANG_CHT)
 #endif
+
+#define ALL_EXTEND_MSG 4000
+#define ALL_EXTEND_FIRST_MSG 3000
 
 //read msg in table
 const char* _msg_txt(int32 msg_number,int32 size, char ** msg_table);

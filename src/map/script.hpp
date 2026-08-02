@@ -327,6 +327,11 @@ struct script_state {
 	struct script_state *bk_st;
 	int32 bk_npcid;
 	unsigned freeloop : 1;// used by buildin_freeloop
+
+	unsigned unlockcmd : 1;
+	unsigned waiting_premium_storage : 1;
+	unsigned waiting_guild_storage : 1;
+
 	unsigned op2ref : 1;// used by op_2
 	unsigned npc_item_flag : 1;
 	unsigned mes_active : 1;  // Store if invoking character has a NPC dialog box open.

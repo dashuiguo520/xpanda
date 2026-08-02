@@ -33,6 +33,8 @@
 #include "script.hpp" // script_config
 #include "storage.hpp"
 
+#include "suspend.hpp"
+
 static TIMER_FUNC(check_connect_char_server);
 
 static struct eri *auth_db_ers; //For reutilizing player login structures.
@@ -560,6 +562,9 @@ void chrif_on_ready(void) {
 	{
 		do_init_buyingstore_autotrade();
 		do_init_vending_autotrade();
+
+		// 将处于离线挂机和离开模式的玩家召回自动上线
+		suspend_recall_all();
 		char_init_done = true;
 	}
 }

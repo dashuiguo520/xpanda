@@ -233,7 +233,8 @@ int8 buyingstore_create( map_session_data* sd, int32 zenylimit, unsigned char re
 
 	if( Sql_Query( mmysql_handle, "INSERT INTO `%s`(`id`, `account_id`, `char_id`, `sex`, `map`, `x`, `y`, `title`, `limit`, `autotrade`, `body_direction`, `head_direction`, `sit`) "
 		"VALUES( %d, %d, %d, '%c', '%s', %d, %d, '%s', %d, %d, '%d', '%d', '%d' );",
-		buyingstores_table, sd->buyer_id, sd->status.account_id, sd->status.char_id, sd->status.sex == 0 ? 'F' : 'M', map_getmapdata(sd->m)->name, sd->x, sd->y, message_sql, sd->buyingstore.zenylimit, sd->state.autotrade, at ? at->dir : sd->ud.dir, at ? at->head_dir : sd->head_dir, at ? at->sit : pc_issit(sd) ) != SQL_SUCCESS ){
+		//buyingstores_table, sd->buyer_id, sd->status.account_id, sd->status.char_id, sd->status.sex == 0 ? 'F' : 'M', map_getmapdata(sd->m)->name, sd->x, sd->y, message_sql, sd->buyingstore.zenylimit, sd->state.autotrade, at ? at->dir : sd->ud.dir, at ? at->head_dir : sd->head_dir, at ? at->sit : pc_issit(sd) ) != SQL_SUCCESS ){
+		buyingstores_table, sd->buyer_id, sd->status.account_id, sd->status.char_id, sd->status.sex == 0 ? 'F' : 'M', map_getmapdata(sd->m)->name, sd->x, sd->y, message_sql, sd->buyingstore.zenylimit, sd->state.autotrade & ~AUTOTRADE_BUYINGSTORE, at ? at->dir : sd->ud.dir, at ? at->head_dir : sd->head_dir, at ? at->sit : pc_issit(sd)) != SQL_SUCCESS) {
 		Sql_ShowDebug(mmysql_handle);
 	}
 
@@ -615,6 +616,7 @@ void buyingstore_reopen( map_session_data* sd ){
 		}
 
 		sd->state.autotrade = 1;
+		sd->state.autotrade |= AUTOTRADE_BUYINGSTORE;
 
 		// Make sure abort all NPCs
 		npc_event_dequeue(sd);
@@ -662,7 +664,8 @@ void do_init_buyingstore_autotrade( void ) {
 		if (Sql_Query(mmysql_handle,
 			"SELECT `id`, `account_id`, `char_id`, `sex`, `title`, `limit`, `body_direction`, `head_direction`, `sit` "
 			"FROM `%s` "
-			"WHERE `autotrade` = 1 AND `limit` > 0 AND (SELECT COUNT(`buyingstore_id`) FROM `%s` WHERE `buyingstore_id` = `id`) > 0 "
+			//"WHERE `autotrade` = 1 AND `limit` > 0 AND (SELECT COUNT(`buyingstore_id`) FROM `%s` WHERE `buyingstore_id` = `id`) > 0 "
+			"WHERE `autotrade` in (1,5) AND `limit` > 0 AND (SELECT COUNT(`buyingstore_id`) FROM `%s` WHERE `buyingstore_id` = `id`) > 0 "
 			"ORDER BY `id`;",
 			buyingstores_table, buyingstore_items_table ) != SQL_SUCCESS )
 		{
@@ -693,6 +696,19 @@ void do_init_buyingstore_autotrade( void ) {
 				Sql_GetData(mmysql_handle, 8, &data, nullptr); at->sit = atoi(data);
 				at->count = 0;
 
+				// 账号已在线则跳过
+				// 避免角色已经被 @afk 或 @suspend 拉上线导致的潜在冲突
+				TBL_PC* sd = nullptr;
+				if ((sd = map_id2sd(at->account_id)) != NULL) {
+					aFree(at);
+					continue;
+				}
+
+				if (chrif_search(at->account_id) != NULL) {
+					aFree(at);
+					continue;
+				}
+
 				if (battle_config.feature_autotrade_direction >= 0)
 					at->dir = battle_config.feature_autotrade_direction;
 				if (battle_config.feature_autotrade_head_direction >= 0)
@@ -711,6 +727,10 @@ void do_init_buyingstore_autotrade( void ) {
 					at->sd->state.block_action &= ~PCBLOCK_IMMUNE;
 				chrif_authreq(at->sd, true);
 				uidb_put(buyingstore_autotrader_db, at->char_id, at);
+
+				at->sd->pandas.at_dir = at->dir;
+				at->sd->pandas.at_head_dir = at->head_dir;
+				at->sd->pandas.at_sit = at->sit;
 			}
 			Sql_FreeResult(mmysql_handle);
 			
@@ -762,6 +782,27 @@ void do_init_buyingstore_autotrade( void ) {
 	if (Sql_Query( mmysql_handle, "DELETE FROM `%s`;", buyingstores_table ) != SQL_SUCCESS ||
 		Sql_Query( mmysql_handle, "DELETE FROM `%s`;", buyingstore_items_table ) != SQL_SUCCESS)
 	{
+		Sql_ShowDebug(mmysql_handle);
+	}
+}
+
+//************************************
+// Method:      buyingstore_autotrader_cleardb
+// Description: 移除指定角色在数据库中的采购商店挂机记录
+// Access:      public 
+// Parameter:   map_session_data * sd
+// Returns:     void
+// Author:      Sola丶小克(CairoLee)  2021/03/02 21:13
+//************************************ 
+void buyingstore_autotrader_cleardb(map_session_data* sd) {
+	nullpo_retv(sd);
+
+	// 清理 buyingstores_table 表中账号编号与 sd 一致的记录
+	// 此处无需清理 buyingstore_items_table 因为只要 buyingstores_table 的记录被移除,
+	// 那么下次地图服务器启动的时候 buyingstore_items_table 中的数据并不会对加载过程造成任何影响
+	if (sd && Sql_Query(mmysql_handle,
+		"DELETE FROM `%s` WHERE `account_id` = %d;",
+		buyingstores_table, sd->status.account_id) != SQL_SUCCESS) {
 		Sql_ShowDebug(mmysql_handle);
 	}
 }

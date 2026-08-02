@@ -1193,6 +1193,10 @@ static void clif_set_unit_idle( const block_list* bl, bool walking, send_target 
 	safestrncpy(p.name, status_get_name( *bl ), NAME_LENGTH);
 #endif
 
+	if (sd && bl->type == BL_PC) {
+		suspend_set_unit_idle(sd, &p);
+	}// Pandas_Player_Suspend_System
+
 	clif_send( &p, sizeof( p ), tbl, target );
 	// if disguised, send to self
 	if( disguised( bl ) ){
@@ -1447,6 +1451,10 @@ static void clif_set_unit_walking( const block_list& bl, const map_session_data*
 #if PACKETVER >= 20131223
 	safestrncpy(p.name, status_get_name( bl ), NAME_LENGTH);
 #endif
+
+	if (sd && bl.type == BL_PC) {
+		suspend_set_unit_walking(sd, &p);
+	}// Pandas_Player_Suspend_System
 
 	clif_send( &p, sizeof(p), tsd ? tsd : &bl, target );
 
@@ -9563,6 +9571,10 @@ void clif_GM_kick( map_session_data *sd, map_session_data *tsd)
 	if (sd == nullptr)
 		tsd->state.keepshop = true;
 
+	// 若 sd 为 NULL 则表示是地图服务器在踢人 [Sola丶小克]
+	if (sd == NULL)
+		tsd->state.keepsuspend = true;
+
 	if (session_isActive(tsd->fd))
 		clif_authfail_fd(tsd->fd, 15);
 	else
@@ -11952,10 +11964,38 @@ void clif_parse_WisMessage(int32 fd, map_session_data* sd)
 	}
 
 	// if player is autotrading
-	if (dstsd->state.autotrade == 1){
-		safesnprintf(output,sizeof(output),"%s is in autotrade mode and cannot receive whispered messages.", dstsd->status.name);
-		clif_wis_message(sd, wisp_server_name, output, strlen(output) + 1, 0);
-		return;
+	//if (dstsd->state.autotrade == 1){
+	//	safesnprintf(output,sizeof(output),"%s is in autotrade mode and cannot receive whispered messages.", dstsd->status.name);
+	//	clif_wis_message(sd, wisp_server_name, output, strlen(output) + 1, 0);
+	//	return;
+	//}
+
+	if (dstsd->state.autotrade & AUTOTRADE_ENABLED) {
+		if (dstsd->state.autotrade & AUTOTRADE_VENDING || dstsd->state.autotrade & AUTOTRADE_BUYINGSTORE) {
+			safesnprintf(output, sizeof(output), msg_txt_cn(sd, 111), dstsd->status.name);
+			clif_wis_message(sd, wisp_server_name, output, strlen(output) + 1, 0);
+			return;
+		}
+		else if (dstsd->state.autotrade & AUTOTRADE_OFFLINE && battle_config.suspend_whisper_response & SUSPEND_MODE_OFFLINE) {
+			safesnprintf(output, sizeof(output), msg_txt_cn(sd, 112), dstsd->status.name);
+			clif_wis_message(sd, wisp_server_name, output, strlen(output) + 1, 0);
+			return;
+		}
+		else if (dstsd->state.autotrade & AUTOTRADE_AFK && battle_config.suspend_whisper_response & SUSPEND_MODE_AFK) {
+			safesnprintf(output, sizeof(output), msg_txt_cn(sd, 113), dstsd->status.name);
+			clif_wis_message(sd, wisp_server_name, output, strlen(output) + 1, 0);
+			return;
+		}
+		else if (dstsd->state.autotrade & AUTOTRADE_NORMAL && battle_config.suspend_whisper_response & SUSPEND_MODE_NORMAL) {
+			safesnprintf(output, sizeof(output), msg_txt_cn(sd, 114), dstsd->status.name);
+			clif_wis_message(sd, wisp_server_name, output, strlen(output) + 1, 0);
+			return;
+		}
+		else if (dstsd->state.autotrade & AUTOTRADE_OFFLINEBOT && battle_config.suspend_whisper_response & SUSPEND_MODE_OFFLINEBOT) {
+			safesnprintf(output, sizeof(output), msg_txt_cn(sd, 114), dstsd->status.name);
+			clif_wis_message(sd, wisp_server_name, output, strlen(output) + 1, 0);
+			return;
+		}
 	}
 
 	if (pc_get_group_level(sd) <= pc_get_group_level(dstsd)) {
@@ -25677,7 +25717,15 @@ static int32 clif_parse(int32 fd)
 				//Disassociate character from the socket connection.
 				session[fd]->session_data = nullptr;
 				sd->fd = 0;
-				ShowInfo("Character '" CL_WHITE "%s" CL_RESET "' logged off (using @autotrade).\n", sd->status.name);
+				//ShowInfo("Character '" CL_WHITE "%s" CL_RESET "' logged off (using @autotrade).\n", sd->status.name);
+				if (sd->state.autotrade & AUTOTRADE_OFFLINE)
+					ShowInfo("Character '" CL_WHITE "%s" CL_RESET "' logged off (using @suspend).\n", sd->status.name);
+				else if (sd->state.autotrade & AUTOTRADE_OFFLINEBOT)
+					ShowInfo("Character '" CL_WHITE "%s" CL_RESET "' using bot offline mode.\n", sd->status.name);
+				else if (sd->state.autotrade & AUTOTRADE_AFK)
+					ShowInfo("Character '" CL_WHITE "%s" CL_RESET "' logged off (using @afk).\n", sd->status.name);
+				else
+					ShowInfo("Character '" CL_WHITE "%s" CL_RESET "' logged off (using @autotrade).\n", sd->status.name);
 			} else
 			if (sd->state.active) {
 				// Player logout display [Valaris]

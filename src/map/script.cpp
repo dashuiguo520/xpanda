@@ -4742,6 +4742,473 @@ void script_generic_ui_array_expand (uint32 plus)
 	RECREATE(generic_ui_array, uint32, generic_ui_array_size);
 }
 
+//************************************
+// Method:      script_abort
+// Description: 中断脚本的执行并打印相关的错误信息
+// Access:      public 
+// Parameter:   struct script_state * st
+// Returns:     void
+// Author:      Sola丶小克(CairoLee)  2022/3/29 9:36
+//************************************
+void script_abort(struct script_state* st) {
+	struct script_data* data = nullptr;
+
+	if (script_hasdata(st, 2)) {
+		data = script_getdata(st, 2);
+	}
+
+	script_reportsrc(st);
+	script_reportfunc(st);
+
+	if (data) {
+		script_reportdata(data);
+	}
+	st->state = END;
+}
+
+//************************************
+// Method:      script_get_optnum
+// Description: 获取 st 中指定 loc 位置的可选数值参数
+// Access:      public 
+// Parameter:   struct script_state * st
+// Parameter:   int loc
+// Parameter:   const char * desc
+// Parameter:   int & ret
+// Parameter:   bool allow_notexists
+// Parameter:   int defval
+// Returns:     bool
+// Author:      Sola丶小克(CairoLee)  2021/02/12 12:06
+//************************************ 
+bool script_get_optnum(struct script_state* st, int loc, const char* desc, int& ret, bool allow_notexists = false, int defval = 0) {
+	if (!st) return false;
+
+	if (!script_hasdata(st, loc)) {
+		if (allow_notexists) {
+			ret = defval;
+			return true;
+		}
+		script_reportsrc(st);
+		script_reportfunc(st);
+		if (!desc)
+			ShowError("buildin_%s: the No.%d parameter can not be found.\n", script_getfuncname(st), loc - 1);
+		else
+			ShowError("buildin_%s: the No.%d parameter (%s) can not be found.\n", script_getfuncname(st), loc - 1, desc);
+		return false;
+	}
+
+	if (!script_isint(st, loc)) {
+		script_reportsrc(st);
+		script_reportfunc(st);
+		if (!desc)
+			ShowError("buildin_%s: the No.%d parameter must be integer type.\n", script_getfuncname(st), loc - 1);
+		else
+			ShowError("buildin_%s: the No.%d parameter (%s) must be integer type.\n", script_getfuncname(st), loc - 1, desc);
+		return false;
+	}
+
+	ret = script_getnum(st, loc);
+	return true;
+}
+
+//************************************
+// Method:      script_get_optstr
+// Description: 获取 st 中指定 loc 位置的可选字符串参数
+// Access:      public 
+// Parameter:   struct script_state * st
+// Parameter:   int loc
+// Parameter:   const char * desc
+// Parameter:   std::string & ret
+// Parameter:   bool allow_notexists
+// Parameter:   std::string defval
+// Returns:     bool
+// Author:      Sola丶小克(CairoLee)  2021/02/12 12:08
+//************************************ 
+bool script_get_optstr(struct script_state* st, int loc, const char* desc, std::string& ret, bool allow_notexists = false, std::string defval = "") {
+	if (!st) return false;
+
+	if (!script_hasdata(st, loc)) {
+		if (allow_notexists) {
+			ret = defval;
+			return true;
+		}
+		script_reportsrc(st);
+		script_reportfunc(st);
+		if (!desc)
+			ShowError("buildin_%s: the No.%d parameter can not be found.\n", script_getfuncname(st), loc - 1);
+		else
+			ShowError("buildin_%s: the No.%d parameter (%s) can not be found.\n", script_getfuncname(st), loc - 1, desc);
+		return false;
+	}
+
+	if (!script_isstring(st, loc)) {
+		script_reportsrc(st);
+		script_reportfunc(st);
+		if (!desc)
+			ShowError("buildin_%s: the No.%d parameter must be string type.\n", script_getfuncname(st), loc - 1);
+		else
+			ShowError("buildin_%s: the No.%d parameter (%s) must be string type.\n", script_getfuncname(st), loc - 1, desc);
+		return false;
+	}
+
+	ret = script_getstr(st, loc);
+	return true;
+}
+
+//************************************
+// Method:      script_cleararray_st
+// Description: 清理 st 中指定 loc 数组变量的内容
+// Access:      public 
+// Parameter:   struct script_state * st
+// Parameter:   int loc
+// Parameter:   bool bslient
+// Returns:     bool
+// Author:      Sola丶小克(CairoLee)  2021/02/12 11:42
+//************************************ 
+bool script_cleararray_st(struct script_state* st, int loc, bool bslient = true) {
+	map_session_data* sd = nullptr;
+	struct script_data* param_data = script_getdata(st, loc);
+	int varid = reference_getid(param_data);
+	const char* varname = reference_getname(param_data);
+
+	if (!data_isreference(param_data)) {
+		if (!bslient) {
+			script_reportsrc(st);
+			script_reportfunc(st);
+			script_reportdata(param_data);
+			ShowError("buildin_%s: variable '%s' is not a array.\n", script_getfuncname(st), varname);
+		}
+		return false;
+	}
+
+	if (not_server_variable(*varname)) {
+		if (!script_rid2sd(sd)) {
+			if (!bslient) {
+				ShowError("buildin_%s: '%s' is not server variable, please attach to a player.\n", script_getfuncname(st), varname);
+				script_reportsrc(st);
+				script_reportfunc(st);
+				script_reportdata(param_data);
+			}
+			return false;
+		}
+	}
+
+	struct reg_db* src = nullptr;
+	if (!(src = script_array_src(st, sd, varname, reference_getref(param_data))))
+		return false;
+
+	script_array_ensure_zero(st, sd, param_data->u.num, reference_getref(param_data));
+
+	struct script_array* sa = nullptr;
+	if (!(sa = static_cast<script_array*>(idb_get(src->arrays, varid))))
+		return false;
+
+	unsigned int len = 0;
+	len = script_array_highest_key(st, sd, varname, reference_getref(param_data));
+
+	unsigned int* list = script_array_cpy_list(sa);
+	unsigned int size = sa->size;
+	for (unsigned int i = 0; i < size; i++) {
+		clear_reg(st, sd, reference_uid(varid, list[i]), varname, reference_getref(param_data));
+	}
+	return true;
+}
+
+//************************************
+// Method:      script_get_array
+// Description: 获取 st 中指定 loc 位置的数组参数
+// Access:      public 
+// Parameter:   struct script_state * st
+// Parameter:   int loc
+// Parameter:   int & ret_varid
+// Parameter:   char * & ret_varname
+// Parameter:   struct script_data * ret_vardata
+// Parameter:   bool expected_str
+// Parameter:   const char * desc
+// Returns:     bool
+// Author:      Sola丶小克(CairoLee)  2021/02/12 16:26
+//************************************ 
+bool script_get_array(struct script_state* st, int loc, int& ret_varid, char*& ret_varname, struct script_data*& ret_vardata, bool expected_str = false, const char* desc = nullptr) {
+	if (!script_hasdata(st, loc)) {
+		script_reportsrc(st);
+		script_reportfunc(st);
+		if (!desc)
+			ShowError("buildin_%s: the No.%d parameter can not be found.\n", script_getfuncname(st), loc - 1);
+		else
+			ShowError("buildin_%s: the No.%d parameter (%s) can not be found.\n", script_getfuncname(st), loc - 1, desc);
+		return false;
+	}
+
+	map_session_data* sd = nullptr;
+	ret_vardata = script_getdata(st, loc);
+	ret_varid = reference_getid(ret_vardata);
+	ret_varname = reference_getname(ret_vardata);
+
+	if (!data_isreference(ret_vardata)) {
+		script_reportsrc(st);
+		script_reportfunc(st);
+		script_reportdata(ret_vardata);
+		ShowError("buildin_%s: variable '%s' is not a array.\n", script_getfuncname(st), ret_varname);
+		return false;
+	}
+
+	if (not_server_variable(*ret_varname)) {
+		if (!script_rid2sd(sd)) {
+			script_reportsrc(st);
+			script_reportfunc(st);
+			script_reportdata(ret_vardata);
+			ShowError("buildin_%s: '%s' is not server variable, please attach to a player.\n", script_getfuncname(st), ret_varname);
+			return false;
+		}
+	}
+
+	struct reg_db* src = nullptr;
+	if (!(src = script_array_src(st, sd, ret_varname, reference_getref(ret_vardata)))) {
+		script_reportsrc(st);
+		script_reportfunc(st);
+		script_reportdata(ret_vardata);
+		ShowError("buildin_%s: variable '%s' is not a array.\n", script_getfuncname(st), ret_varname);
+		return false;
+	}
+
+	if (expected_str && !is_string_variable(ret_varname)) {
+		script_reportsrc(st);
+		script_reportfunc(st);
+		script_reportdata(ret_vardata);
+		if (!desc)
+			ShowError("buildin_%s: the No.%d parameter '%s' must be string array type.\n", script_getfuncname(st), loc - 1, ret_varname);
+		else
+			ShowError("buildin_%s: the No.%d parameter '%s' (%s) must be string array type.\n", script_getfuncname(st), loc - 1, ret_varname, desc);
+		script_pushint(st, -1);
+		return false;
+	}
+
+	if (!expected_str && is_string_variable(ret_varname)) {
+		script_reportsrc(st);
+		script_reportfunc(st);
+		script_reportdata(ret_vardata);
+		if (!desc)
+			ShowError("buildin_%s: the No.%d parameter '%s' must be integer array type.\n", script_getfuncname(st), loc - 1, ret_varname);
+		else
+			ShowError("buildin_%s: the No.%d parameter '%s' (%s) must be integer array type.\n", script_getfuncname(st), loc - 1, ret_varname, desc);
+		script_pushint(st, -1);
+		return false;
+	}
+
+	return true;
+}
+
+//************************************
+// Method:      script_get_mapindex
+// Description: 获取地图名对应的地图索引值 (自动处理 this 特殊地图名)
+// Access:      public 
+// Parameter:   struct script_state * st
+// Parameter:   const char * mapname
+// Parameter:   int & map_id
+// Returns:     bool
+// Author:      Sola丶小克(CairoLee)  2021/02/12 00:12
+//************************************ 
+bool script_get_mapindex(struct script_state* st, const char* mapname, int& mapindex, int char_id = 0) {
+	if (stricmp(mapname, "this") != 0) {
+		mapindex = map_mapname2mapid(mapname);
+		return (mapindex >= 0);
+	}
+
+	map_session_data* sd = nullptr;
+
+	if (char_id) {
+		sd = map_charid2sd(char_id);
+		if (!sd) {
+			script_reportsrc(st);
+			script_reportfunc(st);
+			ShowError("buildin_%s: mapname is 'this', but player with char id '%d' is not found.\n", script_getfuncname(st));
+			return false;
+		}
+	}
+	else {
+		sd = map_id2sd(st->rid);
+		if (!sd) {
+			script_reportsrc(st);
+			script_reportfunc(st);
+			ShowError("buildin_%s: mapname is 'this', please attach to a player.\n", script_getfuncname(st));
+			return false;
+		}
+	}
+	mapindex = sd->m;
+
+	return (mapindex >= 0);
+}
+
+//************************************
+// Method:      script_both_setreg
+// Description: 同时设置 $@ 和 @ 数值变量 (设置 @ 变量的前提是能找到 sd)
+// Access:      public 
+// Parameter:   struct script_state * st
+// Parameter:   const char * varname_without_prefix
+// Parameter:   int64 value
+// Parameter:   bool isarray	是不是数组
+// Parameter:   int index		如果是数组那么索引是多少
+// Parameter:   int char_id		若提供了角色编号则将 @ 变量值写入该角色
+// Returns:     void
+// Author:      Sola丶小克(CairoLee)  2021/08/17 23:34
+//************************************ 
+void script_both_setreg(struct script_state* st, const char* varname_without_prefix, int64 value, bool isarray, int index = -1, int char_id = 0) {
+	map_session_data* sd = nullptr;
+	int64 varid = 0;
+
+	sd = map_id2sd(st->rid);
+	if (char_id) {
+		sd = map_charid2sd(char_id);
+	}
+
+	std::string varname = "$@";
+	varname += varname_without_prefix;
+	varid = (isarray ? reference_uid(add_str(varname.c_str()), index) : add_str(varname.c_str()));
+	mapreg_setreg(varid, value);
+
+	if (sd) {
+		varname = "@";
+		varname += varname_without_prefix;
+		varid = (isarray ? reference_uid(add_str(varname.c_str()), index) : add_str(varname.c_str()));
+		pc_setreg(sd, varid, value);
+	}
+}
+
+//************************************
+// Method:      script_both_setregstr
+// Description: 同时设置 $@ 和 @ 字符串变量 (设置 @ 变量的前提是能找到 sd)
+// Access:      public 
+// Parameter:   struct script_state * st
+// Parameter:   const char * varname_without_prefix
+// Parameter:   const char * value
+// Parameter:   bool isarray	是不是数组
+// Parameter:   int index		如果是数组那么索引是多少
+// Parameter:   int char_id		若提供了角色编号则将 @ 变量值写入该角色
+// Returns:     void
+// Author:      Sola丶小克(CairoLee)  2021/08/17 23:36
+//************************************ 
+void script_both_setregstr(struct script_state* st, const char* varname_without_prefix, const char* value, bool isarray, int index = -1, int char_id = 0) {
+	map_session_data* sd = nullptr;
+	int64 varid = 0;
+
+	sd = map_id2sd(st->rid);
+	if (char_id) {
+		sd = map_charid2sd(char_id);
+	}
+
+	std::string varname = "$@";
+	varname += varname_without_prefix;
+	varid = (isarray ? reference_uid(add_str(varname.c_str()), index) : add_str(varname.c_str()));
+	mapreg_setregstr(varid, value);
+
+	if (sd) {
+		varname = "@";
+		varname += varname_without_prefix;
+		varid = (isarray ? reference_uid(add_str(varname.c_str()), index) : add_str(varname.c_str()));
+		pc_setregstr(sd, varid, value);
+	}
+}
+
+//************************************
+// Method:      script_getstorage
+// Description: 根据指令名称来获取不同的存储空间
+// Parameter:   struct script_state * st
+// Parameter:   map_session_data * sd
+// Parameter:   struct s_storage * * stor
+// Parameter:   struct item * * inventory
+// Parameter:   int stor_id
+// Returns:     bool
+// Author:      Sola丶小克(CairoLee)  2022/08/06 12:11
+//************************************
+bool script_getstorage(struct script_state* st, map_session_data* sd, struct s_storage** stor, struct item** inventory, int stor_id = 0) {
+	nullpo_retr(false, st);
+	nullpo_retr(false, sd);
+	nullpo_retr(false, stor);
+	nullpo_retr(false, inventory);
+
+	const char* command = script_getfuncname(st);
+
+	if (strstr(command, "cart")) {
+		if (!pc_iscarton(sd)) {
+			ShowError("buildin_%s: player doesn't have cart (CID: %d).\n", command, sd->status.char_id);
+			return false;
+		}
+		*stor = &sd->cart;
+		*inventory = (*stor)->u.items_cart;
+	}
+	else if (strstr(command, "guildstorage")) {
+		if (!sd->status.guild_id || !sd->guild) {
+			ShowError("buildin_%s: player doesn't join the guild (CID: %d).\n", command, sd->status.char_id);
+			return false;
+		}
+
+#ifdef OFFICIAL_GUILD_STORAGE
+		if (!guild_checkskill(sd->guild->guild, GD_GUILD_STORAGE)) {
+			ShowError("buildin_%s: player's guild has not learned the GD_GUILD_STORAGE skill (CID: %d).\n", command, sd->status.char_id);
+			return false;
+		}
+#endif // OFFICIAL_GUILD_STORAGE
+
+		if (guild2storage2(sd->status.guild_id) || st->waiting_guild_storage) {
+			// 如果该公会的仓库数据已经在地图服务器内存中, 则直接使用
+			*stor = guild2storage2(sd->status.guild_id);
+			if (!(*stor)) {
+				ShowError("buildin_%s: player's guild does not have a guild storage (CID: %d | Guild ID: %d).\n", command, sd->status.char_id, sd->status.guild_id);
+				return false;
+			}
+			*inventory = (*stor)->u.items_guild;
+
+			st->waiting_guild_storage = 0;
+			st->state = RUN;
+		}
+		else if (!st->waiting_guild_storage) {
+			// 否则, 需要先发送请求给角色服务器, 用于加载指定的公会仓库内容
+			st->state = RERUNLINE;
+			st->waiting_guild_storage = 1;
+			intif_request_guild_storage(sd->status.account_id, sd->status.guild_id);
+		}
+		else if (!guild2storage2(sd->status.guild_id)) {
+			ShowError("buildin_%s: player's guild does not have a guild storage (CID: %d | Guild ID: %d).\n", command, sd->status.char_id, sd->status.guild_id);
+			return false;
+		}
+	}
+	else if (strstr(command, "storage")) {
+		if (stor_id == 0) {
+			*stor = &sd->storage;
+			*inventory = (*stor)->u.items_storage;
+		}
+		else if (!storage_exists(stor_id)) {
+			ShowError("buildin_%s: Invalid storage id '%d'!\n", command, stor_id);
+			return false;
+		}
+		else {
+			if (sd->premiumStorage.stor_id == stor_id || st->waiting_premium_storage) {
+				// 如果现有的 premiumStorage 就是我们期望的拓展仓库
+				// 参考 storage_premiumStorage_load 的逻辑, 此时的 premiumStorage 内容可信
+				*stor = &sd->premiumStorage;
+				*inventory = (*stor)->u.items_storage;
+
+				st->waiting_premium_storage = 0;
+				st->state = RUN;
+			}
+			else if (!st->waiting_premium_storage) {
+				// 否则, 需要先发送请求给角色服务器, 用于加载指定的拓展仓库内容
+				st->state = RERUNLINE;
+				st->waiting_premium_storage = 1;
+				intif_storage_request(sd, TABLE_STORAGE, stor_id, STOR_MODE_ALL);
+			}
+		}
+	}
+	else {
+		if (!strstr(command, "inventory")) {
+			ShowWarning("%s: unknow function command: '%s', defaulting to inventory.\n", __func__, command);
+		}
+		*stor = &sd->inventory;
+		*inventory = (*stor)->u.items_inventory;
+	}
+
+	return true;
+}
+
 /*==========================================
  * Destructor
  *------------------------------------------*/
@@ -18790,8 +19257,17 @@ BUILDIN_FUNC(checkvending) {
 		else if (sd->state.buyingstore)
 			ret = 4;
 
-		if (sd->state.autotrade)
+		//if (sd->state.autotrade)
+		//	ret |= 2;
+
+		// 经由 Pandas_Struct_Autotrade_Extend 改造之后
+		// sd->state.autotrade 同时也包含了其他挂机模式的位值在其中
+		// 因此不能仅判断 sd->state.autotrade 是否非 0, 而应该进行明确指定的位运算判断
+		if ((sd->state.autotrade & AUTOTRADE_VENDING) == AUTOTRADE_VENDING ||
+			(sd->state.autotrade & AUTOTRADE_BUYINGSTORE) == AUTOTRADE_BUYINGSTORE) {
 			ret |= 2;
+		}
+
 		script_pushint(st, ret);
 	}
 	return SCRIPT_CMD_SUCCESS;
@@ -27875,6 +28351,101 @@ BUILDIN_FUNC(mesemotion){
 #endif
 }
 
+/* ===========================================================
+ * 指令: login
+ * 描述: 将指定的角色以特定的登录模式拉上线
+ * 用法: login <角色编号>{,<默认是否坐下>{,<默认身体朝向>{,<默认脑袋朝向>{,<登录模式>}}}};
+ * 返回: 成功返回 1, 失败返回 0
+ * 作者: Sola丶小克
+ * -----------------------------------------------------------*/
+BUILDIN_FUNC(login) {
+	uint32 charid = 0;
+	charid = script_getnum(st, 2);
+
+	int sit = 0;
+	if (!script_get_optnum(st, 3, "Sitdown or not", sit, true, 0)) {
+		script_pushint(st, 0);
+		return SCRIPT_CMD_FAILURE;
+	}
+	sit = cap_value(sit, 0, 1);
+
+	int body_dir = DIR_SOUTH;
+	if (!script_get_optnum(st, 4, "Body Direction", body_dir, true, DIR_SOUTH)) {
+		script_pushint(st, 0);
+		return SCRIPT_CMD_FAILURE;
+	}
+	body_dir = cap_value(body_dir, 0, 7);
+
+	int head_dir = 0;
+	if (!script_get_optnum(st, 5, "Head Direction", head_dir, true, 0)) {
+		script_pushint(st, 0);
+		return SCRIPT_CMD_FAILURE;
+	}
+	head_dir = cap_value(head_dir, 0, 2);
+
+	int mode = SUSPEND_MODE_NONE;
+	if (!script_get_optnum(st, 6, "Login Mode", mode, true, SUSPEND_MODE_NORMAL)) {
+		script_pushint(st, 0);
+		return SCRIPT_CMD_FAILURE;
+	}
+	if (!suspend_mode_valid(mode)) {
+		mode = SUSPEND_MODE_NORMAL;
+	}
+
+	if (suspend_recall(charid, (e_suspend_mode)mode, body_dir, head_dir, sit)) {
+		script_pushint(st, 1);
+	}
+	else {
+		script_pushint(st, 0);
+	}
+
+	return SCRIPT_CMD_SUCCESS;
+}
+
+/* ===========================================================
+ * 指令: checksuspend
+ * 描述: 获取指定角色或指定账号当前在线角色的挂机模式
+ * 用法: checksuspend {<角色编号|账号编号|"角色名称">};
+ * 返回: 角色不存在返回 -1, 否则返回当前的挂机状态
+ * 作者: Sola丶小克
+ * -----------------------------------------------------------*/
+BUILDIN_FUNC(checksuspend) {
+	TBL_PC* sd = nullptr;
+
+	if (script_hasdata(st, 2)) {
+		if (script_isstring(st, 2))
+			sd = map_nick2sd(script_getstr(st, 2), false);
+		else {
+			int id = script_getnum(st, 2);
+			sd = map_id2sd(id);
+			if (!sd)
+				sd = map_charid2sd(id);
+		}
+	}
+	else {
+		if (!script_rid2sd(sd)) {
+			script_pushint(st, -1);
+			return SCRIPT_CMD_SUCCESS;
+		}
+	}
+
+	if (!sd) {
+		script_pushint(st, -1);
+		return SCRIPT_CMD_SUCCESS;
+	}
+
+	if ((sd->state.autotrade & AUTOTRADE_OFFLINE) == AUTOTRADE_OFFLINE)
+		script_pushint(st, SUSPEND_MODE_OFFLINE);
+	else if ((sd->state.autotrade & AUTOTRADE_AFK) == AUTOTRADE_AFK)
+		script_pushint(st, SUSPEND_MODE_AFK);
+	else if ((sd->state.autotrade & AUTOTRADE_NORMAL) == AUTOTRADE_NORMAL)
+		script_pushint(st, SUSPEND_MODE_NORMAL);
+	else
+		script_pushint(st, SUSPEND_MODE_NONE);
+
+	return SCRIPT_CMD_SUCCESS;
+}
+
 #include <custom/script.inc>
 
 // declarations that were supposed to be exported from npc_chat.cpp
@@ -27922,6 +28493,7 @@ BUILDIN_FUNC(preg_match) {
 	return SCRIPT_CMD_SUCCESS;
 #endif
 }
+
 
 /// script command definitions
 /// for an explanation on args, see add_buildin_func
@@ -28653,6 +29225,9 @@ struct script_function buildin_func[] = {
 	BUILDIN_DEF( mesitemicon, "v??" ),
 	BUILDIN_DEF(meshyperlink, "ss"),
 	BUILDIN_DEF(mesemotion,"i"),
+
+	BUILDIN_DEF(login, "i????"),		// 将指定的角色以特定的登录模式拉上线 [Sola丶小克]
+	BUILDIN_DEF(checksuspend, "?"),		// 获取指定角色或指定账号当前在线角色的挂机模式 [Sola丶小克]
 
 #include <custom/script_def.inc>
 

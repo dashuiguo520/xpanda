@@ -93,6 +93,8 @@ char partybookings_table[32] = "party_bookings";
 char roulette_table[32] = "db_roulette";
 char guild_storage_log_table[32] = "guild_storage_log";
 
+char suspend_table[32] = "suspend";
+
 // log database
 std::string log_db_ip = "127.0.0.1";
 uint16 log_db_port = 3306;
@@ -127,7 +129,7 @@ static block_list *bl_list[BL_LIST_MAX];
 static int32 bl_list_count = 0;
 
 #ifndef MAP_MAX_MSG
-	#define MAP_MAX_MSG 1550
+#define MAP_MAX_MSG ALL_EXTEND_MSG
 #endif
 
 struct map_data map[MAX_MAP_PER_SERVER];
@@ -170,15 +172,8 @@ char motd_txt[256] = "conf/motd.txt";
 char charhelp_txt[256] = "conf/charhelp.txt";
 char channel_conf[256] = "conf/channels.conf";
 
-const char *MSG_CONF_NAME_RUS;
-const char *MSG_CONF_NAME_SPN;
-const char *MSG_CONF_NAME_GRM;
-const char *MSG_CONF_NAME_CHN;
-const char *MSG_CONF_NAME_MAL;
-const char *MSG_CONF_NAME_IDN;
-const char *MSG_CONF_NAME_FRN;
-const char *MSG_CONF_NAME_POR;
-const char *MSG_CONF_NAME_THA;
+const char* MSG_CONF_NAME_CHS;	// 简体中文
+const char* MSG_CONF_NAME_CHT;	// 繁体中文
 
 char wisp_server_name[NAME_LENGTH] = "Server"; // can be modified in char-server configuration file
 
@@ -2227,6 +2222,8 @@ int32 map_quit(map_session_data *sd) {
 		else if (sd->state.buyingstore)
 			buyingstore_close(sd);
 	}
+
+	suspend_deactive(sd, sd->state.keepsuspend);
 
 	if(!sd->state.active) { //Removing a player that is not active.
 		struct auth_node *node = chrif_search(sd->status.account_id);
@@ -4328,6 +4325,8 @@ int32 inter_config_read(const char *cfgName)
 			safestrncpy(sales_table, w2, sizeof(sales_table));
 		else if (strcmpi(w1, "guild_storage_log") == 0)
 			safestrncpy(guild_storage_log_table, w2, sizeof(guild_storage_log_table));
+		else if (strcmpi(w1, "suspend_table") == 0)
+			safestrncpy(suspend_table, w2, sizeof(suspend_table));
 		else
 		//Map Server SQL DB
 		if(strcmpi(w1,"map_server_ip")==0)
@@ -5073,6 +5072,8 @@ void MapServer::finalize(){
 	do_final_buyingstore();
 	do_final_path();
 
+	do_final_suspend();
+
 	map_db->destroy(map_db, map_db_final);
 
 	for (int32 i = 0; i < map_num; i++) {
@@ -5174,16 +5175,9 @@ struct msg_data *map_lang2msgdb(uint8 lang){
 void map_do_init_msg(void){
 	int32 test=0, i=0, size;
 	const char * listelang[] = {
-		MSG_CONF_NAME_EN,	//default
-		MSG_CONF_NAME_RUS,
-		MSG_CONF_NAME_SPN,
-		MSG_CONF_NAME_GRM,
-		MSG_CONF_NAME_CHN,
-		MSG_CONF_NAME_MAL,
-		MSG_CONF_NAME_IDN,
-		MSG_CONF_NAME_FRN,
-		MSG_CONF_NAME_POR,
-		MSG_CONF_NAME_THA
+		MSG_CONF_NAME_EN,	// 英文
+		MSG_CONF_NAME_CHS,	// 简体中文
+		MSG_CONF_NAME_CHT	// 繁体中文
 	};
 
 	map_msg_db = idb_alloc(DB_OPT_BASE);
@@ -5332,16 +5326,9 @@ bool MapServer::initialize( int32 argc, char *argv[] ){
 	safestrncpy(console_log_filepath, "./log/map-msg_log.log", sizeof(console_log_filepath));
 
 	/* Multilanguage */
-	MSG_CONF_NAME_EN = "conf/msg_conf/map_msg.conf"; // English (default)
-	MSG_CONF_NAME_RUS = "conf/msg_conf/map_msg_rus.conf";	// Russian
-	MSG_CONF_NAME_SPN = "conf/msg_conf/map_msg_spn.conf";	// Spanish
-	MSG_CONF_NAME_GRM = "conf/msg_conf/map_msg_grm.conf";	// German
-	MSG_CONF_NAME_CHN = "conf/msg_conf/map_msg_chn.conf";	// Chinese
-	MSG_CONF_NAME_MAL = "conf/msg_conf/map_msg_mal.conf";	// Malaysian
-	MSG_CONF_NAME_IDN = "conf/msg_conf/map_msg_idn.conf";	// Indonesian
-	MSG_CONF_NAME_FRN = "conf/msg_conf/map_msg_frn.conf";	// French
-	MSG_CONF_NAME_POR = "conf/msg_conf/map_msg_por.conf";	// Brazilian Portuguese
-	MSG_CONF_NAME_THA = "conf/msg_conf/map_msg_tha.conf";	// Thai
+	MSG_CONF_NAME_EN = "conf/msg_conf/map_msg.conf";		// English (default)
+	MSG_CONF_NAME_CHS = "conf/msg_conf/map_msg_chs.conf";	// Chinese Simplified
+	MSG_CONF_NAME_CHT = "conf/msg_conf/map_msg_cht.conf";	// Chinese Traditional
 	/* Multilanguage */
 
 	// default inter_config
@@ -5446,6 +5433,8 @@ bool MapServer::initialize( int32 argc, char *argv[] ){
 	do_init_duel();
 	do_init_vending();
 	do_init_buyingstore();
+
+	do_init_suspend();
 
 	npc_event_do_oninit();	// Init npcs (OnInit)
 

@@ -395,7 +395,8 @@ int8 vending_openvending( map_session_data& sd, const char* message, const uint8
 
 	if( Sql_Query( mmysql_handle, "INSERT INTO `%s`(`id`, `account_id`, `char_id`, `sex`, `map`, `x`, `y`, `title`, `autotrade`, `body_direction`, `head_direction`, `sit`) "
 		"VALUES( %d, %d, %d, '%c', '%s', %d, %d, '%s', %d, '%d', '%d', '%d' );",
-		vendings_table, sd.vender_id, sd.status.account_id, sd.status.char_id, sd.status.sex == SEX_FEMALE ? 'F' : 'M', map_getmapdata(sd.m)->name, sd.x, sd.y, message_sql, sd.state.autotrade, at ? at->dir : sd.ud.dir, at ? at->head_dir : sd.head_dir, at ? at->sit : pc_issit(&sd) ) != SQL_SUCCESS ) {
+		//vendings_table, sd.vender_id, sd.status.account_id, sd.status.char_id, sd.status.sex == SEX_FEMALE ? 'F' : 'M', map_getmapdata(sd.m)->name, sd.x, sd.y, message_sql, sd.state.autotrade, at ? at->dir : sd.ud.dir, at ? at->head_dir : sd.head_dir, at ? at->sit : pc_issit(&sd) ) != SQL_SUCCESS ) {
+		vendings_table, sd.vender_id, sd.status.account_id, sd.status.char_id, sd.status.sex == SEX_FEMALE ? 'F' : 'M', map_getmapdata(sd.m)->name, sd.x, sd.y, message_sql, sd.state.autotrade & ~AUTOTRADE_VENDING, at ? at->dir : sd.ud.dir, at ? at->head_dir : sd.head_dir, at ? at->sit : pc_issit(&sd)) != SQL_SUCCESS) {
 		Sql_ShowDebug(mmysql_handle);
 	}
 
@@ -552,6 +553,7 @@ void vending_reopen( map_session_data& sd )
 
 		sd.state.prevend = 1; // Set him into a hacked prevend state
 		sd.state.autotrade = 1;
+		sd.state.autotrade |= AUTOTRADE_VENDING;
 
 		// Make sure abort all NPCs
 		npc_event_dequeue(&sd);
@@ -598,7 +600,8 @@ void do_init_vending_autotrade(void)
 		if (Sql_Query(mmysql_handle,
 			"SELECT `id`, `account_id`, `char_id`, `sex`, `title`, `body_direction`, `head_direction`, `sit` "
 			"FROM `%s` "
-			"WHERE `autotrade` = 1 AND (SELECT COUNT(`vending_id`) FROM `%s` WHERE `vending_id` = `id`) > 0 "
+			//"WHERE `autotrade` = 1 AND (SELECT COUNT(`vending_id`) FROM `%s` WHERE `vending_id` = `id`) > 0 "
+			"WHERE `autotrade` in (1,3) AND (SELECT COUNT(`vending_id`) FROM `%s` WHERE `vending_id` = `id`) > 0 "
 			"ORDER BY `id`;",
 			vendings_table, vending_items_table ) != SQL_SUCCESS )
 		{
@@ -628,6 +631,20 @@ void do_init_vending_autotrade(void)
 				Sql_GetData(mmysql_handle, 7, &data, nullptr); at->sit = atoi(data);
 				at->count = 0;
 
+				// 账号已在线则跳过
+				// 避免角色已经被 @afk 或 @suspend 拉上线导致的潜在冲突
+				TBL_PC* sd = nullptr;
+				if ((sd = map_id2sd(at->account_id)) != NULL) {
+					aFree(at);
+					continue;
+				}
+
+				if (chrif_search(at->account_id) != NULL) {
+					aFree(at);
+					continue;
+				}
+				// 账号已在线则跳过
+
 				if (battle_config.feature_autotrade_direction >= 0)
 					at->dir = battle_config.feature_autotrade_direction;
 				if (battle_config.feature_autotrade_head_direction >= 0)
@@ -646,6 +663,10 @@ void do_init_vending_autotrade(void)
 					at->sd->state.block_action &= ~PCBLOCK_IMMUNE;
 				chrif_authreq(at->sd, true);
 				uidb_put(vending_autotrader_db, at->char_id, at);
+
+				at->sd->pandas.at_dir = at->dir;
+				at->sd->pandas.at_head_dir = at->head_dir;
+				at->sd->pandas.at_sit = at->sit;
 			}
 			Sql_FreeResult(mmysql_handle);
 
@@ -696,6 +717,27 @@ void do_init_vending_autotrade(void)
 	// Everything is loaded fine, their entries will be reinserted once they are loaded
 	if (Sql_Query( mmysql_handle, "DELETE FROM `%s`;", vendings_table ) != SQL_SUCCESS ||
 		Sql_Query( mmysql_handle, "DELETE FROM `%s`;", vending_items_table ) != SQL_SUCCESS) {
+		Sql_ShowDebug(mmysql_handle);
+	}
+}
+
+//************************************
+// Method:      vending_autotrader_cleardb
+// Description: 移除指定角色在数据库中的摆摊商店挂机记录
+// Access:      public 
+// Parameter:   map_session_data * sd
+// Returns:     void
+// Author:      Sola丶小克(CairoLee)  2021/03/02 21:13
+//************************************ 
+void vending_autotrader_cleardb(map_session_data* sd) {
+	nullpo_retv(sd);
+
+	// 清理 vendings_table 表中账号编号与 sd 一致的记录
+	// 此处无需清理 vending_items_table 因为只要 vendings_table 的记录被移除,
+	// 那么下次地图服务器启动的时候 vending_items_table 中的数据并不会对加载过程造成任何影响
+	if (sd && Sql_Query(mmysql_handle,
+		"DELETE FROM `%s` WHERE `account_id` = %d;",
+		vendings_table, sd->status.account_id) != SQL_SUCCESS) {
 		Sql_ShowDebug(mmysql_handle);
 	}
 }

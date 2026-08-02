@@ -14811,6 +14811,30 @@ void pc_scdata_received(map_session_data *sd) {
 
 	if (sd->sc.getSCE(SC_SOULENERGY))
 		sd->soulball = sd->sc.getSCE(SC_SOULENERGY)->val1;
+
+	if (sd->state.pc_loaded && sd->state.autotrade) {
+		// 走到这里说明已经完成了背包、仓库、手推车的道具信息以及 sc_data 数据的加载
+		// 应该在这里触发被召回的角色成功上线后需要做的后置处理工作
+		if (pc_autotrade_suspend(sd)) {
+			clif_parse_LoadEndAck(sd->fd, sd);
+			suspend_recall_postfix(sd);
+			return;
+		}
+	}
+
+	if (sd->state.pc_loaded && sd->state.autotrade) {
+		// 修正离线挂店的角色在服务器重启自动上线后, 头饰外观会暂时丢失的问题
+		// 将原先位于 intif.cpp -> intif_parse_StorageReceived 函数中自动开店的处理逻辑移动到这里来
+		if (sd->state.autotrade & AUTOTRADE_VENDING || sd->state.autotrade & AUTOTRADE_BUYINGSTORE) {
+			clif_parse_LoadEndAck(sd->fd, sd);
+			sd->autotrade_tid = add_timer(gettick() + battle_config.feature_autotrade_open_delay, pc_autotrade_timer, sd->id, 0);
+		}
+	}
+
+	if (sd->state.pc_loaded && !sd->state.autotrade) {
+		vending_autotrader_cleardb(sd);
+		buyingstore_autotrader_cleardb(sd);
+	}
 }
 
 /**
@@ -14846,6 +14870,23 @@ TIMER_FUNC(pc_expiration_timer){
 	map_quit(sd);
 
 	return 0;
+}
+
+//************************************
+// Method:      pc_autotrade_suspend
+// Description: 判断角色当前是否处于离线挂机相关的状态
+// Parameter:   map_session_data * sd
+// Returns:     bool
+// Author:      Sola丶小克(CairoLee)  2020/5/13 23:23
+//************************************
+bool pc_autotrade_suspend(map_session_data* sd) {
+	if (!sd || !sd->state.autotrade)
+		return false;
+	return (
+		sd->state.autotrade & AUTOTRADE_OFFLINE ||
+		sd->state.autotrade & AUTOTRADE_AFK ||
+		sd->state.autotrade & AUTOTRADE_NORMAL
+		);
 }
 
 TIMER_FUNC(pc_autotrade_timer){

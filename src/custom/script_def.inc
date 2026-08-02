@@ -8,4 +8,3 @@
  *	BUILDIN_DEF(command_name,"parameters"),
  **/
 
-//BUILDIN_DEF(example,""),

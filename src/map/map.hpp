@@ -56,6 +56,7 @@ struct Channel;
 struct map_data *map_getmapdata(int16 m);
 #define msg_config_read(cfgName,isnew) map_msg_config_read(cfgName,isnew)
 #define msg_txt(sd,msg_number) map_msg_txt(sd,msg_number)
+#define msg_txt_cn(sd,msg_number) map_msg_txt(sd,msg_number + ALL_EXTEND_FIRST_MSG)
 #define do_final_msg() map_do_final_msg()
 int32 map_msg_config_read(const char *cfgName,int32 lang);
 const char* map_msg_txt(const map_session_data* sd,int32 msg_number);
@@ -1282,15 +1283,8 @@ bool map_setmapflag_sub(int16 m, enum e_mapflag mapflag, bool status, union u_ma
 #define CHK_CLASS(class_) ((class_) > CLASS_NONE && (class_) < CLASS_MAX) /// Check valid Class
 
 //Other languages supported
-extern const char*MSG_CONF_NAME_RUS;
-extern const char*MSG_CONF_NAME_SPN;
-extern const char*MSG_CONF_NAME_GRM;
-extern const char*MSG_CONF_NAME_CHN;
-extern const char*MSG_CONF_NAME_MAL;
-extern const char*MSG_CONF_NAME_IDN;
-extern const char*MSG_CONF_NAME_FRN;
-extern const char*MSG_CONF_NAME_POR;
-extern const char*MSG_CONF_NAME_THA;
+extern const char* MSG_CONF_NAME_CHS;	// 简体中文
+extern const char* MSG_CONF_NAME_CHT;	// 繁体中文
 
 //Useful typedefs from jA [Skotlex]
 typedef map_session_data TBL_PC;
@@ -1338,6 +1332,8 @@ extern char market_table[32];
 extern char partybookings_table[32];
 extern char roulette_table[32];
 extern char guild_storage_log_table[32];
+
+extern char suspend_table[32];
 
 void do_shutdown(void);
 

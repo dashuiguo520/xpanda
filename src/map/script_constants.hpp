@@ -11083,6 +11083,12 @@
 	export_constant(GUILDINFO_MASTERID);
 	export_constant(GUILDINFO_MASTERNAME);
 
+	/* Player_Suspend_System */
+	export_constant(SUSPEND_MODE_NONE);
+	export_constant(SUSPEND_MODE_OFFLINE);
+	export_constant(SUSPEND_MODE_AFK);
+	export_constant(SUSPEND_MODE_NORMAL);
+
 	#undef export_constant
 	#undef export_constant2
 	#undef export_parameter
