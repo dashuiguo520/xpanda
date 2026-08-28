@@ -32,6 +32,11 @@
 #include "partybooking_controller.hpp"
 #include "userconfig_controller.hpp"
 
+// ===== UTF-8 配置与脚本读取支持 开始 =====
+// 修改内容/原因：Web 服务配置逐行读取时自动处理 UTF-8（含 BOM），无需 Pandas 专属宏。
+#include <common/utf8_file_defines.hpp>
+// ===== UTF-8 配置与脚本读取支持 结束 =====
+
 
 using namespace rathena;
 using namespace rathena::server_core;

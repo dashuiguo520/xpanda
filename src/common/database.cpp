@@ -8,6 +8,12 @@
 
 #include "malloc.hpp"
 #include "showmsg.hpp"
+
+// ===== UTF-8 配置与脚本读取支持 开始 =====
+// 修改内容/原因：YAML 数据加载后通过统一入口处理 UTF-8 BOM 与内部代码页转换。
+#include "translate.hpp"
+// ===== UTF-8 配置与脚本读取支持 结束 =====
+
 #include "utilities.hpp"
 
 using namespace rathena;
@@ -104,6 +110,16 @@ bool YamlDatabase::load(const std::string& path) {
 	// Zero terminate
 	buf[real_size] = '\0';
 	fclose(f);
+
+	// ===== UTF-8 配置与脚本读取支持 开始 =====
+	// 修改内容/原因：YAML 数据文件允许使用 UTF-8（含 BOM）；普通数据库转为内部代码页，终端翻译库继续保留 UTF-8。
+	const std::string converted = convert_utf8_file_content( buf, real_size, this->type == "CONSOLE_TRANSLATE_DB" );
+	aFree( buf );
+	buf = (char*)aMalloc( converted.size() + 1 );
+	memcpy( buf, converted.data(), converted.size() );
+	real_size = converted.size();
+	buf[real_size] = '\0';
+	// ===== UTF-8 配置与脚本读取支持 结束 =====
 
 	parser = {};
 	ryml::Tree tree;

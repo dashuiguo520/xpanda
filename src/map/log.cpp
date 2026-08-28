@@ -20,6 +20,11 @@
 #include "pc.hpp"
 #include "pet.hpp"
 
+// ===== UTF-8 配置与脚本读取支持 开始 =====
+// 修改内容/原因：日志配置逐行读取时自动处理 UTF-8；仅包装 fgets，不改变日志文件写入。
+#include <common/utf8_file_defines.hpp>
+// ===== UTF-8 配置与脚本读取支持 结束 =====
+
 static char log_timestamp_format[20];
 
 /// filters for item logging

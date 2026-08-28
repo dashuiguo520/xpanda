@@ -5,15 +5,35 @@
 
 #include "showmsg.hpp" // ShowError
 
+// ===== UTF-8 配置与脚本读取支持 开始 =====
+// 修改内容/原因：读取完整 UTF-8 配置内容并调用统一编码转换入口。
+#include <fstream>
+#include <sstream>
+#include "translate.hpp"
+// ===== UTF-8 配置与脚本读取支持 结束 =====
+
 int32 conf_read_file(config_t *config, const char *config_filename)
 {
+	// ===== UTF-8 配置与脚本读取支持 开始 =====
+	// 修改内容/原因：libconfig 原生按本地代码页解析；读取完整文件并将 UTF-8（含 BOM）转换为服务端内部代码页。
+	std::ifstream input( config_filename, std::ios::binary );
+	if( !input ) {
+		ShowError( "Unable to open configuration file '%s'.\n", config_filename );
+		return 1;
+	}
+	std::ostringstream stream;
+	stream << input.rdbuf();
+	const std::string raw = stream.str();
+	const std::string contents = convert_utf8_file_content( raw.data(), raw.size() );
+
 	config_init(config);
-	if (!config_read_file(config, config_filename)) {
+	if (!config_read_string(config, contents.c_str())) {
 		ShowError("%s:%d - %s\n", config_error_file(config),
 		          config_error_line(config), config_error_text(config));
 		config_destroy(config);
 		return 1;
 	}
+	// ===== UTF-8 配置与脚本读取支持 结束 =====
 	return 0;
 }
 

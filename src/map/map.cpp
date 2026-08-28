@@ -53,6 +53,11 @@
 #include "storage.hpp"
 #include "trade.hpp"
 
+// ===== UTF-8 配置与脚本读取支持 开始 =====
+// 修改内容/原因：地图与数据库配置逐行读取时自动处理 UTF-8；二进制地图缓存读取保持原样。
+#include <common/utf8_file_defines.hpp>
+// ===== UTF-8 配置与脚本读取支持 结束 =====
+
 using namespace rathena;
 using namespace rathena::server_map;
 

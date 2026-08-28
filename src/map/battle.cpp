@@ -35,6 +35,11 @@
 #include "pet.hpp"
 #include "./skills/skill_impl.hpp"
 
+// ===== UTF-8 配置与脚本读取支持 开始 =====
+// 修改内容/原因：战斗配置逐行读取时自动处理 UTF-8（含 BOM），无需额外开关。
+#include <common/utf8_file_defines.hpp>
+// ===== UTF-8 配置与脚本读取支持 结束 =====
+
 using namespace rathena;
 
 struct Battle_Config battle_config;

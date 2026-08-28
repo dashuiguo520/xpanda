@@ -55,6 +55,11 @@
 #include "trade.hpp"
 #include "vending.hpp"
 
+// ===== UTF-8 配置与脚本读取支持 开始 =====
+// 修改内容/原因：允许 MOTD 等逐行文本文件直接使用 UTF-8（含 BOM）。
+#include <common/utf8_file_defines.hpp>
+// ===== UTF-8 配置与脚本读取支持 结束 =====
+
 using namespace rathena;
 
 #define ATCOMMAND_LENGTH 50

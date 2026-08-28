@@ -106,6 +106,10 @@ set( COMMON_BASE_HEADERS
 	"${COMMON_SOURCE_DIR}/msg_conf.hpp"
 	"${COMMON_SOURCE_DIR}/cli.hpp"
 	"${COMMON_SOURCE_DIR}/utilities.hpp"
+	# ===== UTF-8 配置与脚本读取支持 开始 =====
+	# 修改内容/原因：将默认启用的 UTF-8 文本读取宏头加入 common 工程文件列表。
+	"${COMMON_SOURCE_DIR}/utf8_file_defines.hpp"
+	# ===== UTF-8 配置与脚本读取支持 结束 =====
 	${LIBCONFIG_HEADERS} # needed by conf.hpp/showmsg.hpp
 	${COMMON_ADDITIONALL_HPP} # needed by Windows
 	CACHE INTERNAL "common_base headers" )

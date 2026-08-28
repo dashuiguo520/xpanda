@@ -41,6 +41,11 @@
 #include "int_party.hpp"
 #include "int_storage.hpp"
 
+// ===== UTF-8 配置与脚本读取支持 开始 =====
+// 修改内容/原因：在系统头文件加载完成后接管本文件的逐行配置读取，默认支持 UTF-8（含 BOM）。
+#include <common/utf8_file_defines.hpp>
+// ===== UTF-8 配置与脚本读取支持 结束 =====
+
 using namespace rathena;
 using namespace rathena::server_character;
 

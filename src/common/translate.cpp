@@ -7,10 +7,14 @@
 // 修改内容/原因：移植 Pandas 的 YAML 终端翻译机制，并移除对 Pandas 专属配置及编码辅助类的依赖。
 #include <clocale>
 #include <atomic>
+#include <algorithm>
 #include <cctype>
 #include <climits>
+#include <cstring>
 #include <memory>
+#include <mutex>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -26,6 +30,11 @@
 #include <common/database.hpp>
 #include <common/showmsg.hpp>
 #include <common/timer.hpp>
+
+// ===== UTF-8 配置与脚本读取支持 开始 =====
+// 修改内容/原因：本实现必须调用原始 C 文件函数，避免默认读取宏在包装函数内部递归展开。
+#undef fgets
+// ===== UTF-8 配置与脚本读取支持 结束 =====
 
 #define TRANSLATE_STRINGIFY_INNER( value ) #value
 #define TRANSLATE_STRINGIFY( value ) TRANSLATE_STRINGIFY_INNER( value )
@@ -133,10 +142,102 @@ private:
 TranslateDatabase translate_database;
 bool translate_initialized = false;
 
+// ===== UTF-8 配置与脚本读取支持 开始 =====
+// 修改内容/原因：使用严格 UTF-8 字节规则判定无 BOM 文件，避免把旧 GBK/Big5 文本误转码。
+bool is_valid_utf8( const char* text, size_t length ) {
+	for( size_t index = 0; index < length; ) {
+		const unsigned char first = static_cast<unsigned char>( text[index] );
+		if( first <= 0x7F ) {
+			++index;
+			continue;
+		}
+
+		size_t following = 0;
+		uint32 codepoint = 0;
+		if( first >= 0xC2 && first <= 0xDF ) {
+			following = 1;
+			codepoint = first & 0x1F;
+		} else if( first >= 0xE0 && first <= 0xEF ) {
+			following = 2;
+			codepoint = first & 0x0F;
+		} else if( first >= 0xF0 && first <= 0xF4 ) {
+			following = 3;
+			codepoint = first & 0x07;
+		} else {
+			return false;
+		}
+		if( index + following >= length ) {
+			return false;
+		}
+		for( size_t offset = 1; offset <= following; ++offset ) {
+			const unsigned char next = static_cast<unsigned char>( text[index + offset] );
+			if( ( next & 0xC0 ) != 0x80 ) {
+				return false;
+			}
+			codepoint = ( codepoint << 6 ) | ( next & 0x3F );
+		}
+		if( ( following == 2 && codepoint < 0x800 ) || ( following == 3 && codepoint < 0x10000 ) || codepoint > 0x10FFFF || ( codepoint >= 0xD800 && codepoint <= 0xDFFF ) ) {
+			return false;
+		}
+		index += following + 1;
+	}
+	return true;
+}
+
+std::mutex utf8_stream_mutex;
+std::unordered_map<FILE*, bool> utf8_stream_modes;
+
+bool stream_uses_utf8( FILE* stream ) {
+	if( stream == nullptr ) {
+		return false;
+	}
+	const long position = ftell( stream );
+	if( position < 0 ) {
+		return false;
+	}
+	{
+		std::lock_guard<std::mutex> lock( utf8_stream_mutex );
+		auto mode = utf8_stream_modes.find( stream );
+		if( position != 0 && mode != utf8_stream_modes.end() ) {
+			return mode->second;
+		}
+	}
+
+	if( fseek( stream, 0, SEEK_END ) != 0 ) {
+		return false;
+	}
+	const long file_size = ftell( stream );
+	const size_t inspect_size = file_size <= 0 ? 0 : static_cast<size_t>( std::min<long>( file_size, 5 * 1024 * 1024 ) );
+	std::string content( inspect_size, '\0' );
+	fseek( stream, 0, SEEK_SET );
+	const size_t read_size = inspect_size == 0 ? 0 : ::fread( content.data(), 1, inspect_size, stream );
+	fseek( stream, position, SEEK_SET );
+	const bool has_bom = read_size >= 3 && static_cast<unsigned char>( content[0] ) == 0xEF && static_cast<unsigned char>( content[1] ) == 0xBB && static_cast<unsigned char>( content[2] ) == 0xBF;
+	const bool result = has_bom || ( read_size > 0 && is_valid_utf8( content.data(), read_size ) );
+	std::lock_guard<std::mutex> lock( utf8_stream_mutex );
+	utf8_stream_modes[stream] = result;
+	return result;
+}
+// ===== UTF-8 配置与脚本读取支持 结束 =====
+
 // ===== 终端动态文本编码桥接 开始 =====
 // 修改内容/原因：记录当前服务实际使用的数据库连接代码页，使 UTF-8 模板与动态数据库文本先统一编码再格式化。
 #ifdef _WIN32
-std::atomic<UINT> console_data_codepage{ CP_UTF8 };
+UINT default_data_codepage() {
+	switch( GetUserDefaultUILanguage() ) {
+		case 0x0804:
+		case 0x1004:
+			return 936;
+		case 0x0404:
+		case 0x0c04:
+		case 0x1404:
+			return 950;
+		default:
+			return CP_UTF8;
+	}
+}
+
+std::atomic<UINT> console_data_codepage{ default_data_codepage() };
 
 UINT encoding_to_codepage( const char* encoding ) {
 	std::string name = encoding == nullptr ? "" : encoding;
@@ -250,3 +351,54 @@ std::string normalize_console_output( const char* text, size_t length ) {
 #endif
 }
 // ===== 终端动态文本编码桥接 结束 =====
+
+// ===== UTF-8 配置与脚本读取支持 开始 =====
+// 修改内容/原因：识别 UTF-8 BOM 或严格有效的 UTF-8 内容；旧 GBK/Big5 文件原样保留，UTF-8 文件转换为当前服务内部代码页。
+std::string convert_utf8_file_content( const char* text, size_t length, bool preserve_utf8 ) {
+	if( text == nullptr || length == 0 ) {
+		return {};
+	}
+
+	size_t offset = 0;
+	if( length >= 3 && static_cast<unsigned char>( text[0] ) == 0xEF && static_cast<unsigned char>( text[1] ) == 0xBB && static_cast<unsigned char>( text[2] ) == 0xBF ) {
+		offset = 3;
+	}
+
+#ifdef _WIN32
+	const int content_length = length - offset > static_cast<size_t>( INT_MAX ) ? -1 : static_cast<int>( length - offset );
+	const bool valid_utf8 = content_length >= 0 && is_valid_utf8( text + offset, length - offset );
+	if( offset == 0 && !valid_utf8 ) {
+		return std::string( text, length );
+	}
+	if( preserve_utf8 ) {
+		return std::string( text + offset, length - offset );
+	}
+	return convert_codepage( text + offset, length - offset, CP_UTF8, console_data_codepage.load() );
+#else
+	// Linux 服务通常以 UTF-8 作为内部及终端编码；此处至少统一移除可选 BOM，旧编码内容保持字节不变。
+	return std::string( text + offset, length - offset );
+#endif
+}
+
+char* utf8_fgets( char* buffer, int max_count, FILE* stream ) {
+	if( buffer == nullptr || max_count <= 0 || stream == nullptr || !stream_uses_utf8( stream ) ) {
+		return ::fgets( buffer, max_count, stream );
+	}
+	if( ftell( stream ) == 0 ) {
+		unsigned char bom[3] = {};
+		const size_t read = ::fread( bom, 1, 3, stream );
+		if( read != 3 || bom[0] != 0xEF || bom[1] != 0xBB || bom[2] != 0xBF ) {
+			fseek( stream, 0, SEEK_SET );
+		}
+	}
+	std::string raw( static_cast<size_t>( max_count ), '\0' );
+	if( ::fgets( raw.data(), max_count, stream ) == nullptr ) {
+		return nullptr;
+	}
+	const std::string converted = convert_utf8_file_content( raw.c_str(), strlen( raw.c_str() ) );
+	const size_t copy_size = std::min( converted.size(), static_cast<size_t>( max_count - 1 ) );
+	memcpy( buffer, converted.data(), copy_size );
+	buffer[copy_size] = '\0';
+	return buffer;
+}
+// ===== UTF-8 配置与脚本读取支持 结束 =====

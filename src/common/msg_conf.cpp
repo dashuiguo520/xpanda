@@ -11,6 +11,11 @@
 #include "showmsg.hpp"
 #include "strlib.hpp"
 
+// ===== UTF-8 配置与脚本读取支持 开始 =====
+// 修改内容/原因：消息配置文件允许直接使用 UTF-8（含 BOM），读取时转换为服务端内部代码页。
+#include "utf8_file_defines.hpp"
+// ===== UTF-8 配置与脚本读取支持 结束 =====
+
 /*
  * Return the message string of the specified number by [Yor]
  * (read in table msg_table, with specified length table in size)

@@ -37,6 +37,11 @@
 #include "int_quest.hpp"
 #include "int_storage.hpp"
 
+// ===== UTF-8 配置与脚本读取支持 开始 =====
+// 修改内容/原因：仅接管文本配置的逐行读取，不影响同文件中的 GeoIP 二进制 fread。
+#include <common/utf8_file_defines.hpp>
+// ===== UTF-8 配置与脚本读取支持 结束 =====
+
 using namespace rathena;
 
 std::string cfgFile = "inter_athena.yml"; ///< Inter-Config file

@@ -48,6 +48,10 @@
     <ClInclude Include="utils.hpp" />
     <ClInclude Include="winapi.hpp" />
     <ClInclude Include="utilities.hpp" />
+    <!-- ===== UTF-8 配置与脚本读取支持 开始 ===== -->
+    <!-- 修改内容/原因：将默认启用的 UTF-8 文本读取宏头加入 Visual Studio common 项目。 -->
+    <ClInclude Include="utf8_file_defines.hpp" />
+    <!-- ===== UTF-8 配置与脚本读取支持 结束 ===== -->
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="cli.cpp" />
