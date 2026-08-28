@@ -6365,6 +6365,10 @@ const char *npc_get_script_event_name(int32 npce_index)
 	case NPCE_EQUIP: return "OnPCEquipEvent";
 	case NPCE_UNEQUIP: return "OnPCUnequipEvent";
 	case NPCE_STATCALC: return "OnPCStatCalcEvent";
+	// ===== rAthena 修正 Pandas GoldPC 点击事件名称：开始 =====
+	// 修改内容：将 NPCE_GOLDPC 映射到 Pandas 使用的 OnGoldPcClick 标签。
+	case NPCE_GOLDPC: return "OnGoldPcClick";
+	// ===== rAthena 修正 Pandas GoldPC 点击事件名称：结束 =====
 	case NPCX_SC_END: return "OnPCBuffEndExpress";
 	case NPCX_SC_START: return "OnPCBuffStartExpress";
 	case NPCX_ENTERMAP: return "OnPCEnterMapExpress";

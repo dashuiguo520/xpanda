@@ -113,9 +113,11 @@ void clif_parse_dynamic_npc( int fd, map_session_data* sd ){
 		return;
 	}
 
-	// 修改原因：GoldPC 脚本使用动态 NPC 主体而非独立事件标签，成功复制后再回包。
-	if (npc_duplicate_npc_for_player(*nd, *sd) != nullptr)
-		clif_dynamicnpc_result(*sd, DYNAMICNPC_RESULT_SUCCESS);
+	// ===== rAthena 修正 Pandas GoldPC 点击处理：开始 =====
+	// 修改原因：保持 Pandas 原始语义，点击按钮时触发 OnGoldPcClick，而不是直接复制 NPC。
+	npc_script_event(*sd, NPCE_GOLDPC);
+	clif_dynamicnpc_result(*sd, DYNAMICNPC_RESULT_SUCCESS);
+	// ===== rAthena 修正 Pandas GoldPC 点击处理：结束 =====
 #endif
 }
 void clif_parse_emotion2(const int32 fd, map_session_data* const sd)

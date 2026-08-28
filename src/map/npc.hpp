@@ -1663,6 +1663,10 @@ enum npce_event : uint8 {
 	NPCE_EQUIP,
 	NPCE_UNEQUIP,
 	NPCE_STATCALC,
+	// ===== rAthena 修正 Pandas GoldPC 点击事件：开始 =====
+	// 修改内容：为客户端 GoldPC 按钮提供独立的标准脚本事件类型。
+	NPCE_GOLDPC,
+	// ===== rAthena 修正 Pandas GoldPC 点击事件：结束 =====
 	NPCX_SC_END,
 	NPCX_SC_START,
 	NPCX_ENTERMAP,
