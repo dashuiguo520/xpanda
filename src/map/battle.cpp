@@ -28,6 +28,10 @@
 #include "map.hpp"
 #include "mercenary.hpp"
 #include "mob.hpp"
+// ===== rAthena 移植攻击事件依赖：开始 =====
+// 修改原因：普通攻击结算需要调用 Pandas 事件分发接口。
+#include "npc.hpp"
+// ===== rAthena 移植攻击事件依赖：结束 =====
 #include "party.hpp"
 #include "path.hpp"
 #include "pc.hpp"
@@ -7388,6 +7392,48 @@ enum damage_lv battle_weapon_attack(block_list* src, block_list* target, t_tick 
 		battle_consume_ammo(sd, 0, 0);
 
 	damage = wd.damage + wd.damage2;
+
+	// ===== rAthena 移植普通攻击实时事件：开始 =====
+	// 修改原因：伤害结算前同步触发受击方/攻击方事件，并允许脚本改写左右手伤害。
+	if (src != nullptr && target != nullptr && damage > 0) {
+		block_list* harmed_master = target->type == BL_PC ? target : battle_get_master(target);
+		map_session_data* harmed_sd = BL_CAST(BL_PC, harmed_master);
+		if (harmed_sd != nullptr) {
+			pc_setreg(harmed_sd, add_str("@harmed_target_type"), target->type);
+			pc_setreg(harmed_sd, add_str("@harmed_target_gid"), target->id);
+			pc_setreg(harmed_sd, add_str("@harmed_src_type"), src->type);
+			pc_setreg(harmed_sd, add_str("@harmed_src_gid"), src->id);
+			pc_setreg(harmed_sd, add_str("@harmed_src_mobid"), src->type == BL_MOB ? BL_CAST(BL_MOB, src)->mob_id : 0);
+			pc_setreg(harmed_sd, add_str("@harmed_damage_flag"), wd.flag);
+			pc_setreg(harmed_sd, add_str("@harmed_damage_skillid"), 0);
+			pc_setreg(harmed_sd, add_str("@harmed_damage_skilllv"), 0);
+			pc_setreg(harmed_sd, add_str("@harmed_damage_right"), wd.damage);
+			pc_setreg(harmed_sd, add_str("@harmed_damage_left"), wd.damage2);
+			npc_script_event(*harmed_sd, NPCX_PCHARMED);
+			wd.damage = cap_value(pc_readreg(harmed_sd, add_str("@harmed_damage_right")), static_cast<int64>(INT_MIN), static_cast<int64>(INT_MAX));
+			wd.damage2 = cap_value(pc_readreg(harmed_sd, add_str("@harmed_damage_left")), static_cast<int64>(INT_MIN), static_cast<int64>(INT_MAX));
+		}
+
+		block_list* attack_master = src->type == BL_PC ? src : battle_get_master(src);
+		map_session_data* attack_sd = BL_CAST(BL_PC, attack_master);
+		if (attack_sd != nullptr) {
+			pc_setreg(attack_sd, add_str("@attack_src_type"), src->type);
+			pc_setreg(attack_sd, add_str("@attack_src_gid"), src->id);
+			pc_setreg(attack_sd, add_str("@attack_target_type"), target->type);
+			pc_setreg(attack_sd, add_str("@attack_target_gid"), target->id);
+			pc_setreg(attack_sd, add_str("@attack_target_mobid"), target->type == BL_MOB ? BL_CAST(BL_MOB, target)->mob_id : 0);
+			pc_setreg(attack_sd, add_str("@attack_damage_flag"), wd.flag);
+			pc_setreg(attack_sd, add_str("@attack_damage_skillid"), 0);
+			pc_setreg(attack_sd, add_str("@attack_damage_skilllv"), 0);
+			pc_setreg(attack_sd, add_str("@attack_damage_right"), wd.damage);
+			pc_setreg(attack_sd, add_str("@attack_damage_left"), wd.damage2);
+			npc_script_event(*attack_sd, NPCX_PCATTACK);
+			wd.damage = cap_value(pc_readreg(attack_sd, add_str("@attack_damage_right")), static_cast<int64>(INT_MIN), static_cast<int64>(INT_MAX));
+			wd.damage2 = cap_value(pc_readreg(attack_sd, add_str("@attack_damage_left")), static_cast<int64>(INT_MIN), static_cast<int64>(INT_MAX));
+		}
+		damage = wd.damage + wd.damage2;
+	}
+	// ===== rAthena 移植普通攻击实时事件：结束 =====
 	if( damage > 0 && src != target )
 	{
 		if (sc && sc->getSCE(SC_DUPLELIGHT) && (wd.flag & BF_SHORT)) { // Activates only from regular melee damage. Success chance is separate for both duple light attacks.

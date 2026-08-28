@@ -163,6 +163,17 @@ int32 chat_joinchat(map_session_data* sd, int32 chatid, const char* pass)
 	}
 
 	unit_stop_walking( sd, USW_FIXPOS );
+
+	// ===== rAthena 移植 OnPCInChatroomFilter：开始 =====
+	// 修改原因：玩家进入 NPC 聊天室前同步执行过滤器，processhalt 可拒绝进入。
+	if (cd->owner->type == BL_NPC) {
+		npc_data* nd = BL_CAST(BL_NPC, cd->owner);
+		char eventname[EVENT_NAME_LENGTH] = { 0 };
+		snprintf(eventname, ARRAYLENGTH(eventname), "%s::OnPCInChatroomFilter", nd->exname);
+		if (npc_script_filter(sd, eventname))
+			return 0;
+	}
+	// ===== rAthena 移植 OnPCInChatroomFilter：结束 =====
 	cd->usersd[cd->users] = sd;
 	cd->users++;
 

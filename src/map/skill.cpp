@@ -2881,6 +2881,48 @@ int64 skill_attack (int32 attack_type, block_list* src, block_list *dsrc, block_
 
 	damage = dmg.damage + dmg.damage2;
 
+	// ===== rAthena 移植技能伤害实时事件：开始 =====
+	// 修改原因：技能伤害结算前同步触发受击方/攻击方事件，并允许脚本改写两段伤害。
+	if (src != nullptr && bl != nullptr && damage > 0) {
+		block_list* harmed_master = bl->type == BL_PC ? bl : battle_get_master(bl);
+		map_session_data* harmed_sd = BL_CAST(BL_PC, harmed_master);
+		if (harmed_sd != nullptr) {
+			pc_setreg(harmed_sd, add_str("@harmed_target_type"), bl->type);
+			pc_setreg(harmed_sd, add_str("@harmed_target_gid"), bl->id);
+			pc_setreg(harmed_sd, add_str("@harmed_src_type"), src->type);
+			pc_setreg(harmed_sd, add_str("@harmed_src_gid"), src->id);
+			pc_setreg(harmed_sd, add_str("@harmed_src_mobid"), src->type == BL_MOB ? BL_CAST(BL_MOB, src)->mob_id : 0);
+			pc_setreg(harmed_sd, add_str("@harmed_damage_flag"), dmg.flag);
+			pc_setreg(harmed_sd, add_str("@harmed_damage_skillid"), skill_id);
+			pc_setreg(harmed_sd, add_str("@harmed_damage_skilllv"), skill_lv);
+			pc_setreg(harmed_sd, add_str("@harmed_damage_right"), dmg.damage);
+			pc_setreg(harmed_sd, add_str("@harmed_damage_left"), dmg.damage2);
+			npc_script_event(*harmed_sd, NPCX_PCHARMED);
+			dmg.damage = cap_value(pc_readreg(harmed_sd, add_str("@harmed_damage_right")), static_cast<int64>(INT_MIN), static_cast<int64>(INT_MAX));
+			dmg.damage2 = cap_value(pc_readreg(harmed_sd, add_str("@harmed_damage_left")), static_cast<int64>(INT_MIN), static_cast<int64>(INT_MAX));
+		}
+
+		block_list* attack_master = src->type == BL_PC ? src : battle_get_master(src);
+		map_session_data* attack_sd = BL_CAST(BL_PC, attack_master);
+		if (attack_sd != nullptr) {
+			pc_setreg(attack_sd, add_str("@attack_src_type"), src->type);
+			pc_setreg(attack_sd, add_str("@attack_src_gid"), src->id);
+			pc_setreg(attack_sd, add_str("@attack_target_type"), bl->type);
+			pc_setreg(attack_sd, add_str("@attack_target_gid"), bl->id);
+			pc_setreg(attack_sd, add_str("@attack_target_mobid"), bl->type == BL_MOB ? BL_CAST(BL_MOB, bl)->mob_id : 0);
+			pc_setreg(attack_sd, add_str("@attack_damage_flag"), dmg.flag);
+			pc_setreg(attack_sd, add_str("@attack_damage_skillid"), skill_id);
+			pc_setreg(attack_sd, add_str("@attack_damage_skilllv"), skill_lv);
+			pc_setreg(attack_sd, add_str("@attack_damage_right"), dmg.damage);
+			pc_setreg(attack_sd, add_str("@attack_damage_left"), dmg.damage2);
+			npc_script_event(*attack_sd, NPCX_PCATTACK);
+			dmg.damage = cap_value(pc_readreg(attack_sd, add_str("@attack_damage_right")), static_cast<int64>(INT_MIN), static_cast<int64>(INT_MAX));
+			dmg.damage2 = cap_value(pc_readreg(attack_sd, add_str("@attack_damage_left")), static_cast<int64>(INT_MIN), static_cast<int64>(INT_MAX));
+		}
+		damage = dmg.damage + dmg.damage2;
+	}
+	// ===== rAthena 移植技能伤害实时事件：结束 =====
+
 	if ((dmg.flag & BF_MAGIC) && tsc && tsc->getSCE(SC_MAXPAIN)) {
 		auto * sce = tsc->getSCE(SC_MAXPAIN);
 		sce->val3 = (int32)damage;
@@ -5179,6 +5221,21 @@ TIMER_FUNC(skill_castend_id){
 #endif
 		}
 
+		// ===== rAthena 移植 OnPCUseSkillEvent（目标技能）：开始 =====
+		// 修改原因：目标技能完成结算后，以施法时的技能和目标信息触发标准事件。
+		if (sd != nullptr) {
+			pc_setreg(sd, add_str("@useskill_id"), ud->skill_id);
+			pc_setreg(sd, add_str("@useskill_lv"), ud->skill_lv);
+			pc_setreg(sd, add_str("@useskill_pos_x"), -1);
+			pc_setreg(sd, add_str("@useskill_pos_y"), -1);
+			pc_setreg(sd, add_str("@useskill_target_gid"), ud->skilltarget);
+			pc_setreg(sd, add_str("@useskill_x"), -1);
+			pc_setreg(sd, add_str("@useskill_y"), -1);
+			pc_setreg(sd, add_str("@useskill_target"), ud->skilltarget);
+			npc_script_event(*sd, NPCE_USE_SKILL);
+		}
+		// ===== rAthena 移植 OnPCUseSkillEvent（目标技能）：结束 =====
+
 		if (sd && ud->skill_id != SA_ABRACADABRA) // they just set the data so leave it as it is.[Inkfish]
 			sd->skillitem = sd->skillitemlv = sd->skillitem_keep_requirement = 0;
 
@@ -5365,6 +5422,21 @@ TIMER_FUNC(skill_castend_pos){
 
 		if (ud->skill_id != RA_CAMOUFLAGE)
 			status_change_end(src, SC_CAMOUFLAGE); // Applies to the first skill if active
+
+		// ===== rAthena 移植 OnPCUseSkillEvent（地面技能）：开始 =====
+		// 修改原因：地面技能完成结算后，以施法时的技能和坐标信息触发标准事件。
+		if (sd != nullptr) {
+			pc_setreg(sd, add_str("@useskill_id"), ud->skill_id);
+			pc_setreg(sd, add_str("@useskill_lv"), ud->skill_lv);
+			pc_setreg(sd, add_str("@useskill_pos_x"), ud->skillx);
+			pc_setreg(sd, add_str("@useskill_pos_y"), ud->skilly);
+			pc_setreg(sd, add_str("@useskill_target_gid"), 0);
+			pc_setreg(sd, add_str("@useskill_x"), ud->skillx);
+			pc_setreg(sd, add_str("@useskill_y"), ud->skilly);
+			pc_setreg(sd, add_str("@useskill_target"), 0);
+			npc_script_event(*sd, NPCE_USE_SKILL);
+		}
+		// ===== rAthena 移植 OnPCUseSkillEvent（地面技能）：结束 =====
 
 		if( sd && sd->skillitem != AL_WARP ) // Warp-Portal thru items will clear data in skill_castend_map. [Inkfish]
 			sd->skillitem = sd->skillitemlv = sd->skillitem_keep_requirement = 0;
@@ -10575,6 +10647,15 @@ void skill_identify(map_session_data *sd, int32 idx)
 	nullpo_retv(sd);
 
 	sd->state.workinprogress = WIP_DISABLE_NONE;
+
+	// ===== rAthena 移植 OnPCIdentifyFilter：开始 =====
+	// 修改原因：鉴定确认后、修改物品状态前允许脚本阻止，并验证脚本未删除目标物品。
+	pc_setreg(sd, add_str("@identify_idx"), idx);
+	if (npc_script_filter(sd, NPCF_IDENTIFY))
+		return;
+	if (idx < 0 || idx >= MAX_INVENTORY || sd->inventory.u.items_inventory[idx].nameid == 0 || sd->inventory_data[idx] == nullptr)
+		return;
+	// ===== rAthena 移植 OnPCIdentifyFilter：结束 =====
 
 	if(idx >= 0 && idx < MAX_INVENTORY) {
 		if(sd->inventory.u.items_inventory[idx].nameid > 0 && sd->inventory.u.items_inventory[idx].identify == 0 ){

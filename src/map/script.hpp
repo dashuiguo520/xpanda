@@ -329,6 +329,10 @@ struct script_state {
 	unsigned freeloop : 1;// used by buildin_freeloop
 	unsigned op2ref : 1;// used by op_2
 	unsigned npc_item_flag : 1;
+	// ===== rAthena 移植 Pandas 实时事件指令解锁状态：开始 =====
+	// 修改原因：Filter/Express 默认禁止等待玩家输入的指令，脚本可用 unlockcmd 显式解除限制。
+	unsigned pandas_unlockcmd : 1;
+	// ===== rAthena 移植 Pandas 实时事件指令解锁状态：结束 =====
 	unsigned mes_active : 1;  // Store if invoking character has a NPC dialog box open.
 	unsigned clear_cutin : 1;
 	char* funcname; // Stores the current running function name

@@ -10574,6 +10574,18 @@ static bool clif_process_message(map_session_data* sd, bool whisperFormat, char*
 
 	//achievement_update_objective(sd, AG_CHATTING, 1, 1); // !TODO: Confirm how this achievement is triggered
 
+	// ===== rAthena 移植 OnPCTalkExpress：开始 =====
+	// 修改原因：玩家消息成功处理后同步公开发送者、位置和消息内容。
+	pc_setreg(sd, add_str("@talk_x"), sd->x);
+	pc_setreg(sd, add_str("@talk_y"), sd->y);
+	pc_setreg(sd, add_str("@talk_mapid"), sd->m);
+	pc_setregstr(sd, add_str("@talk_mapname$"), sd->m >= 0 ? map[sd->m].name : "");
+	pc_setreg(sd, add_str("@talk_gid"), sd->id);
+	pc_setregstr(sd, add_str("@talk_name$"), out_name);
+	pc_setregstr(sd, add_str("@talk_mes$"), out_message);
+	npc_script_event(*sd, NPCX_PC_TALK);
+	// ===== rAthena 移植 OnPCTalkExpress：结束 =====
+
 	return true;
 }
 
@@ -10986,6 +10998,19 @@ void clif_parse_LoadEndAck(int32 fd,map_session_data *sd)
 		// Set facing direction before check below to update client
 		if (battle_config.spawn_direction)
 			unit_setdir(sd, sd->status.body_direction, false);
+
+		// ===== rAthena 移植 OnPCEnterMapExpress（登录）：开始 =====
+		// 修改原因：角色初次进入地图时提供空来源及当前目标地图信息。
+		pc_setreg(sd, add_str("@frommap_id"), 0);
+		pc_setreg(sd, add_str("@frommap_x"), 0);
+		pc_setreg(sd, add_str("@frommap_y"), 0);
+		pc_setregstr(sd, add_str("@frommap_name$"), "");
+		pc_setreg(sd, add_str("@tomap_id"), sd->m);
+		pc_setreg(sd, add_str("@tomap_x"), sd->x);
+		pc_setreg(sd, add_str("@tomap_y"), sd->y);
+		pc_setregstr(sd, add_str("@tomap_name$"), map[sd->m].name);
+		npc_script_event(*sd, NPCX_ENTERMAP);
+		// ===== rAthena 移植 OnPCEnterMapExpress（登录）：结束 =====
 	} else {
 		//For some reason the client "loses" these on warp/map-change.
 		clif_updatestatus(*sd,SP_STR);
@@ -11315,6 +11340,14 @@ void clif_progressbar_abort( const map_session_data* sd )
 	WFIFOHEAD(fd,packet_len(0x2f2));
 	WFIFOW(fd,0) = 0x2f2;
 	WFIFOSET(fd,packet_len(0x2f2));
+
+	// ===== rAthena 移植 OnPCProgressAbortExpress：开始 =====
+	// 修改原因：进度条被打断时同步提供关联 NPC 与超时时间。
+	map_session_data* event_sd = const_cast<map_session_data*>(sd);
+	pc_setreg(event_sd, add_str("@abort_npc_id"), sd->progressbar.npc_id);
+	pc_setreg(event_sd, add_str("@abort_timeout"), static_cast<int64>(sd->progressbar.timeout));
+	npc_script_event(*event_sd, NPCX_PROGRESSABORT);
+	// ===== rAthena 移植 OnPCProgressAbortExpress：结束 =====
 }
 
 
@@ -12880,6 +12913,20 @@ void clif_parse_skill_toid( map_session_data* sd, uint16 skill_id, uint16 skill_
 	if (inf&INF_GROUND_SKILL || !inf)
 		return; //Using a ground/passive skill on a target? WRONG.
 
+	// ===== rAthena 移植 OnPCUseSkillFilter（目标技能）：开始 =====
+	// 修改原因：玩家技能进入原处理流程前提供技能与目标信息，并允许脚本阻止。
+	pc_setreg(sd, add_str("@useskill_id"), skill_id);
+	pc_setreg(sd, add_str("@useskill_lv"), skill_lv);
+	pc_setreg(sd, add_str("@useskill_pos_x"), -1);
+	pc_setreg(sd, add_str("@useskill_pos_y"), -1);
+	pc_setreg(sd, add_str("@useskill_target_gid"), target_id);
+	pc_setreg(sd, add_str("@useskill_x"), -1);
+	pc_setreg(sd, add_str("@useskill_y"), -1);
+	pc_setreg(sd, add_str("@useskill_target"), target_id);
+	if (npc_script_filter(sd, NPCF_USE_SKILL))
+		return;
+	// ===== rAthena 移植 OnPCUseSkillFilter（目标技能）：结束 =====
+
 	if (sd->state.block_action & PCBLOCK_SKILL) {
 		clif_msg( *sd, MSI_BUSY );
 		return;
@@ -13005,6 +13052,20 @@ static void clif_parse_UseSkillToPosSub( int32 fd, map_session_data& sd, uint16 
 
 	if( !(skill_get_inf(skill_id)&INF_GROUND_SKILL) )
 		return; //Using a target skill on the ground? WRONG.
+
+	// ===== rAthena 移植 OnPCUseSkillFilter（地面技能）：开始 =====
+	// 修改原因：地面技能进入原处理流程前提供技能与坐标信息，并允许脚本阻止。
+	pc_setreg(&sd, add_str("@useskill_id"), skill_id);
+	pc_setreg(&sd, add_str("@useskill_lv"), skill_lv);
+	pc_setreg(&sd, add_str("@useskill_pos_x"), x);
+	pc_setreg(&sd, add_str("@useskill_pos_y"), y);
+	pc_setreg(&sd, add_str("@useskill_target_gid"), 0);
+	pc_setreg(&sd, add_str("@useskill_x"), x);
+	pc_setreg(&sd, add_str("@useskill_y"), y);
+	pc_setreg(&sd, add_str("@useskill_target"), 0);
+	if (npc_script_filter(&sd, NPCF_USE_SKILL))
+		return;
+	// ===== rAthena 移植 OnPCUseSkillFilter（地面技能）：结束 =====
 
 	if (sd.state.block_action & PCBLOCK_SKILL) {
 		clif_msg( sd, MSI_BUSY );
@@ -17711,7 +17772,22 @@ void clif_parse_ViewPlayerEquip(int32 fd, map_session_data* sd)
 
 	if (sd->m != tsd->m)
 		return;
-	else if( tsd->status.show_equip || pc_has_permission(sd, PC_PERM_VIEW_EQUIPMENT) )
+
+	// ===== rAthena 移植 OnPCViewEquipFilter：开始 =====
+	// 修改原因：查看他人装备前提供目标与权限信息，脚本可阻止或通过 bypass 绕过公开限制。
+	pc_setregstr(sd, add_str("@view_equip_target_name$"), tsd->status.name);
+	pc_setreg(sd, add_str("@view_equip_target_cid"), tsd->status.char_id);
+	pc_setreg(sd, add_str("@view_equip_target_aid"), tsd->status.account_id);
+	pc_setreg(sd, add_str("@view_equip_target_allowed"), tsd->status.show_equip);
+	pc_setreg(sd, add_str("@view_equip_bypass_limit"), 0);
+	if (npc_script_filter(sd, NPCF_VIEW_EQUIP))
+		return;
+	if (pc_readreg(sd, add_str("@view_equip_bypass_limit")) == 1) {
+		clif_viewequip_ack(*sd, *tsd);
+		return;
+	}
+	// ===== rAthena 移植 OnPCViewEquipFilter：结束 =====
+	if( tsd->status.show_equip || pc_has_permission(sd, PC_PERM_VIEW_EQUIPMENT) )
 		clif_viewequip_ack( *sd, *tsd );
 	else
 		clif_msg( *sd, MSI_OPEN_EQUIPEDITEM_REFUSED );
@@ -19908,10 +19984,28 @@ void clif_parse_MoveItem( int32 fd, map_session_data* sd ){
 		return;
 	}
 
-	if ( sd->inventory.u.items_inventory[index].favorite != 0 && p->favorite == true )
+	if ( sd->inventory.u.items_inventory[index].favorite != 0 && p->favorite == true ) {
+		// ===== rAthena 移植 OnPCFavoriteDelFilter：开始 =====
+		// 修改原因：物品移出收藏栏前提供物品信息，并允许脚本阻止。
+		pc_setreg(sd, add_str("@unfavorite_nameid"), sd->inventory.u.items_inventory[index].nameid);
+		pc_setreg(sd, add_str("@unfavorite_amount"), sd->inventory.u.items_inventory[index].amount);
+		pc_setreg(sd, add_str("@unfavorite_idx"), index);
+		if (npc_script_filter(sd, NPCF_FAVORITE_DEL))
+			return;
 		sd->inventory.u.items_inventory[index].favorite = 0;
-	else if( p->favorite == false )
+		// ===== rAthena 移植 OnPCFavoriteDelFilter：结束 =====
+	}
+	else if( p->favorite == false ) {
+		// ===== rAthena 移植 OnPCFavoriteAddFilter：开始 =====
+		// 修改原因：物品移入收藏栏前提供物品信息，并允许脚本阻止。
+		pc_setreg(sd, add_str("@favorite_nameid"), sd->inventory.u.items_inventory[index].nameid);
+		pc_setreg(sd, add_str("@favorite_amount"), sd->inventory.u.items_inventory[index].amount);
+		pc_setreg(sd, add_str("@favorite_idx"), index);
+		if (npc_script_filter(sd, NPCF_FAVORITE_ADD))
+			return;
 		sd->inventory.u.items_inventory[index].favorite = 1;
+		// ===== rAthena 移植 OnPCFavoriteAddFilter：结束 =====
+	}
 	else
 		return;/* nothing to do. */
 
@@ -20771,6 +20865,16 @@ void clif_parse_change_title(int32 fd, map_session_data *sd)
 
 	title_id = RFIFOL(fd, 2);
 
+	// ===== rAthena 移植 OnPCChangeTitleFilter：开始 =====
+	// 修改原因：装备面板切换称号前公开触发方式、原称号和目标称号，并允许脚本阻止或改写目标。
+	pc_setreg(sd, add_str("@trigger_mode"), 0);
+	pc_setreg(sd, add_str("@pre_title_id"), sd->status.title_id);
+	pc_setreg(sd, add_str("@target_title_id"), title_id);
+	if (npc_script_filter(sd, NPCF_CHANGETITLE))
+		return;
+	title_id = static_cast<int32>(pc_readreg(sd, add_str("@target_title_id")));
+	// ===== rAthena 移植 OnPCChangeTitleFilter：结束 =====
+
 	if( title_id == sd->status.title_id ){
 		// It is exactly the same as the old one
 		return;
@@ -20878,6 +20982,16 @@ void clif_roulette_open( map_session_data* sd ){
 /// 0A19 (CZ_REQ_OPEN_ROULETTE)
 void clif_parse_roulette_open( int32 fd, map_session_data* sd ){
 	nullpo_retv(sd);
+
+	// ===== rAthena 移植 OnPCOpenRouletteFilter：开始 =====
+	// 修改原因：打开乐透窗口前允许脚本阻止；对话或进度中沿用忙碌限制，避免同步事件破坏会话。
+	if (sd->npc_id || pc_hasprogress(sd, WIP_DISABLE_NPC)) {
+		clif_msg(*sd, MSI_BUSY);
+		return;
+	}
+	if (npc_script_filter(sd, NPCF_ROULETTE_OPEN))
+		return;
+	// ===== rAthena 移植 OnPCOpenRouletteFilter：结束 =====
 
 	if (!battle_config.feature_roulette) {
 		clif_messagecolor(sd,color_table[COLOR_RED],msg_txt(sd,1497),false,SELF); //Roulette is disabled
@@ -21437,6 +21551,13 @@ void clif_dressing_room( const map_session_data& sd ){
 void clif_parse_Oneclick_Itemidentify(int32 fd, map_session_data *sd) {
 #if PACKETVER >= 20150513
 	int16 idx = RFIFOW(fd,packet_db[RFIFOW(fd,0)].pos[0]) - 2, magnifier_idx;
+
+	// ===== rAthena 移植 OnPCUseOCIdentifyFilter：开始 =====
+	// 修改原因：一键鉴定请求进入物品检查前允许脚本阻止。
+	pc_setreg(sd, add_str("@identify_idx"), idx);
+	if (npc_script_filter(sd, NPCF_ONECLICK_IDENTIFY))
+		return;
+	// ===== rAthena 移植 OnPCUseOCIdentifyFilter：结束 =====
 
 	// Ignore the request
 	// - Invalid item index

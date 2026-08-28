@@ -5641,6 +5641,16 @@ int32 pc_insert_card(map_session_data* sd, int32 idx_card, int32 idx_equip)
 	// remember the card id to insert
 	nameid = sd->inventory.u.items_inventory[idx_card].nameid;
 
+	// ===== rAthena 移植插卡事件：开始 =====
+	// 修改原因：插卡前允许脚本过滤，并公开装备、卡片和槽位信息。
+	pc_setreg(sd, add_str("@insert_equip_idx"), idx_equip);
+	pc_setreg(sd, add_str("@insert_card_idx"), idx_card);
+	pc_setreg(sd, add_str("@insert_card_id"), nameid);
+	pc_setreg(sd, add_str("@insert_card_slot"), i);
+	if (npc_script_filter(sd, NPCF_INSERT_CARD))
+		return 0;
+	// ===== rAthena 移植插卡事件：结束 =====
+
 	if( pc_delitem(sd,idx_card,1,1,0,LOG_TYPE_OTHER) == 1 )
 	{// failed
 		clif_insert_card( *sd, idx_equip, idx_card, true );
@@ -5651,6 +5661,15 @@ int32 pc_insert_card(map_session_data* sd, int32 idx_card, int32 idx_equip)
 		sd->inventory.u.items_inventory[idx_equip].card[i] = nameid;
 		log_pick_pc(sd, LOG_TYPE_OTHER,  1, &sd->inventory.u.items_inventory[idx_equip]);
 		clif_insert_card( *sd, idx_equip, idx_card, false );
+
+		// ===== rAthena 移植 OnPCInsertCardEvent：开始 =====
+		// 修改原因：卡片成功写入装备后通知脚本。
+		pc_setreg(sd, add_str("@insert_equip_idx"), idx_equip);
+		pc_setreg(sd, add_str("@insert_card_idx"), idx_card);
+		pc_setreg(sd, add_str("@insert_card_id"), nameid);
+		pc_setreg(sd, add_str("@insert_card_slot"), i);
+		npc_script_event(*sd, NPCE_INSERT_CARD);
+		// ===== rAthena 移植 OnPCInsertCardEvent：结束 =====
 	}
 
 	return 0;
@@ -6155,6 +6174,15 @@ bool pc_dropitem(map_session_data *sd,int32 n,int32 amount)
 	if( sd->inventory.u.items_inventory[n].equipSwitch )
 		return false;
 
+	// ===== rAthena 移植 OnPCDropItemFilter：开始 =====
+	// 修改原因：丢弃物品前提供索引、编号和数量，并允许脚本阻止。
+	pc_setreg(sd, add_str("@drop_idx"), n);
+	pc_setreg(sd, add_str("@drop_itemid"), sd->inventory.u.items_inventory[n].nameid);
+	pc_setreg(sd, add_str("@drop_amount"), amount);
+	if (npc_script_filter(sd, NPCF_DROPITEM))
+		return false;
+	// ===== rAthena 移植 OnPCDropItemFilter：结束 =====
+
 	if( map_getmapflag(sd->m, MF_NODROP) )
 	{
 		clif_displaymessage (sd->fd, msg_txt(sd,271));
@@ -6480,6 +6508,15 @@ int32 pc_useitem(map_session_data *sd,int32 n)
 	if (item.nameid == 0 || item.amount <= 0)
 		return 0;
 
+	// ===== rAthena 移植 OnPCUseItemFilter：开始 =====
+	// 修改原因：消耗品实际使用前提供物品信息，并允许脚本阻止使用。
+	pc_setreg(sd, add_str("@useitem_idx"), n);
+	pc_setreg(sd, add_str("@useitem_nameid"), item.nameid);
+	pc_setreg(sd, add_str("@useitem_pos"), n);
+	if (npc_script_filter(sd, NPCF_USE_ITEM))
+		return 0;
+	// ===== rAthena 移植 OnPCUseItemFilter：结束 =====
+
 	if( !pc_isUseitem(sd,n) )
 		return 0;
 
@@ -6572,6 +6609,14 @@ int32 pc_useitem(map_session_data *sd,int32 n)
 	}
 
 	potion_flag = 0;
+
+	// ===== rAthena 移植 OnPCUseItemEvent：开始 =====
+	// 修改原因：物品脚本成功执行后通知事件脚本。
+	pc_setreg(sd, add_str("@useitem_idx"), n);
+	pc_setreg(sd, add_str("@useitem_nameid"), id->nameid);
+	pc_setreg(sd, add_str("@useitem_pos"), n);
+	npc_script_event(*sd, NPCE_USE_ITEM);
+	// ===== rAthena 移植 OnPCUseItemEvent：结束 =====
 	return 1;
 }
 
@@ -6701,6 +6746,17 @@ void pc_putitemtocart(map_session_data *sd,int32 idx,int32 amount)
 		return;
 	}
 
+	// ===== rAthena 移植 OnPCCartAddFilter：开始 =====
+	// 修改原因：背包物品放入手推车前提供物品信息，并允许脚本阻止。
+	pc_setreg(sd, add_str("@storeitem_nameid"), item_data->nameid);
+	pc_setreg(sd, add_str("@storeitem_amount"), amount);
+	pc_setreg(sd, add_str("@storeitem_idx"), idx);
+	if (npc_script_filter(sd, NPCF_CART_ADD)) {
+		clif_delitem(*sd, idx, 0, 0);
+		return;
+	}
+	// ===== rAthena 移植 OnPCCartAddFilter：结束 =====
+
 	enum e_additem_result flag = pc_cart_additem(sd,item_data,amount,LOG_TYPE_NONE);
 
 	if (flag == ADDITEM_SUCCESS)
@@ -6748,6 +6804,17 @@ bool pc_getitemfromcart(map_session_data *sd,int32 idx,int32 amount)
 
 	if (item_data->nameid == 0 || amount < 1 || item_data->amount < amount || sd->state.vending || sd->state.prevend)
 		return false;
+
+	// ===== rAthena 移植 OnPCCartDelFilter：开始 =====
+	// 修改原因：手推车物品取回背包前提供物品信息，并允许脚本阻止。
+	pc_setreg(sd, add_str("@removeitem_nameid"), item_data->nameid);
+	pc_setreg(sd, add_str("@removeitem_amount"), amount);
+	pc_setreg(sd, add_str("@removeitem_idx"), idx);
+	if (npc_script_filter(sd, NPCF_CART_DEL)) {
+		clif_cart_delitem(*sd, idx, 0);
+		return true;
+	}
+	// ===== rAthena 移植 OnPCCartDelFilter：结束 =====
 
 	enum e_additem_result flag = pc_additem(sd, item_data, amount, LOG_TYPE_NONE);
 
@@ -7118,6 +7185,19 @@ enum e_setpos pc_setpos(map_session_data* sd, uint16 mapindex, int32 x, int32 y,
 		clif_changemap( *sd, m, x, y );
 	} else if(sd->state.active) //Tag player for rewarping after map-loading is done. [Skotlex]
 		sd->state.rewarp = 1;
+
+	// ===== rAthena 移植 OnPCEnterMapExpress（切图）：开始 =====
+	// 修改原因：本地图服内移动或切图时，在坐标写入前同时提供来源与目标信息。
+	pc_setreg(sd, add_str("@frommap_id"), sd->m);
+	pc_setreg(sd, add_str("@frommap_x"), sd->x);
+	pc_setreg(sd, add_str("@frommap_y"), sd->y);
+	pc_setregstr(sd, add_str("@frommap_name$"), sd->m >= 0 ? map[sd->m].name : "");
+	pc_setreg(sd, add_str("@tomap_id"), m);
+	pc_setreg(sd, add_str("@tomap_x"), x);
+	pc_setreg(sd, add_str("@tomap_y"), y);
+	pc_setregstr(sd, add_str("@tomap_name$"), map[m].name);
+	npc_script_event(*sd, NPCX_ENTERMAP);
+	// ===== rAthena 移植 OnPCEnterMapExpress（切图）：结束 =====
 
 	sd->mapindex = mapindex;
 	sd->m = m;
@@ -10165,6 +10245,12 @@ void pc_revive(map_session_data *sd,uint32 hp, uint32 sp, uint32 ap) {
 bool pc_revive_item(map_session_data *sd) {
 	nullpo_retr(false, sd);
 
+	// ===== rAthena 移植 OnPCUseReviveTokenFilter：开始 =====
+	// 修改原因：菜单原地复活请求进入原始复活检查前允许脚本阻止。
+	if (npc_script_filter(sd, NPCF_USE_REVIVE_TOKEN))
+		return false;
+	// ===== rAthena 移植 OnPCUseReviveTokenFilter：结束 =====
+
 	if (!pc_isdead(sd) || sd->respawn_tid != INVALID_TIMER)
 		return false;
 
@@ -12132,6 +12218,19 @@ bool pc_equipitem(map_session_data *sd,int16 n,int32 req_pos,bool equipswitch)
 			flag = id->range != sd->inventory_data[i]->range;
 	}
 
+	// ===== rAthena 移植 OnPCEquipFilter：开始 =====
+	// 修改原因：正式穿戴（非装备切换栏登记）前允许脚本阻止，并兼容 Pandas 的事件变量。
+	if (!equipswitch) {
+		pc_setreg(sd, add_str("@equip_idx"), n);
+		pc_setreg(sd, add_str("@equip_pos"), n);
+		pc_setreg(sd, add_str("@equip_swapping"), 0);
+		if (npc_script_filter(sd, NPCF_EQUIP))
+			return false;
+		if (sd->inventory.u.items_inventory[n].nameid == 0 || sd->inventory_data[n] == nullptr)
+			return false;
+	}
+	// ===== rAthena 移植 OnPCEquipFilter：结束 =====
+
 	if( equipswitch ){
 		for( i = 0; i < EQI_MAX; i++ ){
 			if( pos&equip_bitmask[i] ){
@@ -12283,6 +12382,16 @@ bool pc_equipitem(map_session_data *sd,int16 n,int32 req_pos,bool equipswitch)
 	}
 	sd->npc_item_flag = iflag;
 
+	// ===== rAthena 移植 OnPCEquipEvent：开始 =====
+	// 修改原因：装备成功穿戴并执行装备脚本后触发标准事件。
+	if (!equipswitch) {
+		pc_setreg(sd, add_str("@equip_idx"), n);
+		pc_setreg(sd, add_str("@equip_pos"), n);
+		pc_setreg(sd, add_str("@equip_swapping"), 0);
+		npc_script_event(*sd, NPCE_EQUIP);
+	}
+	// ===== rAthena 移植 OnPCEquipEvent：结束 =====
+
 	return true;
 }
 
@@ -12416,6 +12525,18 @@ bool pc_unequipitem(map_session_data *sd, int32 n, int32 flag) {
 		return false;
 	}
 
+	// ===== rAthena 移植 OnPCUnequipFilter：开始 =====
+	// 修改原因：脱下装备前允许脚本阻止；装备切换流程（flag&4）保持原子性，不接受中断。
+	pc_setreg(sd, add_str("@unequip_idx"), n);
+	pc_setreg(sd, add_str("@unequip_pos"), n);
+	pc_setreg(sd, add_str("@unequip_swapping"), (flag & 4) != 0 ? 1 : 0);
+	pc_setreg(sd, add_str("@unequip_force"), (flag & 2) != 0 ? 1 : 0);
+	if (!(flag & 4) && npc_script_filter(sd, NPCF_UNEQUIP))
+		return false;
+	if (sd->inventory.u.items_inventory[n].nameid == 0 || sd->inventory_data[n] == nullptr)
+		return false;
+	// ===== rAthena 移植 OnPCUnequipFilter：结束 =====
+
 	if (battle_config.battle_log)
 		ShowInfo("unequip %d %x:%x\n",n,pc_equippoint(sd,n),pos);
 
@@ -12493,6 +12614,15 @@ bool pc_unequipitem(map_session_data *sd, int32 n, int32 flag) {
 		status_change_end(sd, SC_P_ALTER);
 
 	pc_unequipitem_sub(sd, n, flag);
+
+	// ===== rAthena 移植 OnPCUnequipEvent：开始 =====
+	// 修改原因：装备成功脱下后触发标准事件，并保留操作类型参数。
+	pc_setreg(sd, add_str("@unequip_idx"), n);
+	pc_setreg(sd, add_str("@unequip_pos"), n);
+	pc_setreg(sd, add_str("@unequip_swapping"), (flag & 4) != 0 ? 1 : 0);
+	pc_setreg(sd, add_str("@unequip_force"), (flag & 2) != 0 ? 1 : 0);
+	npc_script_event(*sd, NPCE_UNEQUIP);
+	// ===== rAthena 移植 OnPCUnequipEvent：结束 =====
 
 	return true;
 }

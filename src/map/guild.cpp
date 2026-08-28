@@ -709,6 +709,13 @@ bool guild_create( map_session_data& sd, const char* name ){
 		return false;
 	}
 
+	// ===== rAthena 移植 OnPCGuildCreateFilter：开始 =====
+	// 修改原因：创建公会前向脚本提供名称，并允许 processhalt 取消创建。
+	pc_setregstr(&sd, add_str("@create_guild_name$"), name);
+	if (npc_script_filter(&sd, NPCF_GUILDCREATE))
+		return false;
+	// ===== rAthena 移植 OnPCGuildCreateFilter：结束 =====
+
 	struct guild_member m = {};
 
 	guild_makemember( m, sd );
@@ -1027,6 +1034,19 @@ bool guild_reply_invite( map_session_data& sd, int32 guild_id, int32 flag ){
 		return true;
 	}
 
+	// ===== rAthena 移植 OnPCGuildJoinFilter：开始 =====
+	// 修改原因：接受公会邀请后、写入成员前允许脚本阻止加入。
+	pc_setreg(&sd, add_str("@join_guild_id"), guild_id);
+	pc_setreg(&sd, add_str("@join_guild_aid"), tsd != nullptr ? tsd->status.account_id : 0);
+	if (npc_script_filter(&sd, NPCF_GUILDJOIN)) {
+		sd.guild_invite = 0;
+		sd.guild_invite_account = 0;
+		if (tsd != nullptr)
+			clif_guild_inviteack(*tsd, 1);
+		return false;
+	}
+	// ===== rAthena 移植 OnPCGuildJoinFilter：结束 =====
+
 	// accepted
 	auto g = guild_search( guild_id );
 
@@ -1178,6 +1198,16 @@ bool guild_leave( map_session_data& sd, int32 guild_id, uint32 account_id, uint3
 		return false;
 	}
 
+	// ===== rAthena 移植 OnPCGuildLeaveFilter（主动退出）：开始 =====
+	// 修改原因：退出公会前提供公会和成员信息，并允许脚本阻止退出。
+	pc_setreg(&sd, add_str("@left_guild_id"), sd.guild->guild.guild_id);
+	pc_setregstr(&sd, add_str("@left_guild_name$"), sd.guild->guild.name);
+	pc_setreg(&sd, add_str("@left_guild_kick"), 0);
+	pc_setreg(&sd, add_str("@left_guild_aid"), sd.status.account_id);
+	if (npc_script_filter(&sd, NPCF_GUILDLEAVE))
+		return false;
+	// ===== rAthena 移植 OnPCGuildLeaveFilter（主动退出）：结束 =====
+
 	guild_trade_bound_cancel(sd);
 
 	return intif_guild_leave( sd.status.guild_id, sd.status.account_id, sd.status.char_id, 0, mes );
@@ -1224,6 +1254,16 @@ bool guild_expulsion( map_session_data& sd, int32 guild_id, uint32 account_id, u
 	if( i < 0 ){
 		return false;
 	}
+
+	// ===== rAthena 移植 OnPCGuildLeaveFilter（驱逐）：开始 =====
+	// 修改原因：驱逐成员前提供目标信息，并允许脚本阻止驱逐。
+	pc_setreg(&sd, add_str("@left_guild_id"), g->guild.guild_id);
+	pc_setregstr(&sd, add_str("@left_guild_name$"), g->guild.name);
+	pc_setreg(&sd, add_str("@left_guild_kick"), 1);
+	pc_setreg(&sd, add_str("@left_guild_aid"), g->guild.member[i].account_id);
+	if (npc_script_filter(&sd, NPCF_GUILDLEAVE))
+		return false;
+	// ===== rAthena 移植 OnPCGuildLeaveFilter（驱逐）：结束 =====
 
 	// Can't expel the guild leader
 	if( strcmp( g->guild.member[i].name, g->guild.master ) == 0 ){

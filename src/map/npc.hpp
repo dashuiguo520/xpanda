@@ -1609,6 +1609,54 @@ enum npce_event : uint8 {
 	NPCE_KILLPC,
 	NPCE_KILLNPC,
 	NPCE_IDENTIFY,
+	// ===== rAthena 移植 Pandas 事件：开始 =====
+	// 修改原因：加入 pandas_events.txt 中记录的过滤器、标准事件和实时事件；按用户要求默认启用，不使用 Pandas 宏开关。
+	NPCF_IDENTIFY,
+	NPCF_ENTERCHAT,
+	NPCF_INSERT_CARD,
+	NPCF_USE_ITEM,
+	NPCF_USE_SKILL,
+	NPCF_ROULETTE_OPEN,
+	NPCF_VIEW_EQUIP,
+	NPCF_EQUIP,
+	NPCF_UNEQUIP,
+	NPCF_CHANGETITLE,
+	NPCF_SC_START,
+	NPCF_USE_REVIVE_TOKEN,
+	NPCF_ONECLICK_IDENTIFY,
+	NPCF_GUILDCREATE,
+	NPCF_GUILDJOIN,
+	NPCF_GUILDLEAVE,
+	NPCF_PARTYCREATE,
+	NPCF_PARTYJOIN,
+	NPCF_PARTYLEAVE,
+	NPCF_DROPITEM,
+	NPCF_CLICKTOMB,
+	NPCF_STORAGE_ADD,
+	NPCF_STORAGE_DEL,
+	NPCF_CART_ADD,
+	NPCF_CART_DEL,
+	NPCF_FAVORITE_ADD,
+	NPCF_FAVORITE_DEL,
+	NPCE_KILLMVP,
+	NPCE_INSERT_CARD,
+	NPCE_USE_ITEM,
+	NPCE_USE_SKILL,
+	NPCE_EQUIP,
+	NPCE_UNEQUIP,
+	NPCE_STATCALC,
+	NPCX_SC_END,
+	NPCX_SC_START,
+	NPCX_ENTERMAP,
+	NPCX_PROGRESSABORT,
+	NPCX_UNIT_KILL,
+	NPCX_MOBDROPITEM,
+	NPCX_PCATTACK,
+	NPCX_MER_CALL,
+	NPCX_MER_LEAVE,
+	NPCX_PC_TALK,
+	NPCX_PCHARMED,
+	// ===== rAthena 移植 Pandas 事件：结束 =====
 	NPCE_MAX
 };
 
@@ -1682,6 +1730,19 @@ int32 npc_unload(npc_data* nd, bool single);
 int32 npc_reload(void);
 void npc_read_event_script(void);
 size_t npc_script_event( map_session_data& sd, enum npce_event type );
+
+// ===== rAthena 移植 Pandas 事件框架：开始 =====
+// 修改原因：过滤器需要同步执行并把 processhalt 的结果返回给原调用流程。
+bool npc_script_filter(map_session_data* sd, enum npce_event type);
+bool npc_script_filter(map_session_data* sd, const char* eventname);
+bool npc_event_is_filter(enum npce_event type);
+bool npc_event_is_express(enum npce_event type);
+bool npc_event_is_realtime(enum npce_event type);
+bool npc_event_has_script(enum npce_event type);
+enum npce_event npc_get_script_event_type(const char* eventname);
+void npc_event_aide_killmvp(map_session_data* sd, map_session_data* mvp_sd, mob_data* md);
+void npc_event_aide_unitkill(block_list* src, block_list* target, uint16 skill_id);
+// ===== rAthena 移植 Pandas 事件框架：结束 =====
 
 int32 npc_duplicate4instance(npc_data *snd, int16 m);
 int32 npc_instanceinit(npc_data* nd);

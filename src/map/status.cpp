@@ -121,6 +121,11 @@ static uint32 status_calc_maxhp_pc( map_session_data& sd, uint32 vit );
 static uint32 status_calc_maxsp_pc( map_session_data& sd, uint32 int_ );
 static uint32 status_calc_maxap_pc( map_session_data& sd );
 static int32 status_get_sc_interval(enum sc_type type);
+
+// ===== rAthena 移植 OnPCStatCalcEvent 状态：开始 =====
+// 修改原因：防止能力重算事件内部再次请求重算造成递归。
+static bool running_pandas_stat_calc_event = false;
+// ===== rAthena 移植 OnPCStatCalcEvent 状态：结束 =====
 static bool status_change_start_post_delay(block_list* src, block_list* bl, sc_type type, int32 val1, int32 val2, int32 val3, int32 val4, int32 tick, uint8 flag);
 
 static bool status_change_isDisabledOnMap_(sc_type type, bool mapIsVS, bool mapIsPVP, bool mapIsGVG, bool mapIsBG, uint32 mapZone, bool mapIsTE);
@@ -1702,6 +1707,11 @@ int32 status_damage(block_list *src,block_list *target,int64 dhp, int64 dsp, int
 
 	if(!flag) // Death cancelled.
 		return (int32)(hp+sp+ap);
+
+	// ===== rAthena 移植 OnUnitKillExpress：开始 =====
+	// 修改原因：所有单位类型确认死亡后统一触发，避免各单位死亡函数遗漏或重复。
+	npc_event_aide_unitkill(src, target, skill_id);
+	// ===== rAthena 移植 OnUnitKillExpress：结束 =====
 
 	// Normal death
 	if (battle_config.clear_unit_ondeath &&
@@ -3894,6 +3904,15 @@ int32 status_calc_pc_sub(map_session_data* sd, uint8 opt)
 	pc_delautobonus(*sd, sd->autobonus, true);
 	pc_delautobonus(*sd, sd->autobonus2, true);
 	pc_delautobonus(*sd, sd->autobonus3, true);
+
+	// ===== rAthena 移植 OnPCStatCalcEvent：开始 =====
+	// 修改原因：在装备与卡片脚本计算前同步执行角色能力重算事件。
+	if (!running_pandas_stat_calc_event) {
+		running_pandas_stat_calc_event = true;
+		npc_script_event(*sd, NPCE_STATCALC);
+		running_pandas_stat_calc_event = false;
+	}
+	// ===== rAthena 移植 OnPCStatCalcEvent：结束 =====
 
 	if (sd->pd != nullptr) {
 		pet_delautobonus(*sd, sd->pd->autobonus, true);
@@ -10159,6 +10178,30 @@ bool status_change_start(block_list* src, block_list* bl, sc_type type, int32 ra
 		return false;
 	}
 
+	// ===== rAthena 移植 OnPCBuffStartFilter：开始 =====
+	// 修改原因：玩家获得状态前允许脚本中断或调整成功率、时长及四个状态参数。
+	map_session_data* filter_sd = BL_CAST(BL_PC, bl);
+	if (filter_sd != nullptr) {
+		pc_setreg(filter_sd, add_str("@about2start_sc_id"), static_cast<int64>(type));
+		pc_setreg(filter_sd, add_str("@about2start_sc_rate"), rate);
+		pc_setreg(filter_sd, add_str("@about2start_sc_tick"), duration);
+		pc_setreg(filter_sd, add_str("@about2start_sc_val1"), val1);
+		pc_setreg(filter_sd, add_str("@about2start_sc_val2"), val2);
+		pc_setreg(filter_sd, add_str("@about2start_sc_val3"), val3);
+		pc_setreg(filter_sd, add_str("@about2start_sc_val4"), val4);
+		if (npc_script_filter(filter_sd, NPCF_SC_START))
+			return false;
+		rate = static_cast<int32>(cap_value(pc_readreg(filter_sd, add_str("@about2start_sc_rate")), 0, INT_MAX));
+		duration = cap_value(pc_readreg(filter_sd, add_str("@about2start_sc_tick")), static_cast<int64>(-1), static_cast<int64>(INT_MAX));
+		val1 = static_cast<int32>(cap_value(pc_readreg(filter_sd, add_str("@about2start_sc_val1")), INT_MIN, INT_MAX));
+		val2 = static_cast<int32>(cap_value(pc_readreg(filter_sd, add_str("@about2start_sc_val2")), INT_MIN, INT_MAX));
+		val3 = static_cast<int32>(cap_value(pc_readreg(filter_sd, add_str("@about2start_sc_val3")), INT_MIN, INT_MAX));
+		val4 = static_cast<int32>(cap_value(pc_readreg(filter_sd, add_str("@about2start_sc_val4")), INT_MIN, INT_MAX));
+		if (rate == 0 || duration == 0)
+			return false;
+	}
+	// ===== rAthena 移植 OnPCBuffStartFilter：结束 =====
+
 	status_change* sc = status_get_sc(bl);
 
 	if (sc == nullptr)
@@ -13353,6 +13396,20 @@ static bool status_change_start_post_delay(block_list* src, block_list* bl, sc_t
 	if( opt_flag[SCF_ONTOUCH] && sd && !sd->npc_ontouch_.empty() )
 		npc_touchnext_areanpc(sd,false); // Run OnTouch_ on next char in range
 
+	// ===== rAthena 移植 OnPCBuffStartExpress：开始 =====
+	// 修改原因：状态成功生效后同步通知脚本并提供最终参数。
+	if (sd != nullptr) {
+		pc_setreg(sd, add_str("@startedsc"), static_cast<int64>(type));
+		pc_setreg(sd, add_str("@started_sc_id"), static_cast<int64>(type));
+		pc_setreg(sd, add_str("@started_sc_tick"), tick);
+		pc_setreg(sd, add_str("@started_sc_val1"), val1);
+		pc_setreg(sd, add_str("@started_sc_val2"), val2);
+		pc_setreg(sd, add_str("@started_sc_val3"), val3);
+		pc_setreg(sd, add_str("@started_sc_val4"), val4);
+		npc_script_event(*sd, NPCX_SC_START);
+	}
+	// ===== rAthena 移植 OnPCBuffStartExpress：结束 =====
+
 	return true;
 }
 
@@ -14119,6 +14176,15 @@ int32 status_change_end( block_list* bl, enum sc_type type, int32 tid ){
 	// Needed to be here to make sure OPT1_STONEWAIT has been cleared from the target (only on natural expiration of the stone wait timer)
 	if (type == SC_STONEWAIT && tid != INVALID_TIMER)
 		status_change_start(bl, bl, SC_STONE, 100, val1, val2, 0, 0, val3, SCSTART_NOAVOID);
+
+	// ===== rAthena 移植 OnPCBuffEndExpress：开始 =====
+	// 修改原因：状态成功解除后同步通知玩家事件脚本。
+	if (sd != nullptr) {
+		pc_setreg(sd, add_str("@endedsc"), static_cast<int64>(type));
+		pc_setreg(sd, add_str("@ended_sc_id"), static_cast<int64>(type));
+		npc_script_event(*sd, NPCX_SC_END);
+	}
+	// ===== rAthena 移植 OnPCBuffEndExpress：结束 =====
 
 	return 1;
 }

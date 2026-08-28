@@ -317,6 +317,18 @@ int32 mercenary_delete(s_mercenary_data *md, int32 reply) {
 			break; 
 	}
 
+	// ===== rAthena 移植 OnPCMerLeaveExpress：开始 =====
+	// 修改原因：佣兵离开前同步提供佣兵、位置及原因信息。
+	pc_setreg(sd, add_str("@mer_gid"), md->id);
+	pc_setreg(sd, add_str("@mer_classid"), md->db->class_);
+	pc_setreg(sd, add_str("@mer_leave_reason"), reply);
+	pc_setreg(sd, add_str("@mer_mapid"), md->m);
+	pc_setregstr(sd, add_str("@mer_mapname$"), md->m >= 0 ? map[md->m].name : "");
+	pc_setreg(sd, add_str("@mer_x"), md->x);
+	pc_setreg(sd, add_str("@mer_y"), md->y);
+	npc_script_event(*sd, NPCX_MER_LEAVE);
+	// ===== rAthena 移植 OnPCMerLeaveExpress：结束 =====
+
 	return unit_remove_map(md, CLR_OUTSIGHT);
 }
 
@@ -417,6 +429,18 @@ bool mercenary_recv_data(s_mercenary *merc, bool flag)
 	for (uint16 i = 0; i < ARRAYLENGTH(md->mercenary.scd); i++) {
 		skill_blockmerc_start(*md, md->mercenary.scd[i].skill_id, md->mercenary.scd[i].tick);
 	}
+
+	// ===== rAthena 移植 OnPCMerCallExpress：开始 =====
+	// 修改原因：佣兵成功生成后同步提供佣兵属性和位置。
+	pc_setreg(sd, add_str("@mer_gid"), md->id);
+	pc_setreg(sd, add_str("@mer_classid"), md->db->class_);
+	pc_setreg(sd, add_str("@mer_lifetime"), merc->life_time);
+	pc_setreg(sd, add_str("@mer_mapid"), md->m);
+	pc_setregstr(sd, add_str("@mer_mapname$"), md->m >= 0 ? map[md->m].name : "");
+	pc_setreg(sd, add_str("@mer_x"), md->x);
+	pc_setreg(sd, add_str("@mer_y"), md->y);
+	npc_script_event(*sd, NPCX_MER_CALL);
+	// ===== rAthena 移植 OnPCMerCallExpress：结束 =====
 
 	return true;
 }

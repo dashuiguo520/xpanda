@@ -40,6 +40,10 @@
 #include "log.hpp"
 #include "log.hpp"
 #include "map.hpp"
+// ===== rAthena 移植单位击杀事件依赖：开始 =====
+// 修改原因：OnUnitKillExpress 使用地图服务器临时变量传参。
+#include "mapreg.hpp"
+// ===== rAthena 移植单位击杀事件依赖：结束 =====
 #include "mob.hpp"
 #include "navi.hpp"
 #include "pc.hpp"
@@ -206,6 +210,44 @@ struct script_event_s{
 
 // Holds pointers to the commonly executed scripts for speedup. [Skotlex]
 std::map<enum npce_event, std::vector<struct script_event_s>> script_event;
+
+// ===== rAthena 移植击杀事件辅助函数：开始 =====
+// 修改原因：统一生成 MVP 击杀及任意单位死亡事件参数，供不同单位死亡流程复用。
+void npc_event_aide_killmvp(map_session_data* sd, map_session_data* mvp_sd, mob_data* md) {
+	if (sd == nullptr || md == nullptr || !status_has_mode(&md->status, MD_MVP))
+		return;
+	pc_setparam(sd, SP_KILLEDRID, md->mob_id);
+	pc_setparam(sd, SP_KILLEDGID, md->id);
+	pc_setreg(sd, add_str("@mob_dead_x"), md->x);
+	pc_setreg(sd, add_str("@mob_dead_y"), md->y);
+	pc_setreg(sd, add_str("@mob_lasthit_rid"), sd->id);
+	pc_setreg(sd, add_str("@mob_lasthit_cid"), sd->status.char_id);
+	pc_setreg(sd, add_str("@mob_mvp_rid"), mvp_sd != nullptr ? mvp_sd->id : 0);
+	pc_setreg(sd, add_str("@mob_mvp_cid"), mvp_sd != nullptr ? mvp_sd->status.char_id : 0);
+	npc_script_event(*sd, NPCE_KILLMVP);
+}
+
+void npc_event_aide_unitkill(block_list* src, block_list* target, uint16 skill_id) {
+	if (target == nullptr)
+		return;
+	mapreg_setreg(add_str("$@killed_gid"), target->id);
+	mapreg_setreg(add_str("$@killed_type"), target->type);
+	mapreg_setreg(add_str("$@killed_mapid"), target->m);
+	mapreg_setregstr(add_str("$@killed_mapname$"), target->m >= 0 ? map[target->m].name : "");
+	mapreg_setreg(add_str("$@killed_x"), target->x);
+	mapreg_setreg(add_str("$@killed_y"), target->y);
+	mapreg_setreg(add_str("$@killed_classid"), status_get_class(target));
+	mapreg_setreg(add_str("$@killer_gid"), src != nullptr ? src->id : 0);
+	mapreg_setreg(add_str("$@killer_type"), src != nullptr ? src->type : 0);
+	mapreg_setreg(add_str("$@killer_mapid"), src != nullptr ? src->m : -1);
+	mapreg_setregstr(add_str("$@killer_mapname$"), src != nullptr && src->m >= 0 ? map[src->m].name : "");
+	mapreg_setreg(add_str("$@killer_x"), src != nullptr ? src->x : 0);
+	mapreg_setreg(add_str("$@killer_y"), src != nullptr ? src->y : 0);
+	mapreg_setreg(add_str("$@killer_classid"), src != nullptr ? status_get_class(src) : 0);
+	mapreg_setreg(add_str("$@killer_skillid"), skill_id);
+	npc_event_doall("OnUnitKillExpress");
+}
+// ===== rAthena 移植击杀事件辅助函数：结束 =====
 
 // Static functions
 static npc_data* npc_create_npc( int16 m, int16 x, int16 y );
@@ -2275,6 +2317,36 @@ int32 npc_globalmessage(const char* name, const char* mes)
 // MvP tomb [GreenBox]
 void run_tomb(map_session_data* sd, npc_data* nd)
 {
+	// ===== rAthena 移植 OnPCClickTombFilter：开始 =====
+	// 修改原因：显示默认墓碑对话前提供墓碑、MVP、刷新及击杀者资料，并允许脚本替代默认显示。
+	if (sd != nullptr && nd != nullptr && nd->u.tomb.md != nullptr) {
+		pc_setreg(sd, add_str("@tomb_mapid"), nd->m);
+		pc_setreg(sd, add_str("@tomb_x"), nd->x);
+		pc_setreg(sd, add_str("@tomb_y"), nd->y);
+		pc_setregstr(sd, add_str("@tomb_mapname$"), nd->m >= 0 ? map[nd->m].name : "");
+		pc_setreg(sd, add_str("@tomb_gid"), nd->id);
+		pc_setreg(sd, add_str("@tomb_createtime"), nd->u.tomb.kill_time);
+		pc_setreg(sd, add_str("@tomb_mob_gid"), nd->u.tomb.md->id);
+		pc_setreg(sd, add_str("@tomb_mob_classid"), nd->u.tomb.md->mob_id);
+		pc_setreg(sd, add_str("@tomb_mob_respawnsecs"), -1);
+		t_tick respawntime = -1;
+		if (nd->u.tomb.md->spawn != nullptr) {
+			const TimerData* spawn_timer = get_timer(nd->u.tomb.md->spawn_timer);
+			respawntime = spawn_timer != nullptr ? spawn_timer->tick : -1;
+			if (respawntime != -1) {
+				respawntime = DIFF_TICK(respawntime, gettick()) / 1000;
+				pc_setreg(sd, add_str("@tomb_mob_respawnsecs"), respawntime);
+				respawntime += static_cast<t_tick>(time(nullptr));
+			}
+		}
+		pc_setreg(sd, add_str("@tomb_mob_respawntime"), respawntime);
+		pc_setregstr(sd, add_str("@tomb_killer_name$"), nd->u.tomb.killer_name);
+		pc_setreg(sd, add_str("@tomb_killer_gid"), 0);
+		if (npc_script_filter(sd, NPCF_CLICKTOMB))
+			return;
+	}
+	// ===== rAthena 移植 OnPCClickTombFilter：结束 =====
+
 	char buffer[200];
 	char time[10];
 
@@ -3046,6 +3118,10 @@ static int32 npc_selllist_sub(map_session_data* sd, int32 list_length, const PAC
 	char card_slot[NAME_LENGTH];
 	char option_id[NAME_LENGTH], option_val[NAME_LENGTH], option_param[NAME_LENGTH];
 	int32 i, j;
+	// ===== rAthena 移植 OnSellItem 返回参数：开始 =====
+	// 修改原因：为脚本商店的 OnSellItem 补充每项物品的背包索引数组。
+	int32 key_idx = 0;
+	// ===== rAthena 移植 OnSellItem 返回参数：结束 =====
 	int32 key_nameid = 0;
 	int32 key_amount = 0;
 	int32 key_refine = 0;
@@ -3056,6 +3132,10 @@ static int32 npc_selllist_sub(map_session_data* sd, int32 list_length, const PAC
 	int32 key_option_id[MAX_ITEM_RDM_OPT], key_option_val[MAX_ITEM_RDM_OPT], key_option_param[MAX_ITEM_RDM_OPT];
 
 	// discard old contents
+	// ===== rAthena 移植 OnSellItem 数组清理：开始 =====
+	// 修改原因：避免上一次出售留下的 @sold_idx 数据污染本次事件。
+	script_cleararray_pc( sd, "@sold_idx" );
+	// ===== rAthena 移植 OnSellItem 数组清理：结束 =====
 	script_cleararray_pc( sd, "@sold_nameid" );
 	script_cleararray_pc( sd, "@sold_quantity" );
 	script_cleararray_pc( sd, "@sold_refine" );
@@ -3085,6 +3165,11 @@ static int32 npc_selllist_sub(map_session_data* sd, int32 list_length, const PAC
 	for( i = 0; i < list_length; i++ )
 	{
 		int32 idx = item_list[i].index - 2;
+
+		// ===== rAthena 移植 OnSellItem 索引赋值：开始 =====
+		// 修改原因：按出售列表顺序保存对应的服务端背包索引。
+		script_setarray_pc( sd, "@sold_idx", i, idx, &key_idx );
+		// ===== rAthena 移植 OnSellItem 索引赋值：结束 =====
 
 		script_setarray_pc( sd, "@sold_nameid", i, sd->inventory.u.items_inventory[idx].nameid, &key_nameid );
 		script_setarray_pc( sd, "@sold_quantity", i, item_list[i].amount, &key_amount );
@@ -5915,18 +6000,94 @@ int32 npc_parsesrcfile(const char* filepath)
 	return 1;
 }
 
+// ===== rAthena 移植 Pandas 事件执行框架：开始 =====
+// 修改原因：Filter/Express 事件必须立即执行，才能在原流程继续前读取 processhalt 或脚本改写后的参数。
+bool npc_event_is_filter(enum npce_event type) {
+	return type >= NPCF_IDENTIFY && type <= NPCF_FAVORITE_DEL;
+}
+
+bool npc_event_is_express(enum npce_event type) {
+	return type >= NPCE_STATCALC && type <= NPCX_PCHARMED;
+}
+
+bool npc_event_is_realtime(enum npce_event type) {
+	return npc_event_is_filter(type) || npc_event_is_express(type);
+}
+
+bool npc_event_has_script(enum npce_event type) {
+	return type < NPCE_MAX && !script_event[type].empty();
+}
+
+enum npce_event npc_get_script_event_type(const char* eventname) {
+	if (eventname == nullptr)
+		return NPCE_MAX;
+
+	const char* label = strrchr(eventname, ':');
+	label = label == nullptr ? eventname : label + 1;
+	for (int32 i = 0; i < NPCE_MAX; ++i) {
+		if (strcmpi(label, npc_get_script_event_name(i)) == 0)
+			return static_cast<enum npce_event>(i);
+	}
+	return NPCE_MAX;
+}
+
+static bool npc_event_rightnow(map_session_data& sd, const script_event_s& evt) {
+	const enum npce_event type = npc_get_script_event_type(evt.event_name);
+	if (!npc_event_is_realtime(type) || evt.event == nullptr || evt.event->nd == nullptr)
+		return false;
+
+	const uint8 previous_event = sd.pandas_event_current;
+	sd.pandas_event_current = static_cast<uint8>(type);
+	pc_setreg(&sd, add_str("@interrupt_npcid"), sd.npc_id);
+	run_script(evt.event->nd->u.scr.script, evt.event->pos, sd.id, evt.event->nd->id);
+	pc_setreg(&sd, add_str("@interrupt_npcid"), 0);
+	sd.pandas_event_current = previous_event;
+	return true;
+}
+
 size_t npc_script_event( map_session_data& sd, enum npce_event type ){
 	if (type == NPCE_MAX)
 		return 0;
 
-	std::vector<struct script_event_s>& vector = script_event[type];
+	// 脚本可能执行 unloadnpc 并重建事件表，因此复制列表以避免迭代器失效。
+	std::vector<struct script_event_s> vector = script_event[type];
 
 	for( struct script_event_s& evt : vector ){
+		if (npc_event_rightnow(sd, evt))
+			continue;
 		npc_event_sub( &sd, evt.event, evt.event_name );
 	}
 
 	return vector.size();
 }
+
+bool npc_script_filter(map_session_data* sd, enum npce_event type) {
+	nullpo_retr(false, sd);
+	if (!npc_event_is_filter(type))
+		return false;
+
+	npc_script_event(*sd, type);
+	const bool halted = sd->pandas_event_halt.test(static_cast<size_t>(type));
+	sd->pandas_event_halt.reset(static_cast<size_t>(type));
+	return halted;
+}
+
+bool npc_script_filter(map_session_data* sd, const char* eventname) {
+	nullpo_retr(false, sd);
+	const enum npce_event type = npc_get_script_event_type(eventname);
+	if (!npc_event_is_filter(type))
+		return false;
+
+	struct event_data* ev = static_cast<struct event_data*>(strdb_get(ev_db, eventname));
+	if (ev != nullptr) {
+		const script_event_s evt = { ev, eventname };
+		npc_event_rightnow(*sd, evt);
+	}
+	const bool halted = sd->pandas_event_halt.test(static_cast<size_t>(type));
+	sd->pandas_event_halt.reset(static_cast<size_t>(type));
+	return halted;
+}
+// ===== rAthena 移植 Pandas 事件执行框架：结束 =====
 
 /**
  * Duplicates a NPC.
@@ -6089,6 +6250,54 @@ const char *npc_get_script_event_name(int32 npce_index)
 		return script_config.kill_mob_event_name;
 	case NPCE_IDENTIFY:
 		return script_config.identify_event_name;
+	// ===== rAthena 移植 Pandas 事件名称：开始 =====
+	// 修改原因：直接注册 pandas_events.txt 中的事件标签，避免引入 Pandas 专有配置宏。
+	case NPCF_IDENTIFY: return "OnPCIdentifyFilter";
+	case NPCF_ENTERCHAT: return "OnPCInChatroomFilter";
+	case NPCF_INSERT_CARD: return "OnPCInsertCardFilter";
+	case NPCF_USE_ITEM: return "OnPCUseItemFilter";
+	case NPCF_USE_SKILL: return "OnPCUseSkillFilter";
+	case NPCF_ROULETTE_OPEN: return "OnPCOpenRouletteFilter";
+	case NPCF_VIEW_EQUIP: return "OnPCViewEquipFilter";
+	case NPCF_EQUIP: return "OnPCEquipFilter";
+	case NPCF_UNEQUIP: return "OnPCUnequipFilter";
+	case NPCF_CHANGETITLE: return "OnPCChangeTitleFilter";
+	case NPCF_SC_START: return "OnPCBuffStartFilter";
+	case NPCF_USE_REVIVE_TOKEN: return "OnPCUseReviveTokenFilter";
+	case NPCF_ONECLICK_IDENTIFY: return "OnPCUseOCIdentifyFilter";
+	case NPCF_GUILDCREATE: return "OnPCGuildCreateFilter";
+	case NPCF_GUILDJOIN: return "OnPCGuildJoinFilter";
+	case NPCF_GUILDLEAVE: return "OnPCGuildLeaveFilter";
+	case NPCF_PARTYCREATE: return "OnPCPartyCreateFilter";
+	case NPCF_PARTYJOIN: return "OnPCPartyJoinFilter";
+	case NPCF_PARTYLEAVE: return "OnPCPartyLeaveFilter";
+	case NPCF_DROPITEM: return "OnPCDropItemFilter";
+	case NPCF_CLICKTOMB: return "OnPCClickTombFilter";
+	case NPCF_STORAGE_ADD: return "OnPCStorageAddFilter";
+	case NPCF_STORAGE_DEL: return "OnPCStorageDelFilter";
+	case NPCF_CART_ADD: return "OnPCCartAddFilter";
+	case NPCF_CART_DEL: return "OnPCCartDelFilter";
+	case NPCF_FAVORITE_ADD: return "OnPCFavoriteAddFilter";
+	case NPCF_FAVORITE_DEL: return "OnPCFavoriteDelFilter";
+	case NPCE_KILLMVP: return "OnPCKillMvpEvent";
+	case NPCE_INSERT_CARD: return "OnPCInsertCardEvent";
+	case NPCE_USE_ITEM: return "OnPCUseItemEvent";
+	case NPCE_USE_SKILL: return "OnPCUseSkillEvent";
+	case NPCE_EQUIP: return "OnPCEquipEvent";
+	case NPCE_UNEQUIP: return "OnPCUnequipEvent";
+	case NPCE_STATCALC: return "OnPCStatCalcEvent";
+	case NPCX_SC_END: return "OnPCBuffEndExpress";
+	case NPCX_SC_START: return "OnPCBuffStartExpress";
+	case NPCX_ENTERMAP: return "OnPCEnterMapExpress";
+	case NPCX_PROGRESSABORT: return "OnPCProgressAbortExpress";
+	case NPCX_UNIT_KILL: return "OnUnitKillExpress";
+	case NPCX_MOBDROPITEM: return "OnMobDropItemExpress";
+	case NPCX_PCATTACK: return "OnPCAttackExpress";
+	case NPCX_MER_CALL: return "OnPCMerCallExpress";
+	case NPCX_MER_LEAVE: return "OnPCMerLeaveExpress";
+	case NPCX_PC_TALK: return "OnPCTalkExpress";
+	case NPCX_PCHARMED: return "OnPCHarmedExpress";
+	// ===== rAthena 移植 Pandas 事件名称：结束 =====
 	default:
 		ShowError("npc_get_script_event_name: npce_index is outside the array limits: %d (max: %d).\n", npce_index, NPCE_MAX);
 		return nullptr;

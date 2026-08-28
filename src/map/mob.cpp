@@ -33,6 +33,10 @@
 #include "itemdb.hpp"
 #include "log.hpp"
 #include "map.hpp"
+// ===== rAthena 移植魔物事件依赖：开始 =====
+// 修改原因：魔物掉落实时事件需要写入地图服务器临时变量。
+#include "mapreg.hpp"
+// ===== rAthena 移植魔物事件依赖：结束 =====
 #include "mercenary.hpp"
 #include "npc.hpp"
 #include "party.hpp"
@@ -2583,6 +2587,28 @@ static void mob_item_drop(mob_data *md, std::shared_ptr<s_item_drop_list>& dlist
 {
 	TBL_PC* sd;
 	bool test_autoloot;
+
+	// ===== rAthena 移植 OnMobDropItemExpress：开始 =====
+	// 修改原因：rAthena 没有 Pandas 的 item_properties 数据库；仅在实际注册事件时对即将生成的掉落统一触发，脚本可用 bypass 取消。
+	if (npc_event_has_script(NPCX_MOBDROPITEM)) {
+		map_session_data* belong_sd = map_charid2sd(dlist->first_charid);
+		if (belong_sd == nullptr) belong_sd = map_charid2sd(dlist->second_charid);
+		if (belong_sd == nullptr) belong_sd = map_charid2sd(dlist->third_charid);
+		mapreg_setreg(add_str("$@mobdrop_gid"), md != nullptr ? md->id : 0);
+		mapreg_setreg(add_str("$@mobdrop_mobid"), md != nullptr ? md->mob_id : 0);
+		mapreg_setreg(add_str("$@mobdrop_itemid"), ditem->item_data.nameid);
+		mapreg_setreg(add_str("$@mobdrop_rate"), drop_rate);
+		mapreg_setreg(add_str("$@mobdrop_from"), loot != 0 ? 4 : 1);
+		mapreg_setregstr(add_str("$@mobdrop_mapname$"), md != nullptr && md->m >= 0 ? map[md->m].name : "");
+		mapreg_setreg(add_str("$@mobdrop_killerrid"), belong_sd != nullptr ? belong_sd->id : 0);
+		mapreg_setreg(add_str("$@mobdrop_belongrid"), belong_sd != nullptr ? belong_sd->id : 0);
+		mapreg_setreg(add_str("$@mobdrop_bypass"), 0);
+		npc_event_doall("OnMobDropItemExpress");
+		if (mapreg_readreg(add_str("$@mobdrop_bypass")) != 0)
+			return;
+	}
+	// ===== rAthena 移植 OnMobDropItemExpress：结束 =====
+
 	//Logs items, dropped by mobs [Lupus]
 	log_pick_mob(md, loot?LOG_TYPE_LOOT:LOG_TYPE_PICKDROP_MONSTER, -ditem->item_data.amount, &ditem->item_data);
 
@@ -3607,6 +3633,12 @@ int32 mob_dead(mob_data *md, block_list *src, int32 type)
 			pc_setparam(first_sd, SP_KILLEDRID, md->mob_id);
 			npc_script_event( *first_sd, NPCE_KILLNPC );
 		}
+
+		// ===== rAthena 移植 OnPCKillMvpEvent：开始 =====
+		// 修改原因：默认魔物击杀事件处理完成后，对 MVP 额外触发玩家事件。
+		if (!md->state.npc_killmonster)
+			npc_event_aide_killmvp(sd != nullptr ? sd : first_sd, mvp_sd, md);
+		// ===== rAthena 移植 OnPCKillMvpEvent：结束 =====
 	}
 
 	if(md->deletetimer != INVALID_TIMER) {

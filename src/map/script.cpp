@@ -3641,6 +3641,10 @@ struct script_state* script_alloc_state(struct script_code* rootscript, int32 po
 	st->oid = oid;
 	st->sleep.timer = INVALID_TIMER;
 	st->npc_item_flag = battle_config.item_enabled_npc;
+	// ===== rAthena 移植 Pandas 实时事件指令解锁状态初始化：开始 =====
+	// 修改原因：每次脚本执行默认保持 Filter/Express 事件的非阻塞约束。
+	st->pandas_unlockcmd = 0;
+	// ===== rAthena 移植 Pandas 实时事件指令解锁状态初始化：结束 =====
 	
 	if( st->script->instances != USHRT_MAX )
 		st->script->instances++;
@@ -4121,6 +4125,29 @@ int32 run_func(struct script_state *st)
 	if( script_config.warn_func_mismatch_argtypes ) {
 		script_check_buildin_argtype(st, func);
 	}
+
+	// ===== rAthena 移植 Pandas 实时事件交互指令限制：开始 =====
+	// 修改原因：Filter/Express 在源流程中同步执行，等待玩家输入会阻塞或破坏被拦截的操作。
+	map_session_data* realtime_sd = map_id2sd(st->rid);
+	if (realtime_sd != nullptr && realtime_sd->pandas_event_current != UINT8_MAX &&
+		npc_event_is_realtime(static_cast<enum npce_event>(realtime_sd->pandas_event_current)) && !st->pandas_unlockcmd) {
+		static const char* blocked_commands[] = {
+			"mes", "next", "close", "close2", "menu", "select", "prompt", "input",
+			"openstorage", "guildopenstorage", "produce", "cooking", "birthpet", "callshop",
+			"sleep", "sleep2", "openmail", "openauction", "progressbar", "buyingstore",
+			"makerune", "opendressroom", "openstorage2"
+		};
+		const char* command = get_str(func);
+		for (const char* blocked_command : blocked_commands) {
+			if (strcmp(command, blocked_command) == 0) {
+				ShowWarning("Script command '%s' is blocked in Filter/Express events; call unlockcmd first to allow it.\n", command);
+				script_reportsrc(st);
+				st->state = END;
+				return 1;
+			}
+		}
+	}
+	// ===== rAthena 移植 Pandas 实时事件交互指令限制：结束 =====
 
 	if(str_data[func].func) {
 #if defined(SCRIPT_COMMAND_DEPRECATION)
@@ -23004,6 +23031,42 @@ BUILDIN_FUNC(freeloop) {
 	return SCRIPT_CMD_SUCCESS;
 }
 
+// ===== rAthena 移植 Pandas processhalt：开始 =====
+// 修改原因：允许 OnPC*Filter 脚本同步阻止源代码后续操作；状态在过滤器返回时会自动清除。
+BUILDIN_FUNC(processhalt) {
+	map_session_data* sd = map_id2sd(st->rid);
+	if (sd == nullptr || sd->pandas_event_current == UINT8_MAX) {
+		ShowError("buildin_processhalt: This command requires an active filter event.\n");
+		return SCRIPT_CMD_FAILURE;
+	}
+
+	const enum npce_event type = static_cast<enum npce_event>(sd->pandas_event_current);
+	if (!npc_event_is_filter(type)) {
+		ShowError("buildin_processhalt: Event '%s' is not a filter event.\n", npc_get_script_event_name(type));
+		return SCRIPT_CMD_FAILURE;
+	}
+
+	const bool halt = !script_hasdata(st, 2) || script_getnum(st, 2) != 0;
+	sd->pandas_event_halt.set(static_cast<size_t>(type), halt);
+	return SCRIPT_CMD_SUCCESS;
+}
+// ===== rAthena 移植 Pandas processhalt：结束 =====
+
+// ===== rAthena 移植 Pandas unlockcmd：开始 =====
+// 修改原因：允许事件作者在确认安全时显式使用 Filter/Express 默认禁止的玩家交互指令。
+BUILDIN_FUNC(unlockcmd) {
+	map_session_data* sd = map_id2sd(st->rid);
+	if (sd == nullptr || sd->pandas_event_current == UINT8_MAX ||
+		!npc_event_is_realtime(static_cast<enum npce_event>(sd->pandas_event_current))) {
+		ShowError("buildin_unlockcmd: This command requires an active Filter/Express event.\n");
+		return SCRIPT_CMD_FAILURE;
+	}
+
+	st->pandas_unlockcmd = 1;
+	return SCRIPT_CMD_SUCCESS;
+}
+// ===== rAthena 移植 Pandas unlockcmd：结束 =====
+
 /**
  * @commands (script based)
  **/
@@ -28449,6 +28512,14 @@ struct script_function buildin_func[] = {
 	BUILDIN_DEF(get_revision,""),
 	BUILDIN_DEF(get_githash,""),
 	BUILDIN_DEF(freeloop,"?"),
+	// ===== rAthena 移植 Pandas processhalt 注册：开始 =====
+	// 修改原因：向脚本引擎公开过滤事件中断指令。
+	BUILDIN_DEF(processhalt,"?"),
+	// ===== rAthena 移植 Pandas processhalt 注册：结束 =====
+	// ===== rAthena 移植 Pandas unlockcmd 注册：开始 =====
+	// 修改原因：向 Filter/Express 事件脚本公开交互指令显式解锁能力。
+	BUILDIN_DEF(unlockcmd,""),
+	// ===== rAthena 移植 Pandas unlockcmd 注册：结束 =====
 	BUILDIN_DEF(getrandgroupitem,"i????"),
 	BUILDIN_DEF(cleanmap,"s"),
 	BUILDIN_DEF2(cleanmap,"cleanarea","siiii"),

@@ -25,6 +25,10 @@
 #include "log.hpp"
 #include "mapreg.hpp"
 #include "mob.hpp"
+// ===== rAthena 移植队伍事件依赖：开始 =====
+// 修改原因：队伍创建、加入和退出流程需要调用过滤事件。
+#include "npc.hpp"
+// ===== rAthena 移植队伍事件依赖：结束 =====
 #include "pc.hpp"
 #include "pc_groups.hpp"
 #include "trade.hpp"
@@ -156,6 +160,13 @@ int32 party_create( map_session_data& sd, char *name, int32 item, int32 item2 ){
 		clif_party_created( sd, 2 );
 		return -2;
 	}
+
+	// ===== rAthena 移植 OnPCPartyCreateFilter：开始 =====
+	// 修改原因：创建队伍前提供队伍名称，并允许 processhalt 取消创建。
+	pc_setregstr(&sd, add_str("@create_party_name$"), name);
+	if (npc_script_filter(&sd, NPCF_PARTYCREATE))
+		return 0;
+	// ===== rAthena 移植 OnPCPartyCreateFilter：结束 =====
 
 	sd.party_creating = true;
 	party_fill_member( leader, sd, 1 );
@@ -531,6 +542,21 @@ void party_join( map_session_data& sd, int32 party_id ){
 		return;
 	}
 
+	// ===== rAthena 移植 OnPCPartyJoinFilter（直接加入路径）：开始 =====
+	// 修改原因：队伍招募等不经过邀请回复的加入路径也必须执行过滤器；邀请者参数取队长账号。
+	uint32 leader_account_id = 0;
+	for (const party_member& party_member : party->party.member) {
+		if (party_member.leader != 0) {
+			leader_account_id = party_member.account_id;
+			break;
+		}
+	}
+	pc_setreg(&sd, add_str("@join_party_id"), party_id);
+	pc_setreg(&sd, add_str("@join_party_aid"), leader_account_id);
+	if (npc_script_filter(&sd, NPCF_PARTYJOIN))
+		return;
+	// ===== rAthena 移植 OnPCPartyJoinFilter（直接加入路径）：结束 =====
+
 	struct party_member member = {};
 
 	sd.party_joining = true;
@@ -583,6 +609,21 @@ bool party_reply_invite( map_session_data& sd, int32 party_id, int32 flag ){
 		sd.party_invite_account = 0;
 		return false;
 	}
+
+	// ===== rAthena 移植 OnPCPartyJoinFilter：开始 =====
+	// 修改原因：玩家接受队伍邀请后允许脚本阻止加入。
+	map_session_data* inviter = map_id2sd(sd.party_invite_account);
+	if (flag == 1 && inviter != nullptr) {
+		pc_setreg(&sd, add_str("@join_party_id"), party_id);
+		pc_setreg(&sd, add_str("@join_party_aid"), inviter->status.account_id);
+		if (npc_script_filter(&sd, NPCF_PARTYJOIN)) {
+			sd.party_invite = 0;
+			sd.party_invite_account = 0;
+			clif_party_invite_reply(*inviter, sd.status.name, PARTY_REPLY_REJECTED);
+			return false;
+		}
+	}
+	// ===== rAthena 移植 OnPCPartyJoinFilter：结束 =====
 
 	// accepted and allowed
 	if( flag == 1 && !sd.party_creating && !sd.party_joining ) {
@@ -725,6 +766,16 @@ bool party_removemember( map_session_data& sd, uint32 account_id, const char* na
 	if( i == MAX_PARTY )
 		return false; // no such char in party
 
+	// ===== rAthena 移植 OnPCPartyLeaveFilter（驱逐）：开始 =====
+	// 修改原因：队长驱逐成员前提供目标信息，并允许脚本阻止操作。
+	pc_setreg(&sd, add_str("@left_party_id"), p->party.party_id);
+	pc_setregstr(&sd, add_str("@left_party_name$"), p->party.name);
+	pc_setreg(&sd, add_str("@left_party_kick"), 1);
+	pc_setreg(&sd, add_str("@left_party_aid"), p->party.member[i].account_id);
+	if (npc_script_filter(&sd, NPCF_PARTYLEAVE))
+		return false;
+	// ===== rAthena 移植 OnPCPartyLeaveFilter（驱逐）：结束 =====
+
 	party_trade_bound_cancel(sd);
 	intif_party_leave(p->party.party_id,account_id,p->party.member[i].char_id,p->party.member[i].name,PARTY_MEMBER_WITHDRAW_EXPEL);
 
@@ -789,6 +840,16 @@ bool party_leave( map_session_data& sd, bool showMessage ){
 	if( i == MAX_PARTY ){
 		return false;
 	}
+
+	// ===== rAthena 移植 OnPCPartyLeaveFilter（主动退出）：开始 =====
+	// 修改原因：成员退出队伍前提供队伍信息，并允许脚本阻止操作。
+	pc_setreg(&sd, add_str("@left_party_id"), p->party.party_id);
+	pc_setregstr(&sd, add_str("@left_party_name$"), p->party.name);
+	pc_setreg(&sd, add_str("@left_party_kick"), 0);
+	pc_setreg(&sd, add_str("@left_party_aid"), sd.status.account_id);
+	if (npc_script_filter(&sd, NPCF_PARTYLEAVE))
+		return false;
+	// ===== rAthena 移植 OnPCPartyLeaveFilter（主动退出）：结束 =====
 
 	party_trade_bound_cancel( sd );
 	intif_party_leave( p->party.party_id, sd.status.account_id, sd.status.char_id, sd.status.name, PARTY_MEMBER_WITHDRAW_LEAVE );

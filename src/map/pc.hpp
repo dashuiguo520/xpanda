@@ -926,6 +926,12 @@ public:
 
 	int16 setlook_head_top, setlook_head_mid, setlook_head_bottom, setlook_robe; ///< Stores 'setlook' script command values.
 
+	// ===== rAthena 移植 Pandas 事件状态：开始 =====
+	// 修改原因：保存当前同步事件及各过滤事件的中断结果，供 processhalt 与源代码触发点交换状态。
+	uint8 pandas_event_current = UINT8_MAX;
+	std::bitset<64> pandas_event_halt;
+	// ===== rAthena 移植 Pandas 事件状态：结束 =====
+
 	struct{
 		int32 tid;
 		uint16 skill_id;

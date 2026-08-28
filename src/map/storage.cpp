@@ -20,6 +20,10 @@
 #include "itemdb.hpp"
 #include "log.hpp"
 #include "map.hpp" // map_session_data
+// ===== rAthena 移植仓库事件依赖：开始 =====
+// 修改原因：仓库物品移动流程需要调用过滤事件。
+#include "npc.hpp"
+// ===== rAthena 移植仓库事件依赖：结束 =====
 #include "packets.hpp"
 #include "pc.hpp"
 #include "pc_groups.hpp"
@@ -30,6 +34,31 @@ std::unordered_map<uint16, std::shared_ptr<struct s_storage_table>> storage_db;
 
 ///Databases of guild_storage : int32 guild_id -> struct guild_storage
 std::map<int32, struct s_storage> guild_storage_db;
+
+// ===== rAthena 移植仓库过滤事件辅助函数：开始 =====
+// 修改原因：个人/公会仓库及背包/手推车共用同一套文档参数，集中生成可避免八处逻辑漂移。
+static bool storage_event_add(map_session_data* sd, s_storage* stor, int32 index, int32 amount, storage_type source) {
+	item* source_item = source == TABLE_INVENTORY ? &sd->inventory.u.items_inventory[index] : &sd->cart.u.items_cart[index];
+	pc_setreg(sd, add_str("@storeitem_src_from"), source);
+	pc_setreg(sd, add_str("@storeitem_src_idx"), index);
+	pc_setreg(sd, add_str("@storeitem_src_nameid"), source_item->nameid);
+	pc_setreg(sd, add_str("@storeitem_src_amount"), amount);
+	pc_setreg(sd, add_str("@storeitem_dst_type"), static_cast<int32>(stor->type) - 2);
+	pc_setreg(sd, add_str("@storeitem_dst_storeid"), stor->stor_id);
+	return npc_script_filter(sd, NPCF_STORAGE_ADD);
+}
+
+static bool storage_event_del(map_session_data* sd, s_storage* stor, int32 index, int32 amount, storage_type destination) {
+	item* source_item = stor->type == TABLE_STORAGE ? &stor->u.items_storage[index] : &stor->u.items_guild[index];
+	pc_setreg(sd, add_str("@removeitem_src_from"), static_cast<int32>(stor->type) - 2);
+	pc_setreg(sd, add_str("@removeitem_src_storeid"), stor->stor_id);
+	pc_setreg(sd, add_str("@removeitem_src_idx"), index);
+	pc_setreg(sd, add_str("@removeitem_src_nameid"), source_item->nameid);
+	pc_setreg(sd, add_str("@removeitem_src_amount"), amount);
+	pc_setreg(sd, add_str("@removeitem_dst_type"), destination);
+	return npc_script_filter(sd, NPCF_STORAGE_DEL);
+}
+// ===== rAthena 移植仓库过滤事件辅助函数：结束 =====
 
 /**
  * Get storage name
@@ -340,6 +369,11 @@ void storage_storageadd(map_session_data* sd, struct s_storage *stor, int32 inde
 	result = storage_canAddItem(stor, index, sd->inventory.u.items_inventory, amount, MAX_INVENTORY);
 	if (result == STORAGE_ADD_INVALID)
 		return;
+	// ===== rAthena 移植 OnPCStorageAddFilter（背包到个人仓库）：开始 =====
+	// 修改原因：校验通过后、实际移动前允许脚本阻止。
+	if (result == STORAGE_ADD_OK && storage_event_add(sd, stor, index, amount, TABLE_INVENTORY))
+		return;
+	// ===== rAthena 移植 OnPCStorageAddFilter（背包到个人仓库）：结束 =====
 	else if (result == STORAGE_ADD_OK) {
 		switch( storage_additem(sd, stor, &sd->inventory.u.items_inventory[index], amount) ){
 			case 0:
@@ -374,6 +408,11 @@ void storage_storageget(map_session_data *sd, struct s_storage *stor, int32 inde
 	result = storage_canGetItem(stor, index, amount);
 	if (result != STORAGE_ADD_OK)
 		return;
+	// ===== rAthena 移植 OnPCStorageDelFilter（个人仓库到背包）：开始 =====
+	// 修改原因：实际移动前允许脚本阻止。
+	if (storage_event_del(sd, stor, index, amount, TABLE_INVENTORY))
+		return;
+	// ===== rAthena 移植 OnPCStorageDelFilter（个人仓库到背包）：结束 =====
 
 	if ((flag = pc_additem(sd,&stor->u.items_storage[index],amount,LOG_TYPE_STORAGE, favorite)) == ADDITEM_SUCCESS)
 		storage_delitem(sd,stor,index,amount);
@@ -403,6 +442,11 @@ void storage_storageaddfromcart(map_session_data *sd, struct s_storage *stor, in
 	result = storage_canAddItem(stor, index, sd->cart.u.items_cart, amount, MAX_CART);
 	if (result == STORAGE_ADD_INVALID)
 		return;
+	// ===== rAthena 移植 OnPCStorageAddFilter（手推车到个人仓库）：开始 =====
+	// 修改原因：校验通过后、实际移动前允许脚本阻止。
+	if (result == STORAGE_ADD_OK && storage_event_add(sd, stor, index, amount, TABLE_CART))
+		return;
+	// ===== rAthena 移植 OnPCStorageAddFilter（手推车到个人仓库）：结束 =====
 	else if (result == STORAGE_ADD_OK) {
 		switch( storage_additem(sd, stor, &sd->cart.u.items_cart[index], amount) ){
 			case 0:
@@ -442,6 +486,11 @@ void storage_storagegettocart(map_session_data* sd, struct s_storage *stor, int3
 	result = storage_canGetItem(stor, index, amount);
 	if (result != STORAGE_ADD_OK)
 		return;
+	// ===== rAthena 移植 OnPCStorageDelFilter（个人仓库到手推车）：开始 =====
+	// 修改原因：实际移动前允许脚本阻止。
+	if (storage_event_del(sd, stor, index, amount, TABLE_CART))
+		return;
+	// ===== rAthena 移植 OnPCStorageDelFilter（个人仓库到手推车）：结束 =====
 
 	if ((flag = pc_cart_additem(sd,&stor->u.items_storage[index],amount,LOG_TYPE_STORAGE)) == 0)
 		storage_delitem(sd,stor,index,amount);
@@ -896,6 +945,12 @@ void storage_guild_storageadd(map_session_data* sd, int32 index, int32 amount)
 		return;
 	}
 
+	// ===== rAthena 移植 OnPCStorageAddFilter（背包到公会仓库）：开始 =====
+	// 修改原因：实际移动前允许脚本阻止。
+	if (storage_event_add(sd, stor, index, amount, TABLE_INVENTORY))
+		return;
+	// ===== rAthena 移植 OnPCStorageAddFilter（背包到公会仓库）：结束 =====
+
 	if(storage_guild_additem(sd,stor,&sd->inventory.u.items_inventory[index],amount))
 		pc_delitem(sd,index,amount,0,4,LOG_TYPE_GSTORAGE);
 	else {
@@ -936,6 +991,12 @@ void storage_guild_storageget(map_session_data* sd, int32 index, int32 amount, b
 		return;
 	}
 
+	// ===== rAthena 移植 OnPCStorageDelFilter（公会仓库到背包）：开始 =====
+	// 修改原因：实际移动前允许脚本阻止。
+	if (storage_event_del(sd, stor, index, amount, TABLE_INVENTORY))
+		return;
+	// ===== rAthena 移植 OnPCStorageDelFilter（公会仓库到背包）：结束 =====
+
 	if((flag = pc_additem(sd,&stor->u.items_guild[index],amount,LOG_TYPE_GSTORAGE,favorite)) == 0)
 		storage_guild_delitem(sd,stor,index,amount);
 	else { // inform fail
@@ -968,6 +1029,12 @@ void storage_guild_storageaddfromcart(map_session_data* sd, int32 index, int32 a
 
 	if( amount < 1 || amount > sd->cart.u.items_cart[index].amount )
 		return;
+
+	// ===== rAthena 移植 OnPCStorageAddFilter（手推车到公会仓库）：开始 =====
+	// 修改原因：实际移动前允许脚本阻止。
+	if (storage_event_add(sd, stor, index, amount, TABLE_CART))
+		return;
+	// ===== rAthena 移植 OnPCStorageAddFilter（手推车到公会仓库）：结束 =====
 
 	if(storage_guild_additem(sd,stor,&sd->cart.u.items_cart[index],amount))
 		pc_cart_delitem(sd,index,amount,0,LOG_TYPE_GSTORAGE);
@@ -1003,6 +1070,12 @@ void storage_guild_storagegettocart(map_session_data* sd, int32 index, int32 amo
 
 	if(amount < 1 || amount > stor->u.items_guild[index].amount)
 		return;
+
+	// ===== rAthena 移植 OnPCStorageDelFilter（公会仓库到手推车）：开始 =====
+	// 修改原因：实际移动前允许脚本阻止。
+	if (storage_event_del(sd, stor, index, amount, TABLE_CART))
+		return;
+	// ===== rAthena 移植 OnPCStorageDelFilter（公会仓库到手推车）：结束 =====
 
 	if((flag = pc_cart_additem(sd,&stor->u.items_guild[index],amount,LOG_TYPE_GSTORAGE)) == 0)
 		storage_guild_delitem(sd,stor,index,amount);
