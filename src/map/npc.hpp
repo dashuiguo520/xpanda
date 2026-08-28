@@ -1662,11 +1662,11 @@ enum npce_event : uint8 {
 	NPCE_USE_SKILL,
 	NPCE_EQUIP,
 	NPCE_UNEQUIP,
-	NPCE_STATCALC,
 	// ===== rAthena 修正 Pandas GoldPC 点击事件：开始 =====
-	// 修改内容：为客户端 GoldPC 按钮提供独立的标准脚本事件类型。
+	// 修改原因：GoldPC 对话需要作为普通排队事件执行，必须位于以 NPCE_STATCALC 开始的 Express 事件区间之前。
 	NPCE_GOLDPC,
 	// ===== rAthena 修正 Pandas GoldPC 点击事件：结束 =====
+	NPCE_STATCALC,
 	NPCX_SC_END,
 	NPCX_SC_START,
 	NPCX_ENTERMAP,
