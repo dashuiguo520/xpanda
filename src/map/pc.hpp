@@ -356,6 +356,10 @@ struct s_bonus_script_entry {
 	enum efst_type icon;
 	uint8 type; //0 - Ignore; 1 - Buff; 2 - Debuff
 	int32 tid;
+	// ===== rAthena 移植 Pandas bonus_script 唯一编号：开始 =====
+	// 修改内容：为新增的查询、判断和移除指令保存稳定编号。
+	uint64 bonus_id;
+	// ===== rAthena 移植 Pandas bonus_script 唯一编号：结束 =====
 };
 
 /// HP/SP bonus struct
@@ -930,6 +934,10 @@ public:
 	// 修改原因：保存当前同步事件及各过滤事件的中断结果，供 processhalt 与源代码触发点交换状态。
 	uint8 pandas_event_current = UINT8_MAX;
 	std::bitset<64> pandas_event_halt;
+	// 修改原因：settrigger 需要保存每个事件下一次或永久触发策略。
+	uint8 pandas_event_trigger[64] = {};
+	// 修改原因：multicatchpet 需要在客户端选择目标前保存允许捕捉的魔物编号。
+	std::vector<uint32> pandas_pet_catch_targets;
 	// ===== rAthena 移植 Pandas 事件状态：结束 =====
 
 	struct{
@@ -1727,6 +1735,11 @@ TIMER_FUNC(pc_bonus_script_timer);
 void pc_bonus_script(map_session_data *sd);
 struct s_bonus_script_entry *pc_bonus_script_add(map_session_data *sd, const char *script_str, t_tick dur, enum efst_type icon, uint16 flag, uint8 type);
 void pc_bonus_script_clear(map_session_data *sd, uint32 flag);
+// ===== rAthena 移植 Pandas bonus_script 管理指令：开始 =====
+// 修改内容：公开按唯一编号查询和移除效果脚本的接口。
+bool pc_bonus_script_remove(map_session_data* sd, uint64 bonus_id);
+bool pc_bonus_script_exists(map_session_data* sd, uint64 bonus_id);
+// ===== rAthena 移植 Pandas bonus_script 管理指令：结束 =====
 
 void pc_cell_basilica(map_session_data *sd);
 

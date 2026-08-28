@@ -64,6 +64,10 @@ struct unit_data {
 	char walk_done_event[EVENT_NAME_LENGTH];
 	char title[NAME_LENGTH];
 	int32 group_id;
+	// ===== rAthena 移植 Pandas 单位光环字段：开始 =====
+	// 修改内容：所有地图单位共用光环编号，供 aura、unitaura 和 unitdata 指令读写。
+	int32 aura_id = 0;
+	// ===== rAthena 移植 Pandas 单位光环字段：结束 =====
 
 	std::vector<int32> shadow_scar_timer;
 	std::vector<int16> hatEffects;

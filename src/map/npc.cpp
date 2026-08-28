@@ -249,9 +249,11 @@ void npc_event_aide_unitkill(block_list* src, block_list* target, uint16 skill_i
 }
 // ===== rAthena 移植击杀事件辅助函数：结束 =====
 
-// Static functions
-static npc_data* npc_create_npc( int16 m, int16 x, int16 y );
-static void npc_parsename( npc_data* nd, const char* name, const char* start, const char* buffer, const char* filepath );
+// ===== rAthena 移植 Pandas copynpc 可复用 NPC 解析函数：开始 =====
+// 修改原因：copynpc 脚本指令需要调用与配置加载相同的 NPC 创建和命名逻辑。
+npc_data* npc_create_npc( int16 m, int16 x, int16 y );
+void npc_parsename( npc_data* nd, const char* name, const char* start, const char* buffer, const char* filepath );
+// ===== rAthena 移植 Pandas copynpc 可复用 NPC 解析函数：结束 =====
 
 const std::string StylistDatabase::getDefaultLocation(){
 	return std::string(db_path) + "/stylist.yml";
@@ -1342,7 +1344,9 @@ int32 npc_event_dequeue(map_session_data* sd,bool free_script_stack)
  * exports a npc event label
  * called from npc_parse_script
  *------------------------------------------*/
-static int32 npc_event_export(npc_data *nd, int32 i)
+// ===== rAthena 移植 Pandas copynpc 事件导出接口：开始 =====
+// 修改原因：动态复制 NPC 后需要复用原有事件标签导出逻辑。
+int32 npc_event_export(npc_data *nd, int32 i)
 {
 	char* lname = nd->u.scr.label_list[i].name;
 	int32 pos = nd->u.scr.label_list[i].pos;
@@ -2652,7 +2656,10 @@ static enum e_CASHSHOP_ACK npc_cashshop_process_payment(npc_data *nd, int32 pric
 				memset(output, '\0', sizeof(output));
 
 				if (cost[1] < points || cost[0] < (price - points)) {
-					sprintf(output, msg_txt(sd, 713), nd->u.shop.pointshop_str); // You do not have enough '%s'.
+					// ===== rAthena 移植 Pandas pointshop 货币昵称：开始 =====
+					// 修改内容：提示优先显示配置的本地化货币昵称。
+					sprintf(output, msg_txt(sd, 713), nd->u.shop.pointshop_str_nick[0] != '\0' ? nd->u.shop.pointshop_str_nick : nd->u.shop.pointshop_str); // You do not have enough '%s'.
+					// ===== rAthena 移植 Pandas pointshop 货币昵称：结束 =====
 					clif_messagecolor(sd, color_table[COLOR_RED], output, false, SELF);
 					return ERROR_TYPE_PURCHASE_FAIL;
 				}
@@ -2661,7 +2668,9 @@ static enum e_CASHSHOP_ACK npc_cashshop_process_payment(npc_data *nd, int32 pric
 					return ERROR_TYPE_PURCHASE_FAIL;
 				}
 
-				sprintf(output, msg_txt(sd, 716), nd->u.shop.pointshop_str, cost[0] - (price - points)); // Your '%s' is now: %d
+				// ===== rAthena 移植 Pandas pointshop 货币昵称：开始 =====
+				sprintf(output, msg_txt(sd, 716), nd->u.shop.pointshop_str_nick[0] != '\0' ? nd->u.shop.pointshop_str_nick : nd->u.shop.pointshop_str, cost[0] - (price - points)); // Your '%s' is now: %d
+				// ===== rAthena 移植 Pandas pointshop 货币昵称：结束 =====
 				clif_messagecolor(sd, color_table[COLOR_LIGHT_GREEN], output, false, SELF);
 			}
 			break;
@@ -2820,7 +2829,9 @@ void npc_shop_currency_type( const map_session_data* sd, const npc_data* nd, int
 
 				memset(output, '\0', sizeof(output));
 
-				sprintf(output, msg_txt(sd, 715), nd->u.shop.pointshop_str); // Point Shop List: '%s'
+				// ===== rAthena 移植 Pandas pointshop 货币昵称：开始 =====
+				sprintf(output, msg_txt(sd, 715), nd->u.shop.pointshop_str_nick[0] != '\0' ? nd->u.shop.pointshop_str_nick : nd->u.shop.pointshop_str); // Point Shop List: '%s'
+				// ===== rAthena 移植 Pandas pointshop 货币昵称：结束 =====
 				clif_broadcast(sd, output, strlen(output) + 1, BC_BLUE,SELF);
 			}
 			
@@ -3771,6 +3782,7 @@ int32 npc_unload(npc_data* nd, bool single) {
 
 	return 0;
 }
+// ===== rAthena 移植 Pandas copynpc 事件导出接口：结束 =====
 
 //
 // NPC Source Files
@@ -3845,7 +3857,9 @@ void npc_loadsrcfiles() {
 
 /// Parses and sets the name and exname of a npc.
 /// Assumes that m, x and y are already set in nd.
-static void npc_parsename(npc_data* nd, const char* name, const char* start, const char* buffer, const char* filepath)
+// ===== rAthena 移植 Pandas copynpc 名称解析接口：开始 =====
+// 修改原因：动态复制 NPC 时复用配置解析阶段的名称规范化逻辑。
+void npc_parsename(npc_data* nd, const char* name, const char* start, const char* buffer, const char* filepath)
 {
 	const char* p;
 	npc_data* dnd;// duplicate npc
@@ -3999,6 +4013,7 @@ npc_data *npc_create_npc(int16 m, int16 x, int16 y){
 
 	return nd;
 }
+// ===== rAthena 移植 Pandas copynpc 名称解析接口：结束 =====
 
 /**
  * Add then display an npc warp on map
@@ -4188,6 +4203,10 @@ static const char* npc_parse_shop(char* w1, char* w2, char* w3, char* w4, const 
 	t_itemid nameid = 0;
 	npc_data *nd;
 	enum npc_subtype type;
+	// ===== rAthena 移植 Pandas pointshop 货币昵称：开始 =====
+	// 修改内容：解析“变量|显示名称”格式时暂存本地化昵称。
+	char point_str_nick[64] = {};
+	// ===== rAthena 移植 Pandas pointshop 货币昵称：结束 =====
 
 	if( strcmp(w1,"-") == 0 )
 	{// 'floating' shop?
@@ -4241,10 +4260,15 @@ static const char* npc_parse_shop(char* w1, char* w2, char* w3, char* w4, const 
 			break;
 		}
 		case NPCTYPE_POINTSHOP: {
-			if (sscanf(p, ",%31[^,:]:%11d,",point_str,&is_discount) < 1) {
+			// ===== rAthena 移植 Pandas pointshop 货币昵称：开始 =====
+			// 修改内容：兼容“变量|昵称[:折扣]”，同时保留原有语法。
+			if (sscanf(p, ",%31[^|]|%63[^,:]:%11d,", point_str, point_str_nick, &is_discount) < 3 &&
+				sscanf(p, ",%31[^|]|%63[^,:],", point_str, point_str_nick) < 2 &&
+				sscanf(p, ",%31[^,:]:%11d,", point_str, &is_discount) < 1) {
 				ShowError("npc_parse_shop: Invalid item cost definition in file '%s', line '%d'. Ignoring the rest of the line...\n * w1=%s\n * w2=%s\n * w3=%s\n * w4=%s\n", filepath, strline(buffer,start-buffer), w1, w2, w3, w4);
 				return strchr(start,'\n'); // skip and continue
 			}
+			// ===== rAthena 移植 Pandas pointshop 货币昵称：结束 =====
 			switch(point_str[0]) {
 				case '$':
 				case '.':
@@ -4383,6 +4407,10 @@ static const char* npc_parse_shop(char* w1, char* w2, char* w3, char* w4, const 
 	}else if( type == NPCTYPE_POINTSHOP ){
 		// Point shop currency
 		safestrncpy( nd->u.shop.pointshop_str, point_str, strlen( point_str ) + 1 );
+		// ===== rAthena 移植 Pandas pointshop 货币昵称：开始 =====
+		// 修改内容：保存昵称供商店提示使用。
+		safestrncpy(nd->u.shop.pointshop_str_nick, point_str_nick, sizeof(nd->u.shop.pointshop_str_nick));
+		// ===== rAthena 移植 Pandas pointshop 货币昵称：结束 =====
 	}
 
 	nd->u.shop.discount = is_discount > 0;
@@ -4791,6 +4819,10 @@ const char* npc_parse_duplicate( char* w1, char* w2, char* w3, char* w4, const c
 		case NPCTYPE_MARKETSHOP:
 			++npc_shop;
 			safestrncpy( nd->u.shop.pointshop_str, dnd->u.shop.pointshop_str, strlen( dnd->u.shop.pointshop_str ) );
+			// ===== rAthena 移植 Pandas pointshop 货币昵称：开始 =====
+			// 修改原因：动态复制的 pointshop 应继承货币显示名称。
+			safestrncpy(nd->u.shop.pointshop_str_nick, dnd->u.shop.pointshop_str_nick, sizeof(nd->u.shop.pointshop_str_nick));
+			// ===== rAthena 移植 Pandas pointshop 货币昵称：结束 =====
 			nd->u.shop.itemshop_nameid = dnd->u.shop.itemshop_nameid;
 			nd->u.shop.shop_item = dnd->u.shop.shop_item;
 			nd->u.shop.count = dnd->u.shop.count;
@@ -6087,7 +6119,54 @@ bool npc_script_filter(map_session_data* sd, const char* eventname) {
 	sd->pandas_event_halt.reset(static_cast<size_t>(type));
 	return halted;
 }
+
+bool setEventTrigger(map_session_data* sd, enum npce_event event, enum npce_trigger trigger_flag) {
+	if (sd == nullptr || event >= NPCE_MAX || event >= 64 || trigger_flag >= EVENT_TRIGGER_MAX)
+		return false;
+	sd->pandas_event_trigger[event] = static_cast<uint8>(trigger_flag);
+	return true;
+}
+
+enum npce_trigger getEventTrigger(map_session_data* sd, enum npce_event event) {
+	if (sd == nullptr || event >= NPCE_MAX || event >= 64)
+		return EVENT_TRIGGER_NONE;
+	return static_cast<enum npce_trigger>(sd->pandas_event_trigger[event]);
+}
+
+bool isAllowTriggerEvent(map_session_data* sd, enum npce_event event) {
+	const enum npce_trigger trigger = getEventTrigger(sd, event);
+	if (trigger == EVENT_TRIGGER_ONCE) {
+		setEventTrigger(sd, event, EVENT_TRIGGER_NONE);
+		return true;
+	}
+	return trigger == EVENT_TRIGGER_EVER;
+}
+
+bool npc_change_title_event(map_session_data* sd, uint32 title_id, int mode) {
+	if (sd == nullptr)
+		return false;
+	pc_setreg(sd, add_str("@trigger_mode"), mode);
+	pc_setreg(sd, add_str("@pre_title_id"), sd->status.title_id);
+	pc_setreg(sd, add_str("@target_title_id"), title_id);
+	if (npc_script_filter(sd, NPCF_CHANGETITLE))
+		return false;
+	title_id = static_cast<uint32>(pc_readreg(sd, add_str("@target_title_id")));
+	if (mode != 0) {
+		sd->status.title_id = title_id;
+		clif_name_area(sd);
+		clif_change_title_ack(sd, 0, title_id);
+	}
+	return true;
+}
 // ===== rAthena 移植 Pandas 事件执行框架：结束 =====
+
+// ===== rAthena 移植 Pandas copynpc 内部状态访问：开始 =====
+// 修改原因：copynpc 创建对象后必须更新 NPC 名称表和各类型计数器。
+DBMap* get_npcname_db_ptr() { return npcname_db; }
+int32* get_npc_script_ptr() { return &npc_script; }
+int32* get_npc_shop_ptr() { return &npc_shop; }
+int32* get_npc_warp_ptr() { return &npc_warp; }
+// ===== rAthena 移植 Pandas copynpc 内部状态访问：结束 =====
 
 /**
  * Duplicates a NPC.

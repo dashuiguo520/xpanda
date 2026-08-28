@@ -69,6 +69,10 @@ enum e_pet_catch_flag : uint8 {
 	PET_CATCH_NORMAL = 0,
 	PET_CATCH_UNIVERSAL_NO_BOSS, // The catch attempt is universal (ignoring MD_STATUS_IMMUNE/Boss)
 	PET_CATCH_UNIVERSAL_ALL,
+	// ===== rAthena 移植 Pandas 多目标捕捉模式：开始 =====
+	// 修改原因：multicatchpet 需要只允许脚本指定的多个魔物种类。
+	PET_CATCH_MULTI_TARGET,
+	// ===== rAthena 移植 Pandas 多目标捕捉模式：结束 =====
 	PET_CATCH_MAX
 };
 

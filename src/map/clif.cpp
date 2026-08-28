@@ -61,6 +61,11 @@
 
 using namespace rathena;
 
+// ===== rAthena 移植 Pandas next_dropitem_special 指令：开始 =====
+// 修改内容：下一件掉落物覆盖状态由脚本设置，并在发出掉落封包后消费。
+s_next_dropitem_special next_dropitem_special;
+// ===== rAthena 移植 Pandas next_dropitem_special 指令：结束 =====
+
 static inline uint32 client_tick( t_tick tick ){
 	return (uint32)tick;
 }
@@ -919,6 +924,14 @@ void clif_dropflooritem( const flooritem_data* fitem, bool canShowEffect ){
 		p.showdropeffect = 0;
 		p.dropeffectmode = DROPEFFECT_NONE;
 	}
+	// ===== rAthena 移植 Pandas next_dropitem_special 指令：开始 =====
+	// 修改原因：显式指定的光柱优先于物品数据库和随机词条默认效果。
+	if (next_dropitem_special.drop_effect >= 0) {
+		p.showdropeffect = next_dropitem_special.drop_effect != DROPEFFECT_NONE;
+		p.dropeffectmode = next_dropitem_special.drop_effect > DROPEFFECT_NONE ? next_dropitem_special.drop_effect - 1 : DROPEFFECT_NONE;
+		next_dropitem_special.drop_effect = -1;
+	}
+	// ===== rAthena 移植 Pandas next_dropitem_special 指令：结束 =====
 #endif
 	clif_send( &p, sizeof(p), fitem, AREA );
 }
@@ -6721,7 +6734,16 @@ void clif_broadcast( const block_list* bl, const char* mes, size_t len, int32 ty
 	p->packetType = HEADER_ZC_BROADCAST;
 	p->PacketLength = sizeof( *p );
 
-	if( ( type&BC_BLUE ) != 0 ){
+	// ===== rAthena 移植 Pandas announce 发布者名称：开始 =====
+	// 修改内容：micc 前缀使支持的客户端可从公告发起私聊。
+	if ((type & BC_NAME) != 0 && bl != nullptr && bl->type == BL_PC) {
+		const map_session_data* sd = reinterpret_cast<const map_session_data*>(bl);
+		const size_t prefix_length = 4 + strnlen(sd->status.name, NAME_LENGTH);
+		snprintf(p->message, prefix_length + 1, "micc%s", sd->status.name);
+		strncpy(&p->message[prefix_length], mes, len);
+		p->PacketLength += static_cast<decltype(p->PacketLength)>(prefix_length + len);
+	} else if( ( type&BC_BLUE ) != 0 ){
+	// ===== rAthena 移植 Pandas announce 发布者名称：结束 =====
 		// If there's "blue" at the beginning of the message, game client will display it in blue instead of yellow.
 		const char* color = "blue";
 		size_t length = strlen( color );
@@ -7621,6 +7643,23 @@ void clif_showvendingboard( map_session_data& sd, enum send_target target, block
 	clif_send( &p, sizeof( p ), tbl, target );
 }
 
+// ===== rAthena 移植 Pandas NPC 商店招牌封包：开始 =====
+// 修改原因：允许 showvend 为 NPC 等非玩家单位显示自定义招牌。
+void clif_showvendingboard(block_list* bl, const char* name, enum send_target target, block_list* tbl) {
+	if (bl == nullptr)
+		return;
+	if (tbl == nullptr) {
+		tbl = bl;
+		target = AREA_WOS;
+	}
+
+	PACKET_ZC_STORE_ENTRY p = {};
+	p.packetType = HEADER_ZC_STORE_ENTRY;
+	p.makerAID = bl->id;
+	safestrncpy(p.storeName, name, sizeof(p.storeName));
+	clif_send(&p, sizeof(p), tbl, target);
+}
+// ===== rAthena 移植 Pandas NPC 商店招牌封包：结束 =====
 
 /// Removes a vending board from screen.
 /// 0132 <owner id>.L (ZC_DISAPPEAR_ENTRY)

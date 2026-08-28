@@ -267,7 +267,9 @@ static enum e_storage_add storage_canGetItem(struct s_storage *stor, int32 idx, 
  * @param amount : quantity of items
  * @return 0:success, 1:failed, 2:failed because of room or stack checks
  */
-static int32 storage_additem(map_session_data* sd, struct s_storage *stor, struct item *it, int32 amount)
+// ===== rAthena 移植 Pandas 仓库直接创建道具接口：开始 =====
+// 修改原因：由 storagegetitem 脚本指令复用，行为仍保持原有实现。
+int32 storage_additem(map_session_data* sd, struct s_storage *stor, struct item *it, int32 amount)
 {
 	struct item_data *data;
 	int32 i;
@@ -323,6 +325,7 @@ static int32 storage_additem(map_session_data* sd, struct s_storage *stor, struc
 
 	return 0;
 }
+// ===== rAthena 移植 Pandas 仓库直接创建道具接口：结束 =====
 
 /**
  * Make a player delete an item from his storage

@@ -1635,6 +1635,12 @@ int32 status_damage(block_list *src,block_list *target,int64 dhp, int64 dsp, int
 	status->sp-= sp;
 	status->ap-= ap;
 
+	// ===== rAthena 移植 Pandas 战斗记录伤害采集：开始 =====
+	// 修改原因：在所有单位共用的扣血入口记录输出方和承伤方，避免遗漏技能或普通攻击路径。
+	if (src != nullptr && hp > 0)
+		pandas_batrec_record(src, target, hp);
+	// ===== rAthena 移植 Pandas 战斗记录伤害采集：结束 =====
+
 	// Coma
 	if (flag&16) {
 		status->hp = 1;

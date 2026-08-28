@@ -13,6 +13,11 @@
 #include <cmath>
 #include <csetjmp>
 #include <cstdlib> // atoi, strtol, strtoll, exit
+// ===== rAthena 移植 Pandas 脚本指令标准库依赖：开始 =====
+// 修改原因：preg_search 与轻量战斗记录实现分别使用标准正则及哈希表。
+#include <regex>
+#include <unordered_map>
+// ===== rAthena 移植 Pandas 脚本指令标准库依赖：结束 =====
 
 #ifdef PCRE_SUPPORT
 #include <pcre.h> // preg_match
@@ -4546,6 +4551,10 @@ void run_script_main(struct script_state *st)
 			if (sd->vars_dirty)
 				intif_saveregistry(sd);
 		}
+		// ===== rAthena 移植 Pandas selfdeletion 对话结束检查：开始 =====
+		// 修改原因：WAITFREE 策略必须在最后一个脚本状态释放前安排 NPC 自毁检查。
+		selfdeletion_exec_endtalk(st);
+		// ===== rAthena 移植 Pandas selfdeletion 对话结束检查：结束 =====
 		script_free_state(st);
 	}
 }
@@ -5894,8 +5903,12 @@ BUILDIN_FUNC(warpparty)
 		if( str2 && strcmp(str2, mapdata->name) != 0 )
 			continue;
 
-		if( pc_isdead(pl_sd) )
+		// ===== rAthena 移植 Pandas warppartyrevive：开始 =====
+		// 修改内容：兼容别名允许死亡队员随队传送，由目标地图流程完成复活状态同步。
+		const char* warp_command = script_getfuncname(st);
+		if (pc_isdead(pl_sd) && stricmp(warp_command, "warppartyrevive") != 0 && stricmp(warp_command, "warpparty2") != 0)
 			continue;
+		// ===== rAthena 移植 Pandas warppartyrevive：结束 =====
 
 		e_setpos ret = SETPOS_OK;
 
@@ -7830,11 +7843,14 @@ BUILDIN_FUNC(getitem2)
 			offset = 11;
 			aid_pos = 14;
 		} 
-		if (strcmpi(command,"getitem4") == 0) {
+		// ===== rAthena 移植 Pandas getgradeitem：开始 =====
+		// 修改内容：getgradeitem 作为 getitem4 的等价别名解析附魔评级和随机属性参数。
+		if (strcmpi(command,"getitem4") == 0 || strcmpi(command, "getgradeitem") == 0) {
 			grade_offset = 11;
 			offset = 12;
 			aid_pos = 15;
 		}
+		// ===== rAthena 移植 Pandas getgradeitem：结束 =====
 		script_mapid2sd(aid_pos,sd);
 	}
 
@@ -8246,6 +8262,17 @@ BUILDIN_FUNC(makeitem) {
 		item_tmp.identify = 1;
 	else
 		item_tmp.identify = itemdb_isidentified(nameid);
+	// ===== rAthena 移植 Pandas next_dropitem_special 指令：开始 =====
+	// 修改内容：将一次性绑定和租赁设置应用到下一件 makeitem 掉落物。
+	if (next_dropitem_special.bound >= 0) {
+		item_tmp.bound = next_dropitem_special.bound;
+		next_dropitem_special.bound = -1;
+	}
+	if (next_dropitem_special.rent_duration != 0) {
+		item_tmp.expire_time = static_cast<uint32>(time(nullptr) + next_dropitem_special.rent_duration);
+		next_dropitem_special.rent_duration = 0;
+	}
+	// ===== rAthena 移植 Pandas next_dropitem_special 指令：结束 =====
 
 	map_addflooritem(&item_tmp, amount, m, x, y, 0, 0, 0, 4, 0, canShowEffect);
 	return SCRIPT_CMD_SUCCESS;
@@ -8330,6 +8357,17 @@ BUILDIN_FUNC(makeitem2) {
 		item_tmp.card[1] = script_getnum(st,11);
 		item_tmp.card[2] = script_getnum(st,12);
 		item_tmp.card[3] = script_getnum(st,13);
+		// ===== rAthena 移植 Pandas next_dropitem_special 指令：开始 =====
+		// 修改内容：makeitem2/3/4 同样消费下一件掉落物的特殊设置。
+		if (next_dropitem_special.bound >= 0) {
+			item_tmp.bound = next_dropitem_special.bound;
+			next_dropitem_special.bound = -1;
+		}
+		if (next_dropitem_special.rent_duration != 0) {
+			item_tmp.expire_time = static_cast<uint32>(time(nullptr) + next_dropitem_special.rent_duration);
+			next_dropitem_special.rent_duration = 0;
+		}
+		// ===== rAthena 移植 Pandas next_dropitem_special 指令：结束 =====
 
 		bool canShowEffect = false;
 
@@ -11333,8 +11371,17 @@ BUILDIN_FUNC(monster)
 
 		if (mobid > 0) {
 			md = map_id2md(mobid);
-			if (md)
+			// ===== rAthena 移植 Pandas boss_monster：开始 =====
+			// 修改内容：允许在生成成功后为该单位补充动态 BOSS 标志。
+			if (md) {
 				md->next_walktime = INVALID_TIMER;
+				if (stricmp(script_getfuncname(st), "boss_monster") == 0) {
+					md->state.boss = 1;
+					if (md->spawn != nullptr)
+						md->spawn->state.boss = 1;
+				}
+			}
+			// ===== rAthena 移植 Pandas boss_monster：结束 =====
 
 			mapreg_setreg(reference_uid(add_str("$@mobid"), i), mobid);
 		}
@@ -11991,7 +12038,10 @@ BUILDIN_FUNC(announce)
 	int32         fontAlign = script_hasdata(st,7) ? script_getnum(st,7) : 0;     // default fontAlign
 	int32         fontY     = script_hasdata(st,8) ? script_getnum(st,8) : 0;     // default fontY
 
-	if (flag&(BC_TARGET_MASK|BC_SOURCE_MASK)) // Broadcast source or broadcast region defined
+	// ===== rAthena 移植 Pandas announce 发布者名称：开始 =====
+	// 修改内容：BC_NAME 同样要求从玩家/NPC地图对象发送，不能走跨服纯文本广播。
+	if (flag&(BC_TARGET_MASK|BC_SOURCE_MASK|BC_NAME)) // Broadcast source or broadcast region defined
+	// ===== rAthena 移植 Pandas announce 发布者名称：结束 =====
 	{
 		send_target target;
 		block_list *bl;
@@ -12018,10 +12068,18 @@ BUILDIN_FUNC(announce)
 			default:		target = ALL_CLIENT;	break; // BC_ALL
 		}
 
-		if (fontColor)
+		// ===== rAthena 移植 Pandas announce 发布者名称：开始 =====
+		// 修改原因：BC_NAME 使用 009a 封包；颜色作为六位前缀传递，其他字体参数受客户端限制。
+		if ((flag & BC_NAME) != 0 && bl->type == BL_PC) {
+			char output[CHAT_SIZE_MAX] = {};
+			const unsigned long color = fontColor != nullptr ? strtol(fontColor, nullptr, 0) : 0xFFFF00;
+			snprintf(output, sizeof(output), "%06lx%s", color & 0xFFFFFF, mes);
+			clif_broadcast(bl, output, strlen(output) + 1, flag, target);
+		} else if (fontColor)
 			clif_broadcast2(bl, mes, (int32)strlen(mes)+1, strtol(fontColor, (char **)nullptr, 0), fontType, fontSize, fontAlign, fontY, target);
 		else
 			clif_broadcast(bl, mes, (int32)strlen(mes)+1, flag&BC_COLOR_MASK, target);
+		// ===== rAthena 移植 Pandas announce 发布者名称：结束 =====
 	}
 	else
 	{
@@ -14849,6 +14907,31 @@ BUILDIN_FUNC(getiteminfo)
 		case ITEMINFO_ID: script_pushint(st, i_data->nameid); break;
 		case ITEMINFO_AEGISNAME: script_pushstrcopy(st, i_data->name.c_str()); break;
 		case ITEMINFO_SUBTYPE: script_pushint(st, i_data->subtype); break;
+		// ===== rAthena 移植 Pandas getiteminfo 扩展：开始 =====
+		// 修改内容：补充可精炼状态、交易限制掩码及 Pandas 扩展查询编号的兼容返回值。
+		case -1: script_pushint(st, i_data->flag.no_refine ? 0 : 1); break;
+		case -2: {
+			int64 mask = 0;
+			if (i_data->flag.trade_restriction.drop) mask |= 1;
+			if (i_data->flag.trade_restriction.trade) mask |= 2;
+			if (i_data->flag.trade_restriction.trade_partner) mask |= 4;
+			if (i_data->flag.trade_restriction.sell) mask |= 8;
+			if (i_data->flag.trade_restriction.cart) mask |= 16;
+			if (i_data->flag.trade_restriction.storage) mask |= 32;
+			if (i_data->flag.trade_restriction.guild_storage) mask |= 64;
+			if (i_data->flag.trade_restriction.mail) mask |= 128;
+			if (i_data->flag.trade_restriction.auction) mask |= 256;
+			script_pushint(st, mask);
+			break;
+		}
+		case -3:
+		case -4: script_pushint(st, 0); break;
+		case -5:
+		case -6: script_pushint(st, -2); break;
+		case -7:
+		case -8:
+		case -9: script_pushconststr(st, "UnCompiled"); break;
+		// ===== rAthena 移植 Pandas getiteminfo 扩展：结束 =====
 		default:
 			script_pushint(st, -1);
 			break;
@@ -15055,44 +15138,87 @@ BUILDIN_FUNC(petloot)
  *------------------------------------------*/
 BUILDIN_FUNC(getinventorylist)
 {
-	TBL_PC *sd;
-	char card_var[NAME_LENGTH], randopt_var[50];
-	int32 i,j=0,k;
-
-	if (!script_charid2sd(2,sd))
+	// ===== rAthena 移植 Pandas getinventorylist 扩展：开始 =====
+	// 修改内容：按调用别名读取背包、手推车、公会仓库或个人仓库，并支持字段掩码。
+	map_session_data* sd = nullptr;
+	if (!script_charid2sd(2, sd))
 		return SCRIPT_CMD_FAILURE;
-	for(i=0;i<MAX_INVENTORY;i++){
-		if(sd->inventory.u.items_inventory[i].nameid > 0 && sd->inventory.u.items_inventory[i].amount > 0){
-			pc_setreg(sd,reference_uid(add_str("@inventorylist_id"), j),sd->inventory.u.items_inventory[i].nameid);
-			pc_setreg(sd,reference_uid(add_str("@inventorylist_idx"), j),i);
-			pc_setreg(sd,reference_uid(add_str("@inventorylist_amount"), j),sd->inventory.u.items_inventory[i].amount);
-			pc_setreg(sd,reference_uid(add_str("@inventorylist_equip"), j),sd->inventory.u.items_inventory[i].equip);
-			pc_setreg(sd,reference_uid(add_str("@inventorylist_refine"), j),sd->inventory.u.items_inventory[i].refine);
-			pc_setreg(sd,reference_uid(add_str("@inventorylist_identify"), j),sd->inventory.u.items_inventory[i].identify);
-			pc_setreg(sd,reference_uid(add_str("@inventorylist_attribute"), j),sd->inventory.u.items_inventory[i].attribute);
-			for (k = 0; k < MAX_SLOTS; k++)
-			{
-				sprintf(card_var, "@inventorylist_card%d",k+1);
-				pc_setreg(sd,reference_uid(add_str(card_var), j),sd->inventory.u.items_inventory[i].card[k]);
-			}
-			pc_setreg(sd,reference_uid(add_str("@inventorylist_expire"), j),sd->inventory.u.items_inventory[i].expire_time);
-			pc_setreg(sd,reference_uid(add_str("@inventorylist_bound"), j),sd->inventory.u.items_inventory[i].bound);
-			pc_setreg(sd,reference_uid(add_str("@inventorylist_enchantgrade"), j),sd->inventory.u.items_inventory[i].enchantgrade);
-			for (k = 0; k < MAX_ITEM_RDM_OPT; k++)
-			{
-				sprintf(randopt_var, "@inventorylist_option_id%d",k+1);
-				pc_setreg(sd,reference_uid(add_str(randopt_var), j),sd->inventory.u.items_inventory[i].option[k].id);
-				sprintf(randopt_var, "@inventorylist_option_value%d",k+1);
-				pc_setreg(sd,reference_uid(add_str(randopt_var), j),sd->inventory.u.items_inventory[i].option[k].value);
-				sprintf(randopt_var, "@inventorylist_option_parameter%d",k+1);
-				pc_setreg(sd,reference_uid(add_str(randopt_var), j),sd->inventory.u.items_inventory[i].option[k].param);
-			}
-			pc_setreg(sd,reference_uid(add_str("@inventorylist_tradable"), j),pc_can_trade_item(sd, i));
-			pc_setreg(sd,reference_uid(add_str("@inventorylist_favorite"), j),sd->inventory.u.items_inventory[i].favorite);
-			j++;
+	const char* command = script_getfuncname(st);
+	const uint32 fields = script_hasdata(st, 3) ? script_getnum(st, 3) : INV_ALL;
+	s_storage* storage = nullptr;
+	item* items = nullptr;
+	bool is_inventory = false;
+	if (strstr(command, "cart") != nullptr) {
+		storage = &sd->cart;
+		items = storage->u.items_cart;
+	} else if (strstr(command, "guildstorage") != nullptr) {
+		storage = guild2storage2(sd->status.guild_id);
+		if (storage != nullptr)
+			items = storage->u.items_guild;
+	} else if (strstr(command, "storage") != nullptr) {
+		const int storage_id = script_hasdata(st, 4) ? script_getnum(st, 4) : 0;
+		storage = storage_id == 0 ? &sd->storage : (sd->premiumStorage.stor_id == storage_id ? &sd->premiumStorage : nullptr);
+		if (storage != nullptr)
+			items = storage->u.items_storage;
+	} else {
+		storage = &sd->inventory;
+		items = storage->u.items_inventory;
+		is_inventory = true;
+	}
+	if (storage == nullptr || items == nullptr)
+		return SCRIPT_CMD_FAILURE;
+	const char* scalar_arrays[] = { "@inventorylist_id", "@inventorylist_idx", "@inventorylist_amount", "@inventorylist_equip", "@inventorylist_refine", "@inventorylist_identify", "@inventorylist_attribute", "@inventorylist_expire", "@inventorylist_bound", "@inventorylist_enchantgrade", "@inventorylist_tradable", "@inventorylist_favorite", "@inventorylist_uid$", "@inventorylist_equipswitch" };
+	for (const char* variable : scalar_arrays)
+		script_cleararray_pc(sd, variable);
+	char variable[50];
+	for (int k = 0; k < MAX_SLOTS; ++k) {
+		snprintf(variable, sizeof(variable), "@inventorylist_card%d", k + 1);
+		script_cleararray_pc(sd, variable);
+	}
+	for (int k = 0; k < MAX_ITEM_RDM_OPT; ++k) {
+		for (const char* pattern : { "@inventorylist_option_id%d", "@inventorylist_option_value%d", "@inventorylist_option_parameter%d" }) {
+			snprintf(variable, sizeof(variable), pattern, k + 1);
+			script_cleararray_pc(sd, variable);
 		}
 	}
-	pc_setreg(sd,add_str("@inventorylist_count"),j);
+	int count = 0;
+#define PANDAS_INV_SET(flag, name, value) if ((fields & (flag)) != 0) pc_setreg(sd, reference_uid(add_str(name), count), value)
+	for (int i = 0; i < storage->max_amount; ++i) {
+		item& entry = items[i];
+		if (entry.nameid == 0 || entry.amount == 0)
+			continue;
+		PANDAS_INV_SET(INV_ID, "@inventorylist_id", entry.nameid);
+		PANDAS_INV_SET(INV_IDX, "@inventorylist_idx", i);
+		PANDAS_INV_SET(INV_AMOUNT, "@inventorylist_amount", entry.amount);
+		PANDAS_INV_SET(INV_EQUIP, "@inventorylist_equip", entry.equip);
+		PANDAS_INV_SET(INV_REFINE, "@inventorylist_refine", entry.refine);
+		PANDAS_INV_SET(INV_IDENTIFY, "@inventorylist_identify", entry.identify);
+		PANDAS_INV_SET(INV_ATTRIBUTE, "@inventorylist_attribute", entry.attribute);
+		for (int k = 0; k < MAX_SLOTS; ++k) {
+			snprintf(variable, sizeof(variable), "@inventorylist_card%d", k + 1);
+			PANDAS_INV_SET(INV_CARD, variable, entry.card[k]);
+		}
+		PANDAS_INV_SET(INV_EXPIRE, "@inventorylist_expire", entry.expire_time);
+		PANDAS_INV_SET(INV_BOUND, "@inventorylist_bound", entry.bound);
+		PANDAS_INV_SET(INV_ENCHANTGRADE, "@inventorylist_enchantgrade", entry.enchantgrade);
+		for (int k = 0; k < MAX_ITEM_RDM_OPT; ++k) {
+			snprintf(variable, sizeof(variable), "@inventorylist_option_id%d", k + 1); PANDAS_INV_SET(INV_OPTION, variable, entry.option[k].id);
+			snprintf(variable, sizeof(variable), "@inventorylist_option_value%d", k + 1); PANDAS_INV_SET(INV_OPTION, variable, entry.option[k].value);
+			snprintf(variable, sizeof(variable), "@inventorylist_option_parameter%d", k + 1); PANDAS_INV_SET(INV_OPTION, variable, entry.option[k].param);
+		}
+		PANDAS_INV_SET(INV_TRADABLE, "@inventorylist_tradable", is_inventory ? pc_can_trade_item(sd, i) : entry.bound == BOUND_NONE);
+		PANDAS_INV_SET(INV_FAVORITE, "@inventorylist_favorite", entry.favorite);
+		if ((fields & INV_UID) != 0) {
+			char unique_id[32];
+			snprintf(unique_id, sizeof(unique_id), "%" PRIu64, entry.unique_id);
+			pc_setregstr(sd, reference_uid(add_str("@inventorylist_uid$"), count), unique_id);
+		}
+		PANDAS_INV_SET(INV_EQUIPSWITCH, "@inventorylist_equipswitch", entry.equipSwitch);
+		++count;
+	}
+#undef PANDAS_INV_SET
+	pc_setreg(sd, add_str("@inventorylist_count"), count);
+	// ===== rAthena 移植 Pandas getinventorylist 扩展：结束 =====
 	return SCRIPT_CMD_SUCCESS;
 }
 
@@ -19045,10 +19171,11 @@ BUILDIN_FUNC(unitexists)
 
 	bl = map_id2bl(script_getnum(st, 2));
 
-	if (!bl)
-		script_pushint(st, false);
-	else
-		script_pushint(st, true);
+	// ===== rAthena 移植 Pandas unitexists 扩展：开始 =====
+	// 修改内容：可选参数为 1 时，死亡单位按不存在处理。
+	const bool require_alive = script_hasdata(st, 3) && script_getnum(st, 3) != 0;
+	script_pushint(st, bl != nullptr && (!require_alive || !status_isdead(*bl)));
+	// ===== rAthena 移植 Pandas unitexists 扩展：结束 =====
 
 	return SCRIPT_CMD_SUCCESS;
 }
@@ -19179,6 +19306,14 @@ BUILDIN_FUNC(getunitdata)
 			getunitdata_sub(UMOB_RES, md->status.res);
 			getunitdata_sub(UMOB_MRES, md->status.mres);
 			getunitdata_sub(UMOB_DAMAGETAKEN, md->damagetaken);
+			// ===== rAthena 移植 Pandas getunitdata 扩展：开始 =====
+			getunitdata_sub(UMOB_AURA, md->ud.aura_id);
+			getunitdata_sub(UMOB_DAMAGETAKEN_DB, md->db->damagetaken);
+			getunitdata_sub(UMOB_MOBBASEEXP, md->pandas_base_exp);
+			getunitdata_sub(UMOB_MOBBASEEXP_DB, md->db->base_exp);
+			getunitdata_sub(UMOB_MOBJOBEXP, md->pandas_job_exp);
+			getunitdata_sub(UMOB_MOBJOBEXP_DB, md->db->job_exp);
+			// ===== rAthena 移植 Pandas getunitdata 扩展：结束 =====
 			} break;
 
 		case BL_HOM: {
@@ -19225,6 +19360,10 @@ BUILDIN_FUNC(getunitdata)
 			getunitdata_sub(UHOM_DMOTION, hd->battle_status.dmotion);
 			getunitdata_sub(UHOM_TARGETID, hd->ud.target);
 			getunitdata_sub(UHOM_GROUP_ID, hd->ud.group_id);
+			// ===== rAthena 移植 Pandas 单位光环查询：开始 =====
+			// 修改内容：返回人工生命当前记录的光环编号。
+			getunitdata_sub(UHOM_AURA, hd->ud.aura_id);
+			// ===== rAthena 移植 Pandas 单位光环查询：结束 =====
 			} break;
 
 		case BL_PET: {
@@ -19268,6 +19407,10 @@ BUILDIN_FUNC(getunitdata)
 			getunitdata_sub(UPET_ADELAY, pd->status.adelay);
 			getunitdata_sub(UPET_DMOTION, pd->status.dmotion);
 			getunitdata_sub(UPET_GROUP_ID, pd->ud.group_id);
+			// ===== rAthena 移植 Pandas 单位光环查询：开始 =====
+			// 修改内容：返回宠物当前记录的光环编号。
+			getunitdata_sub(UPET_AURA, pd->ud.aura_id);
+			// ===== rAthena 移植 Pandas 单位光环查询：结束 =====
 			} break;
 
 		case BL_MER: {
@@ -19311,6 +19454,10 @@ BUILDIN_FUNC(getunitdata)
 			getunitdata_sub(UMER_DMOTION, mc->base_status.dmotion);
 			getunitdata_sub(UMER_TARGETID, mc->ud.target);
 			getunitdata_sub(UMER_GROUP_ID, mc->ud.group_id);
+			// ===== rAthena 移植 Pandas 单位光环查询：开始 =====
+			// 修改内容：返回佣兵当前记录的光环编号。
+			getunitdata_sub(UMER_AURA, mc->ud.aura_id);
+			// ===== rAthena 移植 Pandas 单位光环查询：结束 =====
 			} break;
 
 		case BL_ELEM: {
@@ -19356,6 +19503,10 @@ BUILDIN_FUNC(getunitdata)
 			getunitdata_sub(UELE_DMOTION, ed->base_status.dmotion);
 			getunitdata_sub(UELE_TARGETID, ed->ud.target);
 			getunitdata_sub(UELE_GROUP_ID, ed->ud.group_id);
+			// ===== rAthena 移植 Pandas 单位光环查询：开始 =====
+			// 修改内容：返回元素精灵当前记录的光环编号。
+			getunitdata_sub(UELE_AURA, ed->ud.aura_id);
+			// ===== rAthena 移植 Pandas 单位光环查询：结束 =====
 			} break;
 
 		case BL_NPC: {
@@ -19407,6 +19558,10 @@ BUILDIN_FUNC(getunitdata)
 			getunitdata_sub(UNPC_BODY2, nd->vd.look[LOOK_BODY2]);
 			getunitdata_sub(UNPC_DEADSIT, nd->vd.dead_sit);
 			getunitdata_sub(UNPC_GROUP_ID, nd->ud.group_id);
+			// ===== rAthena 移植 Pandas 单位光环查询：开始 =====
+			// 修改内容：返回 NPC 当前记录的光环编号。
+			getunitdata_sub(UNPC_AURA, nd->ud.aura_id);
+			// ===== rAthena 移植 Pandas 单位光环查询：结束 =====
 			} break;
 
 		default:
@@ -19433,6 +19588,10 @@ BUILDIN_FUNC(setunitdata)
 	}
 
 	int32 type = script_getnum(st, 3), value = 0;
+	// ===== rAthena 移植 Pandas 魔物经验值设置：开始 =====
+	// 修改原因：基础经验和职业经验字段需要保留 64 位脚本数值。
+	int64 value64 = 0;
+	// ===== rAthena 移植 Pandas 魔物经验值设置：结束 =====
 	const char *mapname = nullptr;
 	bool calc_status = false;
 
@@ -19440,6 +19599,11 @@ BUILDIN_FUNC(setunitdata)
 		mapname = script_getstr(st, 4);
 	else
 		value = script_getnum(st, 4);
+	// ===== rAthena 移植 Pandas 魔物经验值设置：开始 =====
+	// 修改内容：仅经验字段使用 64 位参数读取，其他字段保持原有行为。
+	if (type == UMOB_MOBBASEEXP || type == UMOB_MOBJOBEXP)
+		value64 = script_getnum64(st, 4);
+	// ===== rAthena 移植 Pandas 魔物经验值设置：结束 =====
 
 	switch (bl->type) {
 	case BL_MOB: {
@@ -19555,6 +19719,15 @@ BUILDIN_FUNC(setunitdata)
 			case UMOB_RES: md->base_status->res = (int16)value; calc_status = true; break;
 			case UMOB_MRES: md->base_status->mres = (int16)value; calc_status = true; break;
 			case UMOB_DAMAGETAKEN: md->damagetaken = (uint16)value; break;
+			// ===== rAthena 移植 Pandas setunitdata 扩展：开始 =====
+			// 修改内容：支持单位光环、承伤倍率和单只魔物经验覆盖；数据库查询项保持只读。
+			case UMOB_AURA: md->ud.aura_id = value; if (value > 0) clif_specialeffect(md, value, AREA); break;
+			case UMOB_MOBBASEEXP: md->pandas_base_exp = cap_value(value64, static_cast<int64>(-1), static_cast<int64>(MAX_EXP)); break;
+			case UMOB_MOBJOBEXP: md->pandas_job_exp = cap_value(value64, static_cast<int64>(-1), static_cast<int64>(MAX_EXP)); break;
+			case UMOB_DAMAGETAKEN_DB:
+			case UMOB_MOBBASEEXP_DB:
+			case UMOB_MOBJOBEXP_DB: return SCRIPT_CMD_FAILURE;
+			// ===== rAthena 移植 Pandas setunitdata 扩展：结束 =====
 			default:
 				ShowError("buildin_setunitdata: Unknown data identifier %d for BL_MOB.\n", type);
 				return SCRIPT_CMD_FAILURE;
@@ -19620,6 +19793,10 @@ BUILDIN_FUNC(setunitdata)
 				break;
 			}
 			case UHOM_GROUP_ID: hd->ud.group_id = value; unit_refresh(bl); break;
+			// ===== rAthena 移植 Pandas 单位光环设置：开始 =====
+			// 修改内容：保存人工生命光环编号并即时播放对应特效。
+			case UHOM_AURA: hd->ud.aura_id = value; if (value > 0) clif_specialeffect(hd, value, AREA); break;
+			// ===== rAthena 移植 Pandas 单位光环设置：结束 =====
 			default:
 				ShowError("buildin_setunitdata: Unknown data identifier %d for BL_HOM.\n", type);
 				return SCRIPT_CMD_FAILURE;
@@ -19673,6 +19850,10 @@ BUILDIN_FUNC(setunitdata)
 			case UPET_ADELAY: pd->status.adelay = (int16)value; break;
 			case UPET_DMOTION: pd->status.dmotion = (int16)value; break;
 			case UPET_GROUP_ID: pd->ud.group_id = value; unit_refresh(bl); break;
+			// ===== rAthena 移植 Pandas 单位光环设置：开始 =====
+			// 修改内容：保存宠物光环编号并即时播放对应特效。
+			case UPET_AURA: pd->ud.aura_id = value; if (value > 0) clif_specialeffect(pd, value, AREA); break;
+			// ===== rAthena 移植 Pandas 单位光环设置：结束 =====
 			default:
 				ShowError("buildin_setunitdata: Unknown data identifier %d for BL_PET.\n", type);
 				return SCRIPT_CMD_FAILURE;
@@ -19736,6 +19917,10 @@ BUILDIN_FUNC(setunitdata)
 				break;
 			}
 			case UMER_GROUP_ID: mc->ud.group_id = value; unit_refresh(bl); break;
+			// ===== rAthena 移植 Pandas 单位光环设置：开始 =====
+			// 修改内容：保存佣兵光环编号并即时播放对应特效。
+			case UMER_AURA: mc->ud.aura_id = value; if (value > 0) clif_specialeffect(mc, value, AREA); break;
+			// ===== rAthena 移植 Pandas 单位光环设置：结束 =====
 			default:
 				ShowError("buildin_setunitdata: Unknown data identifier %d for BL_MER.\n", type);
 				return SCRIPT_CMD_FAILURE;
@@ -19807,6 +19992,10 @@ BUILDIN_FUNC(setunitdata)
 				break;
 			}
 			case UELE_GROUP_ID: ed->ud.group_id = value; unit_refresh(bl); break;
+			// ===== rAthena 移植 Pandas 单位光环设置：开始 =====
+			// 修改内容：保存元素精灵光环编号并即时播放对应特效。
+			case UELE_AURA: ed->ud.aura_id = value; if (value > 0) clif_specialeffect(ed, value, AREA); break;
+			// ===== rAthena 移植 Pandas 单位光环设置：结束 =====
 			default:
 				ShowError("buildin_setunitdata: Unknown data identifier %d for BL_ELEM.\n", type);
 				return SCRIPT_CMD_FAILURE;
@@ -19873,6 +20062,10 @@ BUILDIN_FUNC(setunitdata)
 			case UNPC_BODY2: clif_changelook(bl, LOOK_BODY2, (uint16)value); break;
 			case UNPC_DEADSIT: nd->vd.dead_sit = (char)value; unit_refresh(bl); break;
 			case UNPC_GROUP_ID: nd->ud.group_id = value; unit_refresh(bl); break;
+			// ===== rAthena 移植 Pandas 单位光环设置：开始 =====
+			// 修改内容：保存 NPC 光环编号并即时播放对应特效。
+			case UNPC_AURA: nd->ud.aura_id = value; if (value > 0) clif_specialeffect(nd, value, AREA); break;
+			// ===== rAthena 移植 Pandas 单位光环设置：结束 =====
 			default:
 				ShowError("buildin_setunitdata: Unknown data identifier %d for BL_NPC.\n", type);
 				return SCRIPT_CMD_FAILURE;
@@ -23932,8 +24125,15 @@ BUILDIN_FUNC(bonus_script) {
 	const char *script_str = nullptr;
 	struct s_bonus_script_entry *entry = nullptr;
 
-	if ( !script_charid2sd(7,sd) )
+	// ===== rAthena 移植 Pandas bonus_script 返回编号流程：开始 =====
+	// 修改原因：为所有成功和失败分支提供一致、可判断的返回值。
+	if ( !script_charid2sd(7,sd) ) {
+		// ===== rAthena 移植 Pandas bonus_script 返回编号：开始 =====
+		// 修改内容：失败时返回 0，便于脚本统一判断创建结果。
+		script_pushint(st, 0);
+		// ===== rAthena 移植 Pandas bonus_script 返回编号：结束 =====
 		return SCRIPT_CMD_FAILURE;
+	}
 	
 	script_str = script_getstr(st,2);
 	dur = 1000 * abs(script_getnum(st,3));
@@ -23944,11 +24144,17 @@ BUILDIN_FUNC(bonus_script) {
 	// No Script string, No Duration!
 	if (script_str[0] == '\0' || !dur) {
 		ShowError("buildin_bonus_script: Invalid! Script: \"%s\". Duration: %d\n", script_str, dur);
+		// ===== rAthena 移植 Pandas bonus_script 返回编号：开始 =====
+		script_pushint(st, 0);
+		// ===== rAthena 移植 Pandas bonus_script 返回编号：结束 =====
 		return SCRIPT_CMD_FAILURE;
 	}
 
 	if (strlen(script_str) >= MAX_BONUS_SCRIPT_LENGTH) {
 		ShowError("buildin_bonus_script: Script string to long: \"%s\".\n", script_str);
+		// ===== rAthena 移植 Pandas bonus_script 返回编号：开始 =====
+		script_pushint(st, 0);
+		// ===== rAthena 移植 Pandas bonus_script 返回编号：结束 =====
 		return SCRIPT_CMD_FAILURE;
 	}
 
@@ -23958,7 +24164,17 @@ BUILDIN_FUNC(bonus_script) {
 	if ((entry = pc_bonus_script_add(sd, script_str, dur, (enum efst_type)icon, flag, type))) {
 		linkdb_insert(&sd->bonus_script.head, (void *)((intptr_t)entry), entry);
 		status_calc_pc(sd,SCO_NONE);
+		// ===== rAthena 移植 Pandas bonus_script 返回编号：开始 =====
+		// 修改内容：返回新效果的唯一编号，供管理指令后续使用。
+		script_pushint(st, entry->bonus_id);
+		// ===== rAthena 移植 Pandas bonus_script 返回编号：结束 =====
+	} else {
+		// ===== rAthena 移植 Pandas bonus_script 返回编号：开始 =====
+		// 修改内容：重复或创建失败时明确返回 0。
+		script_pushint(st, 0);
+		// ===== rAthena 移植 Pandas bonus_script 返回编号：结束 =====
 	}
+	// ===== rAthena 移植 Pandas bonus_script 返回编号流程：结束 =====
 	return SCRIPT_CMD_SUCCESS;
 }
 
@@ -27988,6 +28204,11 @@ BUILDIN_FUNC(preg_match) {
 
 /// script command definitions
 /// for an explanation on args, see add_buildin_func
+// ===== rAthena 移植 Pandas 脚本指令模块：开始 =====
+// 修改原因：将新增指令集中维护，避免扩大对 rAthena 上游 script.cpp 的修改面。
+#include "script_pandas_commands.inc"
+// ===== rAthena 移植 Pandas 脚本指令模块：结束 =====
+
 struct script_function buildin_func[] = {
 	// NPC interaction
 	BUILDIN_DEF(mes,"v*"),
@@ -28216,7 +28437,10 @@ struct script_function buildin_func[] = {
 	BUILDIN_DEF(isloggedin,"i?"),
 	BUILDIN_DEF(setmapflagnosave,"ssii"),
 	BUILDIN_DEF(getmapflag,"si?"),
-	BUILDIN_DEF(setmapflag,"si??"),
+	// ===== rAthena 移植 Pandas setmapflag 参数扩展：开始 =====
+	// 修改内容：允许携带最多四个地图标记参数；原生标记继续按其定义读取。
+	BUILDIN_DEF(setmapflag,"si????"),
+	// ===== rAthena 移植 Pandas setmapflag 参数扩展：结束 =====
 	BUILDIN_DEF(removemapflag,"si?"),
 	BUILDIN_DEF(pvpon,"s"),
 	BUILDIN_DEF(pvpoff,"s"),
@@ -28248,7 +28472,10 @@ struct script_function buildin_func[] = {
 	BUILDIN_DEF(getitemslots,"i"),
 	BUILDIN_DEF(makepet,"i"),
 	BUILDIN_DEF(getexp,"ii?"),
-	BUILDIN_DEF(getinventorylist,"?"),
+	// ===== rAthena 移植 Pandas getinventorylist 扩展：开始 =====
+	// 修改内容：第二个可选参数为查询字段掩码。
+	BUILDIN_DEF(getinventorylist,"??"),
+	// ===== rAthena 移植 Pandas getinventorylist 扩展：结束 =====
 	BUILDIN_DEF(getskilllist,"?"),
 	BUILDIN_DEF(clearitem,"?"),
 	BUILDIN_DEF(classchange,"i??"),
@@ -28341,7 +28568,10 @@ struct script_function buildin_func[] = {
 	BUILDIN_DEF(setnpcdisplay,"sv??"),
 	BUILDIN_DEF(compare,"ss"), // Lordalfa - To bring strstr to scripting Engine.
 	BUILDIN_DEF(strcmp,"ss"),
-	BUILDIN_DEF(getiteminfo,"vi"), //[Lupus] returns Items Buy / sell Price, etc info
+	// ===== rAthena 移植 Pandas getiteminfo 扩展：开始 =====
+	// 修改内容：第三参数可作为扩展查询的结果数组。
+	BUILDIN_DEF(getiteminfo,"vi?"), //[Lupus] returns Items Buy / sell Price, etc info
+	// ===== rAthena 移植 Pandas getiteminfo 扩展：结束 =====
 	BUILDIN_DEF(setiteminfo,"vii"), //[Lupus] set Items Buy / sell Price, etc info
 	BUILDIN_DEF(getequipcardid,"ii"), //[Lupus] returns CARD ID or other info from CARD slot N of equipped item
 	// [zBuffer] List of mathematics commands --->
@@ -28392,7 +28622,9 @@ struct script_function buildin_func[] = {
 	BUILDIN_DEF(getpcblock, "?"),
 	// <--- [zBuffer] List of player cont commands
 	// [zBuffer] List of unit control commands --->
-	BUILDIN_DEF(unitexists,"i"),
+	// ===== rAthena 移植 Pandas unitexists 扩展：开始 =====
+	BUILDIN_DEF(unitexists,"i?"),
+	// ===== rAthena 移植 Pandas unitexists 扩展：结束 =====
 	BUILDIN_DEF(getunittype,"i"),
 	BUILDIN_DEF(getunitname,"i"),
 	BUILDIN_DEF(setunitname,"is"),
@@ -28520,6 +28752,108 @@ struct script_function buildin_func[] = {
 	// 修改原因：向 Filter/Express 事件脚本公开交互指令显式解锁能力。
 	BUILDIN_DEF(unlockcmd,""),
 	// ===== rAthena 移植 Pandas unlockcmd 注册：结束 =====
+	// ===== rAthena 移植 Pandas 脚本指令注册：开始 =====
+	// 修改内容：注册 pandas_script_commands.txt 中新增指令及兼容别名，功能默认启用。
+	BUILDIN_DEF2(getinventorylist,"getcartlist","??"),
+	BUILDIN_DEF2(getinventorylist,"getguildstoragelist","??"),
+	BUILDIN_DEF2(getinventorylist,"getstoragelist","???"),
+	BUILDIN_DEF(setheaddir,"i?"),
+	BUILDIN_DEF(setbodydir,"i?"),
+	BUILDIN_DEF(instance_users,"i"),
+	BUILDIN_DEF2(cap_value,"cap","iii"),
+	BUILDIN_DEF(mobremove,"i"),
+	BUILDIN_DEF2(clear,"mesclear",""),
+	BUILDIN_DEF(battleignore,"i?"),
+	BUILDIN_DEF(gethotkey,"i?"),
+	BUILDIN_DEF(sethotkey,"iiii"),
+	BUILDIN_DEF(showvend,"si?"),
+	BUILDIN_DEF(viewequip,"i?"),
+	BUILDIN_DEF(countitemidx,"i?"),
+	BUILDIN_DEF2(countitemidx,"countinventory","i?"),
+	BUILDIN_DEF2(delitemidx,"delinventory","i??"),
+	BUILDIN_DEF(identifyidx,"i?"),
+	BUILDIN_DEF2(identifyidx,"identifybyidx","i?"),
+	BUILDIN_DEF(unequipidx,"i?"),
+	BUILDIN_DEF2(unequipidx,"unequipinventory","i?"),
+	BUILDIN_DEF(equipidx,"i?"),
+	BUILDIN_DEF2(equipidx,"equipinventory","i?"),
+	BUILDIN_DEF(itemexists,"v"),
+	BUILDIN_DEF2(itemexists,"existitem","v"),
+	BUILDIN_DEF(renttime,"ii?"),
+	BUILDIN_DEF2(renttime,"setrenttime","ii?"),
+	BUILDIN_DEF2(renttime,"resume","ii?"),
+	BUILDIN_DEF(getequipidx,"i?"),
+	BUILDIN_DEF2(recalculatestat,"statuscalc",""),
+	BUILDIN_DEF2(recalculatestat,"status_calc",""),
+	BUILDIN_DEF(getequipexpiretick,"i?"),
+	BUILDIN_DEF2(getequipexpiretick,"isrental","i?"),
+	BUILDIN_DEF(getinventoryinfo,"ii?"),
+	BUILDIN_DEF2(getinventoryinfo,"getcartinfo","ii?"),
+	BUILDIN_DEF2(getinventoryinfo,"getguildstorageinfo","ii?"),
+	BUILDIN_DEF2(getinventoryinfo,"getstorageinfo","ii??"),
+	BUILDIN_DEF(statuscheck,"i?"),
+	BUILDIN_DEF2(statuscheck,"sc_check","i?"),
+	BUILDIN_DEF(renttimeidx,"ii?"),
+	BUILDIN_DEF(party_leave,"?"),
+	BUILDIN_DEF(script4each,"si?????"),
+	BUILDIN_DEF2(script4each,"script4eachmob","si?????"),
+	BUILDIN_DEF2(script4each,"script4eachnpc","si?????"),
+	BUILDIN_DEF2(inarray,"searcharray","rv"),
+	BUILDIN_DEF(getsameipinfo,"??"),
+	BUILDIN_DEF(logout,"i?"),
+	BUILDIN_DEF2(warpparty,"warppartyrevive","siii???"),
+	BUILDIN_DEF2(warpparty,"warpparty2","siii???"),
+	BUILDIN_DEF(getareagid,"ri??????"),
+	BUILDIN_DEF(settrigger,"ii"),
+	BUILDIN_DEF(messagecolor,"s???"),
+	BUILDIN_DEF(copynpc,"???????"),
+	BUILDIN_DEF(gettimefmt,"s??"),
+	BUILDIN_DEF(multicatchpet,"*"),
+	BUILDIN_DEF2(multicatchpet,"mpet","*"),
+	BUILDIN_DEF(selfdeletion,"*"),
+	BUILDIN_DEF(setchartitle,"i?"),
+	BUILDIN_DEF(getchartitle,"?"),
+	BUILDIN_DEF(npcexists,"s?"),
+	BUILDIN_DEF(storagegetitem,"vi?"),
+	BUILDIN_DEF(setinventoryinfo,"iii??"),
+	BUILDIN_DEF(updateinventory,"?"),
+	BUILDIN_DEF(getcharmac,"?"),
+	BUILDIN_DEF(getconstant,"s"),
+	BUILDIN_DEF(preg_search,"ssir"),
+	BUILDIN_DEF(aura,"i?"),
+	BUILDIN_DEF(unitaura,"ii"),
+	BUILDIN_DEF(getunittarget,"i"),
+	BUILDIN_DEF(batrec_query,"iii?"),
+	BUILDIN_DEF(batrec_rank,"irri??"),
+	BUILDIN_DEF(batrec_sortout,"i?"),
+	BUILDIN_DEF(batrec_reset,"i"),
+	BUILDIN_DEF(enable_batrec,"?"),
+	BUILDIN_DEF(disable_batrec,"?"),
+	BUILDIN_DEF(login,"i????"),
+	BUILDIN_DEF(checksuspend,"?"),
+	BUILDIN_DEF(bonus_script_remove,"i?"),
+	BUILDIN_DEF(bonus_script_list,"r?"),
+	BUILDIN_DEF(bonus_script_exists,"i?"),
+	BUILDIN_DEF(bonus_script_getid,"sr?"),
+	BUILDIN_DEF(bonus_script_info,"ii?"),
+	BUILDIN_DEF(expandinventory_adjust,"i"),
+	BUILDIN_DEF(getinventorysize,"?"),
+	BUILDIN_DEF(getmapspawns,"s??"),
+	BUILDIN_DEF(getmobspawns,"i??"),
+	BUILDIN_DEF(getcalendartime,"ii??"),
+	BUILDIN_DEF(getskillinfo,"iv??"),
+	BUILDIN_DEF2(monster,"boss_monster","siisvi???"),
+	BUILDIN_DEF(sleep3,"i"),
+	BUILDIN_DEF(getquesttime,"i??"),
+	BUILDIN_DEF(unitspecialeffect,"ii??"),
+	BUILDIN_DEF(next_dropitem_special,"iii"),
+	BUILDIN_DEF2(getitem2,"getgradeitem","viiiiiiiiirrr?"),
+	BUILDIN_DEF(getrateidx,"*"),
+	BUILDIN_DEF(getbossinfo,"???"),
+	BUILDIN_DEF(whodropitem,"v??"),
+	BUILDIN_DEF(query_sql_async,"s*"),
+	BUILDIN_DEF(query_logsql_async,"s*"),
+	// ===== rAthena 移植 Pandas 脚本指令注册：结束 =====
 	BUILDIN_DEF(getrandgroupitem,"i????"),
 	BUILDIN_DEF(cleanmap,"s"),
 	BUILDIN_DEF2(cleanmap,"cleanarea","siiii"),

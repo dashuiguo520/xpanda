@@ -198,6 +198,10 @@ struct npc_data : public block_list {
 			uint16 count;
 			t_itemid itemshop_nameid; // Item Shop cost item ID
 			char pointshop_str[32]; // Point Shop cost variable name
+			// ===== rAthena 移植 Pandas pointshop 货币昵称：开始 =====
+			// 修改原因：允许商店显示本地化货币名称，而非内部变量名。
+			char pointshop_str_nick[64];
+			// ===== rAthena 移植 Pandas pointshop 货币昵称：结束 =====
 			bool discount;
 		} shop;
 		struct {
@@ -237,6 +241,20 @@ struct npc_data : public block_list {
 	std::vector<navi_link> links; // for extra links, like warper npc
 #endif
 	bool is_invisible;
+	// ===== rAthena 移植 Pandas NPC 商店招牌状态：开始 =====
+	// 修改原因：showvend 指令需要保存 NPC 招牌文本，并在新玩家进入视野时重新下发。
+	struct {
+		char message[NAME_LENGTH + 1];
+		bool show;
+	} vendingboard;
+	// ===== rAthena 移植 Pandas NPC 商店招牌状态：结束 =====
+	// ===== rAthena 移植 Pandas NPC 自毁状态：开始 =====
+	// 修改原因：selfdeletion WAITFREE 策略需要跨脚本状态保存策略和计时器。
+	struct {
+		uint8 destruction_strategy = 0;
+		int32 destruction_timer = INVALID_TIMER;
+	} pandas;
+	// ===== rAthena 移植 Pandas NPC 自毁状态：结束 =====
 };
 
 struct eri;
@@ -1740,9 +1758,34 @@ bool npc_event_is_express(enum npce_event type);
 bool npc_event_is_realtime(enum npce_event type);
 bool npc_event_has_script(enum npce_event type);
 enum npce_event npc_get_script_event_type(const char* eventname);
+// 修改原因：settrigger 指令需要控制特定事件的触发策略。
+enum npce_trigger : uint8 {
+	EVENT_TRIGGER_NONE = 0,
+	EVENT_TRIGGER_DISABLED,
+	EVENT_TRIGGER_ONCE,
+	EVENT_TRIGGER_EVER,
+	EVENT_TRIGGER_MAX
+};
+bool setEventTrigger(map_session_data* sd, enum npce_event event, enum npce_trigger trigger_flag);
+enum npce_trigger getEventTrigger(map_session_data* sd, enum npce_event event);
+bool isAllowTriggerEvent(map_session_data* sd, enum npce_event event);
 void npc_event_aide_killmvp(map_session_data* sd, map_session_data* mvp_sd, mob_data* md);
 void npc_event_aide_unitkill(block_list* src, block_list* target, uint16 skill_id);
 // ===== rAthena 移植 Pandas 事件框架：结束 =====
+
+// ===== rAthena 移植 Pandas copynpc 支撑接口：开始 =====
+// 修改原因：脚本指令需要复用 NPC 原生创建、解析、注册流程。
+DBMap* get_npcname_db_ptr();
+int32* get_npc_script_ptr();
+int32* get_npc_shop_ptr();
+int32* get_npc_warp_ptr();
+npc_data* npc_create_npc(int16 m, int16 x, int16 y);
+void npc_parsename(npc_data* nd, const char* name, const char* start, const char* buffer, const char* filepath);
+int32 npc_parseview(const char* w4, const char* start, const char* buffer, const char* filepath);
+int32 npc_event_export(npc_data* nd, int32 i);
+int32 npc_timerevent_export(npc_data* nd, int32 i);
+bool npc_change_title_event(map_session_data* sd, uint32 title_id, int mode);
+// ===== rAthena 移植 Pandas copynpc 支撑接口：结束 =====
 
 int32 npc_duplicate4instance(npc_data *snd, int16 m);
 int32 npc_instanceinit(npc_data* nd);

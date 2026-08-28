@@ -54,6 +54,10 @@ bool storage_exists(uint8 id);
 
 int32 storage_delitem(map_session_data* sd, struct s_storage *stor, int32 index, int32 amount);
 int32 storage_storageopen(map_session_data *sd);
+// ===== rAthena 移植 Pandas 仓库直接创建道具接口：开始 =====
+// 修改原因：storagegetitem 需要复用仓库容量、堆叠及绑定检查逻辑。
+int32 storage_additem(map_session_data* sd, struct s_storage* stor, struct item* it, int32 amount);
+// ===== rAthena 移植 Pandas 仓库直接创建道具接口：结束 =====
 void storage_storageadd(map_session_data *sd, struct s_storage *stor, int32 index, int32 amount);
 void storage_storageget(map_session_data *sd, struct s_storage *stor, int32 index, int32 amount, bool favorite=false);
 void storage_storageaddfromcart(map_session_data *sd, struct s_storage *stor, int32 index, int32 amount);

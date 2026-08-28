@@ -10483,6 +10483,17 @@ int64 pc_readparam( const map_session_data* sd, int64 type )
 #endif
 		case SP_CRIT_DEF_RATE: val = sd->bonus.crit_def_rate; break;
 		case SP_ADD_ITEM_SPHEAL_RATE: val = sd->bonus.itemsphealrate2; break;
+		// ===== rAthena 移植 Pandas readparam 扩展：开始 =====
+		// 修改内容：返回战斗状态总属性及当前手推车重量信息。
+		case SP_STR_ALL: val = sd->battle_status.str; break;
+		case SP_AGI_ALL: val = sd->battle_status.agi; break;
+		case SP_VIT_ALL: val = sd->battle_status.vit; break;
+		case SP_INT_ALL: val = sd->battle_status.int_; break;
+		case SP_DEX_ALL: val = sd->battle_status.dex; break;
+		case SP_LUK_ALL: val = sd->battle_status.luk; break;
+		case SP_CARTWEIGHT: val = pc_iscarton(sd) ? sd->cart_weight : 0; break;
+		case SP_MAXCARTWEIGHT: val = pc_iscarton(sd) ? sd->cart_weight_max : 0; break;
+		// ===== rAthena 移植 Pandas readparam 扩展：结束 =====
 		default:
 			ShowError("pc_readparam: Attempt to read unknown parameter '%lld'.\n", type);
 			return -1;
@@ -15222,6 +15233,11 @@ struct s_bonus_script_entry *pc_bonus_script_add(map_session_data *sd, const cha
 	entry->tick = dur; // Use duration first, on run change to expire time
 	entry->type = type;
 	entry->script = script;
+	// ===== rAthena 移植 Pandas bonus_script 唯一编号：开始 =====
+	// 修改原因：新增管理指令需要在效果存活期间使用不会变化的编号。
+	static uint32 pandas_bonus_script_sequence = 0;
+	entry->bonus_id = (static_cast<uint64>(sd->status.char_id) << 32) | ++pandas_bonus_script_sequence;
+	// ===== rAthena 移植 Pandas bonus_script 唯一编号：结束 =====
 	sd->bonus_script.count++;
 	return entry;
 }
@@ -15335,6 +15351,36 @@ void pc_bonus_script_clear(map_session_data *sd, uint32 flag) {
 	if (count && !(flag&BSF_REM_ON_LOGOUT)) //Don't need to do this if log out
 		status_calc_pc(sd,SCO_NONE);
 }
+
+// ===== rAthena 移植 Pandas bonus_script 管理指令：开始 =====
+// 修改内容：允许脚本按唯一编号判断或移除当前角色的定时效果。
+bool pc_bonus_script_remove(map_session_data* sd, uint64 bonus_id) {
+	if (sd == nullptr)
+		return false;
+	for (linkdb_node* node = sd->bonus_script.head; node != nullptr; node = node->next) {
+		s_bonus_script_entry* entry = static_cast<s_bonus_script_entry*>(node->data);
+		if (entry == nullptr || entry->bonus_id != bonus_id)
+			continue;
+		linkdb_erase(&sd->bonus_script.head, reinterpret_cast<void*>(reinterpret_cast<intptr_t>(entry)));
+		pc_bonus_script_free_entry(sd, entry);
+		pc_bonus_script_check_final(sd);
+		status_calc_pc(sd, SCO_NONE);
+		return true;
+	}
+	return false;
+}
+
+bool pc_bonus_script_exists(map_session_data* sd, uint64 bonus_id) {
+	if (sd == nullptr)
+		return false;
+	for (linkdb_node* node = sd->bonus_script.head; node != nullptr; node = node->next) {
+		const s_bonus_script_entry* entry = static_cast<const s_bonus_script_entry*>(node->data);
+		if (entry != nullptr && entry->bonus_id == bonus_id)
+			return true;
+	}
+	return false;
+}
+// ===== rAthena 移植 Pandas bonus_script 管理指令：结束 =====
 
 /** [Cydh]
  * Gives/removes SC_BASILICA when player steps in/out the cell with 'cell_basilica'

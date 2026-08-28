@@ -3178,27 +3178,32 @@ int32 mob_dead(mob_data *md, block_list *src, int32 type)
 					zeny*=rnd()%250;
 			}
 
-			if (map_getmapflag(m, MF_NOBASEEXP) || !md->db->base_exp)
+			// ===== rAthena 移植 Pandas 单只魔物经验覆盖：开始 =====
+			// 修改内容：setunitdata 的非负覆盖值优先于数据库经验。
+			const t_exp pandas_base_exp = md->pandas_base_exp >= 0 ? static_cast<t_exp>(md->pandas_base_exp) : md->db->base_exp;
+			const t_exp pandas_job_exp = md->pandas_job_exp >= 0 ? static_cast<t_exp>(md->pandas_job_exp) : md->db->job_exp;
+			if (map_getmapflag(m, MF_NOBASEEXP) || !pandas_base_exp)
 				base_exp = 0;
 			else {
-				double exp = apply_rate2(md->db->base_exp, per, 1);
+				double exp = apply_rate2(pandas_base_exp, per, 1);
 				exp = apply_rate(exp, bonus);
 				exp = apply_rate(exp, map_getmapflag(m, MF_BEXP));
 				base_exp = (t_exp)cap_value(exp, 1, MAX_EXP);
 			}
 
-			if (map_getmapflag(m, MF_NOJOBEXP) || !md->db->job_exp
+			if (map_getmapflag(m, MF_NOJOBEXP) || !pandas_job_exp
 #ifndef RENEWAL
 				|| entry.flag == MDLF_HOMUN // Homun earned job-exp is always lost.
 #endif
 			)
 				job_exp = 0;
 			else {
-				double exp = apply_rate2(md->db->job_exp, per, 1);
+				double exp = apply_rate2(pandas_job_exp, per, 1);
 				exp = apply_rate(exp, bonus);
 				exp = apply_rate(exp, map_getmapflag(m, MF_JEXP));
 				job_exp = (t_exp)cap_value(exp, 1, MAX_EXP);
 			}
+			// ===== rAthena 移植 Pandas 单只魔物经验覆盖：结束 =====
 
 			if ((base_exp > 0 || job_exp > 0) && entry.flag == MDLF_HOMUN && homkillonly && battle_config.hom_idle_no_share && pc_isidle_hom(tmpsd[i]))
 				base_exp = job_exp = 0;

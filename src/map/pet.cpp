@@ -1299,6 +1299,19 @@ void pet_catch_process_end( map_session_data& sd, int32 target_id ){
 		case PET_CATCH_UNIVERSAL_ALL:
 			// No checks, catch anything.
 			break;
+
+		// ===== rAthena 移植 Pandas 多目标捕捉校验：开始 =====
+		// 修改原因：仅当被点击魔物属于 multicatchpet 指定列表时才继续捕捉。
+		case PET_CATCH_MULTI_TARGET:
+			if (!util::vector_exists(sd.pandas_pet_catch_targets, md->mob_id)) {
+				clif_pet_roulette(sd, false);
+				pet_catchprocesses.erase(sd.status.char_id);
+				sd.pandas_pet_catch_targets.clear();
+				return;
+			}
+			sd.pandas_pet_catch_targets.clear();
+			break;
+		// ===== rAthena 移植 Pandas 多目标捕捉校验：结束 =====
 	}
 
 	if( battle_config.pet_distance_check && distance_bl( &sd, md ) > battle_config.pet_distance_check ){

@@ -313,6 +313,63 @@ struct script_stack {
 //
 enum e_script_state { RUN,STOP,END,RERUNLINE,GOTO,RETFUNC,CLOSE };
 
+// ===== rAthena 移植 Pandas selfdeletion 常量：开始 =====
+// 修改原因：为脚本指令提供取消、立即和等待空闲三种销毁策略。
+enum e_selfdeletion_flag : uint16 {
+	SELFDEL_CANCEL = 0,
+	SELFDEL_NOW,
+	SELFDEL_WAITFREE
+};
+
+// ===== rAthena 移植 Pandas getinventorylist 查询掩码：开始 =====
+// 修改内容：允许脚本只请求需要的字段，并供背包、手推车及仓库别名共用。
+enum e_inventory_query_flag : uint32 {
+	INV_ID = 0x0001, INV_IDX = 0x0002, INV_AMOUNT = 0x0004, INV_EQUIP = 0x0008,
+	INV_REFINE = 0x0010, INV_IDENTIFY = 0x0020, INV_ATTRIBUTE = 0x0040,
+	INV_CARD = 0x0080, INV_EXPIRE = 0x0100, INV_BOUND = 0x0200,
+	INV_ENCHANTGRADE = 0x0400, INV_OPTION = 0x0800, INV_TRADABLE = 0x1000,
+	INV_FAVORITE = 0x2000, INV_UID = 0x4000, INV_EQUIPSWITCH = 0x8000,
+	INV_ALL = 0xFFFF
+};
+// ===== rAthena 移植 Pandas getinventorylist 查询掩码：结束 =====
+
+// ===== rAthena 移植 Pandas 脚本查询常量：开始 =====
+// 修改内容：集中声明刷新点、技能信息及战斗记录指令使用的公开常量。
+enum e_spawn_query_flag : uint32 {
+	SPA_NONE = 0, SPA_ID = 1, SPA_NAME = 2, SPA_NUM = 4, SPA_ACTIVE = 8,
+	SPA_SIZE = 16, SPA_ISBOSS = 32, SPA_DELAY1 = 64, SPA_DELAY2 = 128,
+	SPA_AI = 256, SPA_LEVEL = 512, SPA_EVENT = 1024, SPA_MAPID = 2048,
+	SPA_MAPNAME = 4096, SPA_MAPX = 8192, SPA_MAPY = 16384,
+	SPA_MAPXS = 32768, SPA_MAPYS = 65536, SPA_ALL = 0x1FFFF
+};
+
+enum e_skillinfo_type : int32 {
+	SKI_CASTTYPE = 1, SKI_NAME, SKI_DESCRIPTION, SKI_MAXLEVEL_IN_SKILLTREE,
+	SKI_SKILLTYPE, SKI_HIT, SKI_TARGETTYPE, SKI_ELEMENT, SKI_DAMAGEFLAGS,
+	SKI_MAXLEVEL, SKI_RANGE, SKI_SPLASHAREA, SKI_HITCOUNT, SKI_CASTTIME,
+	SKI_FIXEDCASTTIME, SKI_AFTERCASTACTDELAY, SKI_AFTERCASTWALKDELAY,
+	SKI_DURATION1, SKI_DURATION2, SKI_CASTTIMEFLAGS, SKI_CASTDELAYFLAGS,
+	SKI_CASTDEFENSEREDUCTION, SKI_FLAGS, SKI_CASTCANCEL, SKI_ACTIVEINSTANCE,
+	SKI_KNOCKBACK, SKI_COOLDOWN, SKI_NONEARNPC_TYPE, SKI_NONEARNPC_ADDITIONALRANGE,
+	SKI_COPYFLAGS_SKILL, SKI_COPYFLAGS_REMOVEREQUIREMENT, SKI_UNIT_ID,
+	SKI_UNIT_ALTERNATEID, SKI_UNIT_LAYOUT, SKI_UNIT_RANGE, SKI_UNIT_INTERVAL,
+	SKI_UNIT_TARGET, SKI_UNIT_FLAG, SKI_REQUIRES_HPCOST, SKI_REQUIRES_SPCOST,
+	SKI_REQUIRES_APCOST, SKI_REQUIRES_MAXHPTRIGGER, SKI_REQUIRES_HPRATECOST,
+	SKI_REQUIRES_SPRATECOST, SKI_REQUIRES_ZENYCOST, SKI_REQUIRES_WEAPON,
+	SKI_REQUIRES_AMMO, SKI_REQUIRES_AMMOAMOUNT, SKI_REQUIRES_STATE,
+	SKI_REQUIRES_STATUS, SKI_REQUIRES_SPHERECOST, SKI_REQUIRES_ITEMCOST,
+	SKI_REQUIRES_EQUIPMENT
+};
+
+enum e_batrec_type : uint8 { BRT_DMG_RECEIVE = 0, BRT_DMG_CAUSE = 1 };
+enum e_batrec_agg : uint8 { BRA_COMBINE = 0, BRA_DISCRETE = 1 };
+enum e_batrec_sort : uint8 { BRS_DESC = 0, BRS_ASC = 1 };
+// ===== rAthena 移植 Pandas 脚本查询常量：结束 =====
+void selfdeletion_exec_endtalk(struct script_state* st);
+struct block_list;
+void pandas_batrec_record(struct block_list* src, struct block_list* target, int64 damage);
+// ===== rAthena 移植 Pandas selfdeletion 常量：结束 =====
+
 struct script_state {
 	struct script_stack* stack;
 	int32 start,end;
@@ -505,6 +562,14 @@ enum unitdata_mobtypes {
 	UMOB_RES,
 	UMOB_MRES,
 	UMOB_DAMAGETAKEN,
+	// ===== rAthena 移植 Pandas getunitdata/setunitdata 扩展：开始 =====
+	UMOB_AURA,
+	UMOB_DAMAGETAKEN_DB,
+	UMOB_MOBBASEEXP,
+	UMOB_MOBBASEEXP_DB,
+	UMOB_MOBJOBEXP,
+	UMOB_MOBJOBEXP_DB,
+	// ===== rAthena 移植 Pandas getunitdata/setunitdata 扩展：结束 =====
 };
 
 enum unitdata_homuntypes {
@@ -549,6 +614,10 @@ enum unitdata_homuntypes {
 	UHOM_DMOTION,
 	UHOM_TARGETID,
 	UHOM_GROUP_ID,
+	// ===== rAthena 移植 Pandas 单位光环字段：开始 =====
+	// 修改内容：向 getunitdata/setunitdata 暴露人工生命的光环编号。
+	UHOM_AURA,
+	// ===== rAthena 移植 Pandas 单位光环字段：结束 =====
 };
 
 enum unitdata_pettypes {
@@ -590,6 +659,10 @@ enum unitdata_pettypes {
 	UPET_ADELAY,
 	UPET_DMOTION,
 	UPET_GROUP_ID,
+	// ===== rAthena 移植 Pandas 单位光环字段：开始 =====
+	// 修改内容：向 getunitdata/setunitdata 暴露宠物的光环编号。
+	UPET_AURA,
+	// ===== rAthena 移植 Pandas 单位光环字段：结束 =====
 };
 
 enum unitdata_merctypes {
@@ -631,6 +704,10 @@ enum unitdata_merctypes {
 	UMER_DMOTION,
 	UMER_TARGETID,
 	UMER_GROUP_ID,
+	// ===== rAthena 移植 Pandas 单位光环字段：开始 =====
+	// 修改内容：向 getunitdata/setunitdata 暴露佣兵的光环编号。
+	UMER_AURA,
+	// ===== rAthena 移植 Pandas 单位光环字段：结束 =====
 };
 
 enum unitdata_elemtypes {
@@ -674,6 +751,10 @@ enum unitdata_elemtypes {
 	UELE_DMOTION,
 	UELE_TARGETID,
 	UELE_GROUP_ID,
+	// ===== rAthena 移植 Pandas 单位光环字段：开始 =====
+	// 修改内容：向 getunitdata/setunitdata 暴露元素精灵的光环编号。
+	UELE_AURA,
+	// ===== rAthena 移植 Pandas 单位光环字段：结束 =====
 };
 
 enum unitdata_npctypes {
@@ -723,6 +804,10 @@ enum unitdata_npctypes {
 	UNPC_BODY2,
 	UNPC_DEADSIT,
 	UNPC_GROUP_ID,
+	// ===== rAthena 移植 Pandas 单位光环字段：开始 =====
+	// 修改内容：向 getunitdata/setunitdata 暴露 NPC 的光环编号。
+	UNPC_AURA,
+	// ===== rAthena 移植 Pandas 单位光环字段：结束 =====
 };
 
 enum navigation_service {

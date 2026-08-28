@@ -397,6 +397,11 @@ struct mob_data : public block_list {
 	 **/
 	int32 tomb_nid;
 	uint16 damagetaken;
+	// ===== rAthena 移植 Pandas 单只魔物经验覆盖：开始 =====
+	// 修改内容：-1 表示使用数据库值，其余值供 setunitdata 覆盖当前魔物经验。
+	int64 pandas_base_exp = -1;
+	int64 pandas_job_exp = -1;
+	// ===== rAthena 移植 Pandas 单只魔物经验覆盖：结束 =====
 
 	e_mob_bosstype get_bosstype() const;
 	map_session_data* get_mvp_player(map_session_data* first_sd);

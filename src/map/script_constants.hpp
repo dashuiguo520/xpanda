@@ -11070,6 +11070,72 @@
 	export_constant(GROUP_ALGORITHM_RANDOM);
 	export_constant(GROUP_ALGORITHM_SHAREDPOOL);
 	export_constant(GROUP_ALGORITHM_ALL);
+
+	// ===== rAthena 移植 Pandas 脚本指令常量：开始 =====
+	// 修改内容：向脚本公开新增指令所需的事件、查询掩码、排序及参数常量。
+	export_constant(BC_NAME);
+	export_constant(MAX_HOTKEYS);
+	export_parameter("CartWeight", SP_CARTWEIGHT);
+	export_parameter("MaxCartWeight", SP_MAXCARTWEIGHT);
+	export_constant2("bAllStr", SP_STR_ALL);
+	export_constant2("bAllAgi", SP_AGI_ALL);
+	export_constant2("bAllVit", SP_VIT_ALL);
+	export_constant2("bAllInt", SP_INT_ALL);
+	export_constant2("bAllDex", SP_DEX_ALL);
+	export_constant2("bAllLuk", SP_LUK_ALL);
+	export_constant(SELFDEL_CANCEL);
+	export_constant(SELFDEL_NOW);
+	export_constant(SELFDEL_WAITFREE);
+	export_constant(EVENT_TRIGGER_NONE);
+	export_constant(EVENT_TRIGGER_DISABLED);
+	export_constant(EVENT_TRIGGER_ONCE);
+	export_constant(EVENT_TRIGGER_EVER);
+	export_constant(BRT_DMG_RECEIVE);
+	export_constant(BRT_DMG_CAUSE);
+	export_constant(BRA_COMBINE);
+	export_constant(BRA_DISCRETE);
+	export_constant(BRS_DESC);
+	export_constant(BRS_ASC);
+	export_constant(INV_ID); export_constant(INV_IDX); export_constant(INV_AMOUNT); export_constant(INV_EQUIP);
+	export_constant(INV_REFINE); export_constant(INV_IDENTIFY); export_constant(INV_ATTRIBUTE); export_constant(INV_CARD);
+	export_constant(INV_EXPIRE); export_constant(INV_BOUND); export_constant(INV_ENCHANTGRADE); export_constant(INV_OPTION);
+	export_constant(INV_TRADABLE); export_constant(INV_FAVORITE); export_constant(INV_UID); export_constant(INV_EQUIPSWITCH); export_constant(INV_ALL);
+	export_constant(SPA_NONE); export_constant(SPA_ID); export_constant(SPA_NAME); export_constant(SPA_NUM);
+	export_constant(SPA_ACTIVE); export_constant(SPA_SIZE); export_constant(SPA_ISBOSS); export_constant(SPA_DELAY1);
+	export_constant(SPA_DELAY2); export_constant(SPA_AI); export_constant(SPA_LEVEL); export_constant(SPA_EVENT);
+	export_constant(SPA_MAPID); export_constant(SPA_MAPNAME); export_constant(SPA_MAPX); export_constant(SPA_MAPY);
+	export_constant(SPA_MAPXS); export_constant(SPA_MAPYS); export_constant(SPA_ALL);
+	export_constant(SKI_CASTTYPE); export_constant(SKI_NAME); export_constant(SKI_DESCRIPTION); export_constant(SKI_MAXLEVEL_IN_SKILLTREE);
+	export_constant(SKI_SKILLTYPE); export_constant(SKI_HIT); export_constant(SKI_TARGETTYPE); export_constant(SKI_ELEMENT);
+	export_constant(SKI_DAMAGEFLAGS); export_constant(SKI_MAXLEVEL); export_constant(SKI_RANGE); export_constant(SKI_SPLASHAREA);
+	export_constant(SKI_HITCOUNT); export_constant(SKI_CASTTIME); export_constant(SKI_FIXEDCASTTIME); export_constant(SKI_AFTERCASTACTDELAY);
+	export_constant(SKI_AFTERCASTWALKDELAY); export_constant(SKI_DURATION1); export_constant(SKI_DURATION2); export_constant(SKI_CASTTIMEFLAGS);
+	export_constant(SKI_CASTDELAYFLAGS); export_constant(SKI_CASTDEFENSEREDUCTION); export_constant(SKI_FLAGS); export_constant(SKI_CASTCANCEL);
+	export_constant(SKI_ACTIVEINSTANCE); export_constant(SKI_KNOCKBACK); export_constant(SKI_COOLDOWN); export_constant(SKI_NONEARNPC_TYPE);
+	export_constant(SKI_NONEARNPC_ADDITIONALRANGE); export_constant(SKI_COPYFLAGS_SKILL); export_constant(SKI_COPYFLAGS_REMOVEREQUIREMENT);
+	export_constant(SKI_UNIT_ID); export_constant(SKI_UNIT_ALTERNATEID); export_constant(SKI_UNIT_LAYOUT); export_constant(SKI_UNIT_RANGE);
+	export_constant(SKI_UNIT_INTERVAL); export_constant(SKI_UNIT_TARGET); export_constant(SKI_UNIT_FLAG); export_constant(SKI_REQUIRES_HPCOST);
+	export_constant(SKI_REQUIRES_SPCOST); export_constant(SKI_REQUIRES_APCOST); export_constant(SKI_REQUIRES_MAXHPTRIGGER);
+	export_constant(SKI_REQUIRES_HPRATECOST); export_constant(SKI_REQUIRES_SPRATECOST); export_constant(SKI_REQUIRES_ZENYCOST);
+	export_constant(SKI_REQUIRES_WEAPON); export_constant(SKI_REQUIRES_AMMO); export_constant(SKI_REQUIRES_AMMOAMOUNT);
+	export_constant(SKI_REQUIRES_STATE); export_constant(SKI_REQUIRES_STATUS); export_constant(SKI_REQUIRES_SPHERECOST);
+	export_constant(SKI_REQUIRES_ITEMCOST); export_constant(SKI_REQUIRES_EQUIPMENT);
+	export_constant(NPCF_IDENTIFY); export_constant(NPCF_ENTERCHAT); export_constant(NPCF_INSERT_CARD); export_constant(NPCF_USE_ITEM);
+	export_constant(NPCF_USE_SKILL); export_constant(NPCF_ROULETTE_OPEN); export_constant(NPCF_VIEW_EQUIP); export_constant(NPCF_EQUIP);
+	export_constant(NPCF_UNEQUIP); export_constant(NPCF_CHANGETITLE); export_constant(NPCF_SC_START); export_constant(NPCF_USE_REVIVE_TOKEN);
+	export_constant(NPCF_ONECLICK_IDENTIFY); export_constant(NPCF_GUILDCREATE); export_constant(NPCF_GUILDJOIN); export_constant(NPCF_GUILDLEAVE);
+	export_constant(NPCF_PARTYCREATE); export_constant(NPCF_PARTYJOIN); export_constant(NPCF_PARTYLEAVE); export_constant(NPCF_DROPITEM);
+	export_constant(NPCF_CLICKTOMB); export_constant(NPCF_STORAGE_ADD); export_constant(NPCF_STORAGE_DEL); export_constant(NPCF_CART_ADD);
+	export_constant(NPCF_CART_DEL); export_constant(NPCF_FAVORITE_ADD); export_constant(NPCF_FAVORITE_DEL);
+	export_constant(NPCE_KILLMVP); export_constant(NPCE_INSERT_CARD); export_constant(NPCE_USE_ITEM); export_constant(NPCE_USE_SKILL);
+	export_constant(NPCE_EQUIP); export_constant(NPCE_UNEQUIP); export_constant(NPCE_STATCALC);
+	export_constant(NPCX_SC_END); export_constant(NPCX_SC_START); export_constant(NPCX_ENTERMAP); export_constant(NPCX_PROGRESSABORT);
+	export_constant(NPCX_UNIT_KILL); export_constant(NPCX_MOBDROPITEM); export_constant(NPCX_PCATTACK); export_constant(NPCX_MER_CALL);
+	export_constant(NPCX_MER_LEAVE); export_constant(NPCX_PC_TALK); export_constant(NPCX_PCHARMED);
+	export_constant(UMOB_AURA); export_constant(UMOB_DAMAGETAKEN_DB); export_constant(UMOB_MOBBASEEXP);
+	export_constant(UMOB_MOBBASEEXP_DB); export_constant(UMOB_MOBJOBEXP); export_constant(UMOB_MOBJOBEXP_DB);
+	export_constant(UHOM_AURA); export_constant(UPET_AURA); export_constant(UMER_AURA); export_constant(UELE_AURA); export_constant(UNPC_AURA);
+	// ===== rAthena 移植 Pandas 脚本指令常量：结束 =====
 	
 	/* guildinfo script command */
 	export_constant(GUILDINFO_NAME);

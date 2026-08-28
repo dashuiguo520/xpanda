@@ -256,6 +256,10 @@ enum broadcast_flags : uint8_t {
 	BC_BLUE			= 0x10,
 	BC_WOE			= 0x20,
 	BC_COLOR_MASK	= 0x30, // BC_YELLOW|BC_BLUE|BC_WOE
+	// ===== rAthena 移植 Pandas announce 发布者名称：开始 =====
+	// 修改内容：允许客户端双击公告时填入玩家发布者名称。
+	BC_NAME			= 0x40,
+	// ===== rAthena 移植 Pandas announce 发布者名称：结束 =====
 
 	BC_DEFAULT		= BC_ALL|BC_PC|BC_YELLOW
 };
@@ -852,6 +856,16 @@ enum e_ack_additem_to_cart : uint8 {
 	ADDITEM_TO_CART_FAIL_COUNT = 1
 };
 
+// ===== rAthena 移植 Pandas next_dropitem_special 指令：开始 =====
+// 修改内容：保存下一件脚本掉落物的绑定、租赁和光柱覆盖值。
+struct s_next_dropitem_special {
+	uint32 rent_duration = 0;
+	int8 bound = -1;
+	int8 drop_effect = -1;
+};
+extern s_next_dropitem_special next_dropitem_special;
+// ===== rAthena 移植 Pandas next_dropitem_special 指令：结束 =====
+
 enum e_changestate_pet : uint8 {
 	CHANGESTATEPET_INIT = 0,
 	CHANGESTATEPET_INTIMACY = 1,
@@ -1056,6 +1070,10 @@ void clif_changed_dir( const block_list& bl, enum send_target target);
 // vending
 void clif_openvendingreq( map_session_data& sd, uint16 num );
 void clif_showvendingboard( map_session_data& sd, enum send_target target = AREA_WOS, block_list* tbl = nullptr );
+// ===== rAthena 移植 Pandas NPC 商店招牌接口：开始 =====
+// 修改原因：showvend 需要对 NPC 等非玩家单位发送露天商店招牌封包。
+void clif_showvendingboard(block_list* bl, const char* name, enum send_target target = AREA_WOS, block_list* tbl = nullptr);
+// ===== rAthena 移植 Pandas NPC 商店招牌接口：结束 =====
 void clif_closevendingboard( block_list& bl, send_target target, block_list* tbl );
 void clif_vendinglist( map_session_data& sd, map_session_data& vsd );
 void clif_buyvending( map_session_data& sd, uint16 index, uint16 amount, e_pc_purchase_result_frommc result );
@@ -1509,5 +1527,10 @@ void clif_set_npc_window_pos_percent( const map_session_data& sd, int32 x, int32
 void clif_noask_sub( const map_session_data& sd, const map_session_data& tsd, int32 type );
 
 void clif_specialpopup(const map_session_data& sd, int32 id);
+
+// ===== rAthena 移植 Pandas change_title 指令：开始 =====
+// 修改原因：脚本侧主动切换称号后需要复用客户端确认封包。
+void clif_change_title_ack(map_session_data* sd, unsigned char result, unsigned long title_id);
+// ===== rAthena 移植 Pandas change_title 指令：结束 =====
 
 #endif /* CLIF_HPP */
