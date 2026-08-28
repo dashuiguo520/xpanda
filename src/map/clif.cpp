@@ -52,6 +52,10 @@
 #include "pc_groups.hpp"
 #include "pet.hpp"
 #include "quest.hpp"
+// ===== rAthena 移植 Pandas 符文石板依赖：开始 =====
+// 修改内容：客户端符文处理调用符文数据库和角色状态接口。
+#include "rune.hpp"
+// ===== rAthena 移植 Pandas 符文石板依赖：结束 =====
 #include "script.hpp"
 #include "skill.hpp"
 #include "status.hpp"
@@ -9449,6 +9453,11 @@ void clif_guild_position_selected( const map_session_data& sd )
 /// type:
 ///     enum emotion_type
 void clif_emotion( const block_list& bl, emotion_type type ){
+	// ===== rAthena 移植 Pandas Cash Emotion 广播兼容：开始 =====
+	// 修改内容：新版主线客户端统一使用 ZC_EMOTION2，旧客户端保留原包。
+#if PACKETVER_MAIN_NUM >= 20230925
+	clif_emotion2(const_cast<block_list*>(&bl), 0, type);
+#else
 	PACKET_ZC_EMOTION p{};
 
 	p.packetType = HEADER_ZC_EMOTION;
@@ -9456,6 +9465,8 @@ void clif_emotion( const block_list& bl, emotion_type type ){
 	p.type = static_cast<decltype(p.type)>( type );
 
 	clif_send( &p, sizeof(p), &bl, AREA );
+#endif
+	// ===== rAthena 移植 Pandas Cash Emotion 广播兼容：结束 =====
 }
 
 
@@ -10987,6 +10998,11 @@ void clif_parse_LoadEndAck(int32 fd,map_session_data *sd)
 				sc_start(sd,sd, SC_KNOWLEDGE, 100, lv, skill_get_time(SG_KNOWLEDGE, lv));
 		}
 
+		// ===== rAthena 移植 Pandas Cash Emotion 登录同步：开始 =====
+		// 修改内容：向新版客户端发送账号已购或租赁中的表情扩展。
+		pc_load_emotion_expantion_list(sd);
+		// ===== rAthena 移植 Pandas Cash Emotion 登录同步：结束 =====
+
 		if(sd->pd && sd->pd->pet.intimate > 900)
 			clif_pet_emotion( *sd->pd, (sd->pd->pet.class_ - 100)*100 + 50 + pet_hungry_val(sd->pd) );
 
@@ -11171,6 +11187,10 @@ void clif_parse_LoadEndAck(int32 fd,map_session_data *sd)
 			channel_mjoin(sd); //join new map
 
 		clif_pk_mode_message(sd);
+		// ===== rAthena 移植 Pandas GoldPC 客户端同步：开始 =====
+		// 修改内容：完成地图加载时刷新 GoldPC 积分和计时进度。
+		clif_goldpc_info(*sd);
+		// ===== rAthena 移植 Pandas GoldPC 客户端同步：结束 =====
 	}
 	
 	if( sd->guild && ( battle_config.guild_notice_changemap == 2 || guild_notice ) ){
@@ -11695,6 +11715,9 @@ void clif_parse_ChangeDir(int32 fd, map_session_data *sd)
 /// Request to show an emotion 
 /// 00bf <type>.B (CZ_REQ_EMOTION).
 void clif_parse_Emotion(int32 fd, map_session_data *sd){
+	// ===== rAthena 移植 Pandas Cash Emotion 请求兼容：开始 =====
+	// 修改原因：2023-09-25 之后客户端改由 CZ_REQ_EMOTION2 处理表情。
+#if PACKETVER_MAIN_NUM < 20230925
 	if( sd == nullptr ){
 		return;
 	}
@@ -11739,6 +11762,8 @@ void clif_parse_Emotion(int32 fd, map_session_data *sd){
 		clif_emotion( *sd, emoticon );
 	} else
 		clif_skill_fail( *sd, 1, USESKILL_FAIL_LEVEL, 1 );
+#endif
+	// ===== rAthena 移植 Pandas Cash Emotion 请求兼容：结束 =====
 }
 
 
@@ -25820,6 +25845,11 @@ void clif_parse_MoveFromKafraFav( int32 fd, map_session_data* sd ){
 	}
 #endif
 }
+
+// ===== rAthena 移植 Pandas GoldPC、Cash Emotion 与符文客户端实现：开始 =====
+// 修改内容：载入独立实现模块，保持 clif.cpp 主流程清晰。
+#include "clif_pandas_cash_rune.inc"
+// ===== rAthena 移植 Pandas GoldPC、Cash Emotion 与符文客户端实现：结束 =====
 
 /*==========================================
  * Main client packet processing function

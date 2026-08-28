@@ -522,6 +522,10 @@ enum _sp {
 	SP_CASHPOINTS, SP_KAFRAPOINTS,
 	SP_PCDIECOUNTER, SP_COOKMASTERY,
 	SP_ACHIEVEMENT_LEVEL,
+	// ===== rAthena 移植 Pandas GoldPC 脚本参数：开始 =====
+	// 修改内容：让脚本和状态参数接口读取、设置 GoldPC 点数。
+	SP_GOLDPC_POINTS,
+	// ===== rAthena 移植 Pandas GoldPC 脚本参数：结束 =====
 
 	// Mercenaries
 	SP_MERCFLEE=165, SP_MERCKILLS=189, SP_MERCFAITH=190,
@@ -701,6 +705,11 @@ enum e_mapflag : int16 {
 	MF_SPECIALPOPUP,
 	MF_NOMACROCHECKER,
 	MF_INVINCIBLE_TIME,
+	// ===== rAthena 移植 Pandas 地图标记：开始 =====
+	// 修改内容：增加普通怪物禁掉落和 NPC 自爆仅攻击敌人的地图控制项。
+	MF_NOLOOTNORMALMOB,
+	MF_NO_NPC_SELFDESTRUCTION_ON_ALL,
+	// ===== rAthena 移植 Pandas 地图标记：结束 =====
 	MF_MAX
 };
 

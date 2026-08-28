@@ -4026,4 +4026,81 @@ BUILDIN_FUNC(query_logsql_async) {
 	return buildin_query_sql_sub(st, logmysql_handle);
 }
 
+// ===== rAthena 移植 Pandas 单位与传送点脚本指令：开始 =====
+// 修改内容：增加强制行走状态查询、任意单位特效以及指定位置记忆点写入。
+BUILDIN_FUNC(unitisforcewalk) {
+	block_list* bl = script_hasdata(st, 2) && script_getnum(st, 2) != 0 ? map_id2bl(script_getnum(st, 2)) : map_id2bl(st->rid);
+	unit_data* ud = bl != nullptr ? unit_bl2ud(bl) : nullptr;
+	script_pushint(st, ud != nullptr && ud->walktimer == INVALID_TIMER && ud->state.force_walk);
+	return SCRIPT_CMD_SUCCESS;
+}
+
+BUILDIN_FUNC(specialeffect3) {
+	const int32 type = script_getnum(st, 2);
+	const send_target target = static_cast<send_target>(script_getnum(st, 3));
+	block_list* bl;
+
+	if (!script_rid2bl(4, bl))
+		return SCRIPT_CMD_SUCCESS;
+	if (type <= EF_NONE || type >= EF_MAX) {
+		ShowError("buildin_specialeffect3: unsupported effect id %d.\n", type);
+		return SCRIPT_CMD_FAILURE;
+	}
+	clif_specialeffect(bl, type, target);
+	return SCRIPT_CMD_SUCCESS;
+}
+
+BUILDIN_FUNC(force_memo) {
+	map_session_data* sd;
+	if (!script_rid2sd(sd))
+		return SCRIPT_CMD_FAILURE;
+
+	const char* map_name = script_getstr(st, 2);
+	const int32 x = script_getnum(st, 3);
+	const int32 y = script_getnum(st, 4);
+	const int32 slot = script_getnum(st, 5);
+	// 修改原因：当前 rAthena 角色结构固定保存 MAX_MEMOPOINTS 个坐标，不依赖 Pandas 的动态上限宏。
+	if (slot < 0 || slot >= MAX_MEMOPOINTS)
+		return SCRIPT_CMD_FAILURE;
+
+	const int16 map_id = map_mapname2mapid(map_name);
+	if (map_id < 0)
+		return SCRIPT_CMD_FAILURE;
+
+	for (int32 i = 0; i < MAX_MEMOPOINTS; ++i) {
+		if (sd->status.memo_point[i].map[0] == '\0' || i == slot) {
+			safestrncpy(sd->status.memo_point[i].map, map_mapid2mapname(map_id), sizeof(sd->status.memo_point[i].map));
+			sd->status.memo_point[i].x = x;
+			sd->status.memo_point[i].y = y;
+			break;
+		}
+	}
+	return SCRIPT_CMD_SUCCESS;
+}
+// ===== rAthena 移植 Pandas 单位与传送点脚本指令：结束 =====
+
+// ===== rAthena 移植 Pandas 符文石板脚本指令：开始 =====
+// 修改内容：打开符文石板客户端界面，并向当前套装脚本返回升级等级。
+BUILDIN_FUNC(runeui) {
+#if PACKETVER_RE_NUM >= 20230802 || PACKETVER_MAIN_NUM >= 20230802
+	map_session_data* sd;
+	if (!script_charid2sd(2, sd))
+		return SCRIPT_CMD_FAILURE;
+	clif_rune_ui_open(sd);
+	return SCRIPT_CMD_SUCCESS;
+#else
+	ShowError("buildin_runeui: This command requires PACKETVER 2023-08-02 or newer.\n");
+	return SCRIPT_CMD_FAILURE;
+#endif
+}
+
+BUILDIN_FUNC(getupgrade_rune) {
+	map_session_data* sd;
+	if (!script_rid2sd(sd))
+		return SCRIPT_CMD_FAILURE;
+	script_pushint(st, sd->runeactivated_data.upgrade);
+	return SCRIPT_CMD_SUCCESS;
+}
+// ===== rAthena 移植 Pandas 符文石板脚本指令：结束 =====
+
 // ===== rAthena 移植 Pandas 脚本指令主体：结束 =====

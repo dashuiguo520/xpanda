@@ -125,6 +125,12 @@
     <ClInclude Include="quest.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <!-- ===== rAthena 移植 Pandas 符文石板工程筛选器：开始 ===== -->
+    <!-- 修改内容：在生成器工程中归类符文石板接口。 -->
+    <ClInclude Include="rune.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <!-- ===== rAthena 移植 Pandas 符文石板工程筛选器：结束 ===== -->
     <ClInclude Include="script.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -256,6 +262,12 @@
     <ClCompile Include="quest.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <!-- ===== rAthena 移植 Pandas 符文石板工程筛选器：开始 ===== -->
+    <!-- 修改内容：在生成器工程中归类符文石板实现。 -->
+    <ClCompile Include="rune.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <!-- ===== rAthena 移植 Pandas 符文石板工程筛选器：结束 ===== -->
     <ClCompile Include="script.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

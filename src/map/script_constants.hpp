@@ -536,6 +536,11 @@
 	export_constant(MF_SPECIALPOPUP);
 	export_constant(MF_NOMACROCHECKER);
 	export_constant(MF_INVINCIBLE_TIME);
+	// ===== rAthena 移植 Pandas 地图标记常量：开始 =====
+	// 修改内容：向脚本引擎公开 nolootnormalmob 和 no_npc_selfdestruction_on_all。
+	export_constant(MF_NOLOOTNORMALMOB);
+	export_constant(MF_NO_NPC_SELFDESTRUCTION_ON_ALL);
+	// ===== rAthena 移植 Pandas 地图标记常量：结束 =====
 
 	/* setcell types */
 	export_constant(CELL_WALKABLE);
@@ -611,6 +616,10 @@
 	export_parameter(PCDIECOUNTER_VAR, SP_PCDIECOUNTER);
 	export_parameter(COOKMASTERY_VAR, SP_COOKMASTERY);
 	export_parameter(ACHIEVEMENTLEVEL, SP_ACHIEVEMENT_LEVEL);
+	// ===== rAthena 移植 Pandas GoldPC 脚本参数导出：开始 =====
+	// 修改内容：脚本可直接使用 Goldpc_Points 读取和扣除积分。
+	export_parameter(GOLDPC_POINT_VAR, SP_GOLDPC_POINTS);
+	// ===== rAthena 移植 Pandas GoldPC 脚本参数导出：结束 =====
 
 	export_constant2("bMaxHP",SP_MAXHP);
 	export_constant2("bMaxSP",SP_MAXSP);
@@ -3717,6 +3726,16 @@
 	export_constant(ET_YUT5);
 	export_constant(ET_YUT6);
 	export_constant(ET_YUT7);
+	// ===== rAthena 移植 Pandas Cash Emotion 常量导出：开始 =====
+	// 修改内容：让 emotion_db.yml 和脚本识别新版扩展表情名称。
+	export_constant(ET_CLICK_ME); export_constant(ET_DAILY_QUEST); export_constant(ET_EVENT);
+	export_constant(ET_JOB_QUEST); export_constant(ET_TRAFFIC_LINE_QUEST);
+	export_constant(ET_CUSTOM_1); export_constant(ET_CUSTOM_2); export_constant(ET_CUSTOM_3);
+	export_constant(ET_CUSTOM_4); export_constant(ET_CUSTOM_5); export_constant(ET_CUSTOM_6);
+	export_constant(ET_CUSTOM_7); export_constant(ET_CUSTOM_8); export_constant(ET_CUSTOM_9);
+	export_constant(ET_CUSTOM_10); export_constant(ET_CUSTOM_11); export_constant(ET_CUSTOM_12);
+	export_constant(ET_CUSTOM_13); export_constant(ET_CUSTOM_14); export_constant(ET_CUSTOM_15);
+	// ===== rAthena 移植 Pandas Cash Emotion 常量导出：结束 =====
 
 	/* send targets */
 	export_constant(ALL_CLIENT);

@@ -50,6 +50,10 @@
 #include "pc.hpp"
 #include "pet.hpp"
 #include "quest.hpp"
+// ===== rAthena 移植 Pandas 符文石板依赖：开始 =====
+// 修改内容：地图服务启动和关闭时管理符文数据库。
+#include "rune.hpp"
+// ===== rAthena 移植 Pandas 符文石板依赖：结束 =====
 #include "storage.hpp"
 #include "trade.hpp"
 
@@ -5103,6 +5107,11 @@ void MapServer::finalize(){
 	do_final_vending();
 	do_final_buyingstore();
 	do_final_path();
+	// ===== rAthena 移植 Pandas Cash Emotion 与符文数据库关闭：开始 =====
+	// 修改内容：释放新增 YAML 数据库及脚本资源。
+	do_final_emotions();
+	do_final_rune();
+	// ===== rAthena 移植 Pandas Cash Emotion 与符文数据库关闭：结束 =====
 
 	map_db->destroy(map_db, map_db_final);
 
@@ -5477,6 +5486,11 @@ bool MapServer::initialize( int32 argc, char *argv[] ){
 	do_init_duel();
 	do_init_vending();
 	do_init_buyingstore();
+	// ===== rAthena 移植 Pandas Cash Emotion 与符文数据库初始化：开始 =====
+	// 修改内容：NPC OnInit 前加载表情扩展和符文配置。
+	do_init_emotions();
+	do_init_rune();
+	// ===== rAthena 移植 Pandas Cash Emotion 与符文数据库初始化：结束 =====
 
 	npc_event_do_oninit();	// Init npcs (OnInit)
 	// rathena-web 快照 开始

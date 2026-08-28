@@ -120,6 +120,12 @@ typedef uint32 t_itemid;
 #ifndef WEB_AUTH_TOKEN_LENGTH
 	#define WEB_AUTH_TOKEN_LENGTH 16+1
 #endif
+// ===== rAthena 移植 Pandas 符文石板容量常量：开始 =====
+// 修改内容：固定客户端协议中的符文槽、奖励槽和单次分解结果上限。
+#define MAX_RUNESLOT 5
+#define MAX_REWARDSLOT 7
+#define MAX_RUNEDECOMPO 8
+// ===== rAthena 移植 Pandas 符文石板容量常量：结束 =====
 
 enum e_enchantgrade : uint16{
 	ENCHANTGRADE_NONE = 0,

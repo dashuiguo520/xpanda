@@ -196,6 +196,21 @@ uint64 ItemDatabase::parseBodyNode(const ryml::NodeRef& node) {
 			item->subtype = 0;
 	}
 
+	// ===== rAthena 移植 Pandas 符文分解属性解析：开始 =====
+	// 修改内容：读取物品的 Decomposition 映射，供符文石板分解请求校验。
+	if (this->nodeExists(node, "Decomposition")) {
+		const auto& decompositionNode = node["Decomposition"];
+		for (const auto& entry : decompositionNode) {
+			std::string typeName;
+			c4::from_chars(entry.key(), &typeName);
+			uint16 typeNum;
+			if (!this->asUInt16(decompositionNode, typeName, typeNum))
+				return 0;
+			item->decompoRune[typeName] = typeNum;
+		}
+	}
+	// ===== rAthena 移植 Pandas 符文分解属性解析：结束 =====
+
 	bool has_buy = false, has_sell = false;
 
 	if (this->nodeExists(node, "Buy")) {

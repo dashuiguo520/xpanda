@@ -56,6 +56,10 @@
 #include "pc_groups.hpp"
 #include "pet.hpp" // pet_unlocktarget()
 #include "quest.hpp"
+// ===== rAthena 移植 Pandas 符文石板依赖：开始 =====
+// 修改内容：角色登录、保存和属性计算流程访问符文数据。
+#include "rune.hpp"
+// ===== rAthena 移植 Pandas 符文石板依赖：结束 =====
 #include "skill.hpp" // skill_isCopyable()
 #include "script.hpp" // struct script_reg, struct script_regstr
 #include "searchstore.hpp"  // struct s_search_store_info
@@ -2301,6 +2305,10 @@ bool pc_authok(map_session_data *sd, uint32 login_id2, time_t expiration_time, i
 	}
 
 	// Request all registries (auth is considered completed whence they arrive)
+	// ===== rAthena 移植 Pandas 符文石板角色数据加载：开始 =====
+	// 修改内容：认证完成后从角色数据库恢复符文书与套装状态。
+	rune_load(sd);
+	// ===== rAthena 移植 Pandas 符文石板角色数据加载：结束 =====
 	intif_request_registry(sd,7);
 	return true;
 }
@@ -2345,6 +2353,40 @@ bool pc_set_hate_mob(map_session_data *sd, int32 pos, block_list *bl)
 	clif_hate_info(sd, pos, class_, 1);
 	return true;
 }
+
+// ===== rAthena 移植 Pandas GoldPC 在线计时器：开始 =====
+// 修改内容：按配置周期累计点数，保留下线前的本周期进度并在达到上限时停止。
+static int32 pc_goldpc_elapsed_seconds(map_session_data* sd) {
+	if (sd->goldpc_tid == INVALID_TIMER)
+		return cap_value(static_cast<int32>(pc_readreg2(sd, GOLDPC_SECONDS_VAR)), 0, battle_config.feature_goldpc_time - 1);
+	const TimerData* td = get_timer(sd->goldpc_tid);
+	if (td == nullptr)
+		return 0;
+	const t_tick remaining = std::max<t_tick>(td->tick - gettick(), 0);
+	return cap_value(battle_config.feature_goldpc_time - static_cast<int32>((remaining + 999) / 1000), 0, battle_config.feature_goldpc_time - 1);
+}
+
+static void pc_goldpc_start(map_session_data* sd) {
+	if (!battle_config.feature_goldpc_active || sd->state.autotrade || pc_readreg2(sd, GOLDPC_POINT_VAR) >= battle_config.feature_goldpc_max_points) {
+		sd->goldpc_tid = INVALID_TIMER;
+		return;
+	}
+	const int32 elapsed = cap_value(static_cast<int32>(pc_readreg2(sd, GOLDPC_SECONDS_VAR)), 0, battle_config.feature_goldpc_time - 1);
+	sd->goldpc_tid = add_timer(gettick() + static_cast<t_tick>(battle_config.feature_goldpc_time - elapsed) * 1000, pc_goldpc_update, sd->id, 0);
+}
+
+TIMER_FUNC(pc_goldpc_update) {
+	map_session_data* sd = map_id2sd(id);
+	if (sd == nullptr)
+		return 0;
+	sd->goldpc_tid = INVALID_TIMER;
+	if (!battle_config.feature_goldpc_active)
+		return 0;
+	pc_setreg2(sd, GOLDPC_SECONDS_VAR, 0);
+	pc_setparam(sd, SP_GOLDPC_POINTS, pc_readparam(sd, SP_GOLDPC_POINTS) + (battle_config.feature_goldpc_vip && pc_isvip(sd) ? 2 : 1));
+	return 0;
+}
+// ===== rAthena 移植 Pandas GoldPC 在线计时器：结束 =====
 
 /*==========================================
  * Invoked once after the char/account/account2 registry variables are received. [Skotlex]
@@ -2512,7 +2554,17 @@ void pc_reg_received(map_session_data *sd)
 		}
 	}
 
+	// ===== rAthena 移植 Pandas GoldPC 计时启动：开始 =====
+	// 修改内容：角色变量读取完成后从已保存秒数继续当前计时周期。
+	pc_goldpc_start(sd);
+	clif_goldpc_info(*sd);
+	// ===== rAthena 移植 Pandas GoldPC 计时启动：结束 =====
+
 	channel_autojoin(sd);
+	// ===== rAthena 移植 Pandas 符文石板登录同步：开始 =====
+	// 修改内容：角色注册表就绪后向客户端恢复当前启用套装。
+	clif_onlogenable_rune(sd);
+	// ===== rAthena 移植 Pandas 符文石板登录同步：结束 =====
 }
 
 static int32 pc_calc_skillpoint(map_session_data* sd)
@@ -6896,14 +6948,17 @@ bool pc_steal_item(map_session_data *sd,block_list *bl, uint16 skill_lv)
 	status_data* sd_status = status_get_status_data(*sd);
 	status_data* md_status = status_get_status_data(*bl);
 
+	// ===== rAthena 移植 Pandas nolootnormalmob 偷窃限制：开始 =====
+	// 修改原因：禁用普通怪物掉落的地图也应阻止从普通怪物偷窃物品。
 	if (md->master_id || status_has_mode(md_status, MD_STATUSIMMUNE) || util::vector_exists(status_get_race2(md), RC2_TREASURE) ||
-		map_getmapflag(bl->m, MF_NOMOBLOOT) || // check noloot map flag [Lorky]
+		map_getmapflag(bl->m, MF_NOMOBLOOT) || (md->get_bosstype() != BOSSTYPE_MVP && map_getmapflag(bl->m, MF_NOLOOTNORMALMOB)) ||
 		(battle_config.skill_steal_max_tries && //Reached limit of steal attempts. [Lupus]
 			md->state.steal_flag++ >= battle_config.skill_steal_max_tries)
   	) { //Can't steal from
 		md->state.steal_flag = UCHAR_MAX;
 		return false;
 	}
+	// ===== rAthena 移植 Pandas nolootnormalmob 偷窃限制：结束 =====
 
 	// base skill success chance (percentual)
 	rate = (sd_status->dex - md_status->dex)/2 + skill_lv*6 + 4;
@@ -10348,6 +10403,10 @@ int64 pc_readparam( const map_session_data* sd, int64 type )
 		case SP_PCDIECOUNTER:    val = sd->die_counter; break;
 		case SP_COOKMASTERY:     val = sd->cook_mastery; break;
 		case SP_ACHIEVEMENT_LEVEL: val = sd->achievement_data.level; break;
+		// ===== rAthena 移植 Pandas GoldPC 参数读取：开始 =====
+		// 修改内容：从永久角色变量返回 GoldPC 点数。
+		case SP_GOLDPC_POINTS: val = pc_readreg2(sd, GOLDPC_POINT_VAR); break;
+		// ===== rAthena 移植 Pandas GoldPC 参数读取：结束 =====
 		case SP_CRITICAL:        val = sd->battle_status.cri/10; break;
 		case SP_ASPD:            val = (AMOTION_ZERO_ASPD-sd->battle_status.amotion)/AMOTION_INTERVAL; break;
 		case SP_BASE_ATK:
@@ -10745,6 +10804,22 @@ bool pc_setparam(map_session_data *sd,int64 type,int64 val_tmp)
 		sd->cook_mastery = val;
 		pc_setglobalreg(sd, add_str(COOKMASTERY_VAR), sd->cook_mastery);
 		return true;
+	// ===== rAthena 移植 Pandas GoldPC 参数设置：开始 =====
+	// 修改内容：限制积分上限，并在外部调整点数后保留当前周期进度重启计时。
+	case SP_GOLDPC_POINTS: {
+		val = cap_value(val, 0, battle_config.feature_goldpc_max_points);
+		if (sd->goldpc_tid != INVALID_TIMER) {
+			pc_setreg2(sd, GOLDPC_SECONDS_VAR, pc_goldpc_elapsed_seconds(sd));
+			delete_timer(sd->goldpc_tid, pc_goldpc_update);
+			sd->goldpc_tid = INVALID_TIMER;
+		}
+		pc_setreg2(sd, GOLDPC_POINT_VAR, val);
+		if (!sd->state.connect_new)
+			pc_goldpc_start(sd);
+		clif_goldpc_info(*sd);
+		return true;
+	}
+	// ===== rAthena 移植 Pandas GoldPC 参数设置：结束 =====
 	default:
 		ShowError("pc_setparam: Attempted to set unknown parameter '%lld'.\n", type);
 		return false;
@@ -14551,6 +14626,446 @@ void JobDatabase::loadingFinished() {
 	TypesafeCachedYamlDatabase::loadingFinished();
 }
 
+// ===== rAthena 移植 Pandas Cash Emotion 核心逻辑：开始 =====
+// 修改内容：加载表情扩展数据库，并处理使用、购买、租期和登录同步。
+/**
+ * emotion_db 2
+ **/
+EmotionDatabase emotion_db;
+
+const std::string EmotionDatabase::getDefaultLocation() { return std::string(db_path) + "/emotion_db.yml"; }
+
+uint64 EmotionDatabase::parseBodyNode(const ryml::NodeRef& Node)
+{
+	int16 Id;
+	if (!this->asInt16(Node, "Id", Id))
+	{
+		return 0;
+	}
+
+	std::shared_ptr<s_emotion_db> EmotionsInfo = this->find(Id);
+
+	const bool bExists = EmotionsInfo != nullptr;
+	if (!bExists)
+	{
+		EmotionsInfo = std::make_shared<s_emotion_db>();
+		EmotionsInfo->Id = Id;
+	}
+
+	if (this->nodeExists(Node, "Price"))
+	{
+		uint16 Price = -1;
+		if (!this->asUInt16(Node, "Price", Price))
+		{
+			return 0;
+		}
+
+		if (Price > MAX_AMOUNT)
+		{
+			this->invalidWarning(Node["Price"], "Emotion expantion \'%hu\' amount it is too high, capping it to MAX_AMOUNT...\n", Id);
+			Price = MAX_AMOUNT;
+		}
+
+		EmotionsInfo->Price = Price;
+	}
+	else
+	{
+		EmotionsInfo->Price = 0;
+	}
+
+	if (this->nodeExists(Node, "Type"))
+	{
+		uint16 Type = -1;
+		if (!this->asUInt16(Node, "Type", Type))
+		{
+			return 0;
+		}
+
+		if (Type > 1)
+		{
+			this->invalidWarning(Node["Type"], "Emotion expantion \'%hu\' type it is invalid, capping it to 1...\n", Id);
+			Type = 1;
+		}
+
+		EmotionsInfo->Type = Type;
+	}
+	else
+	{
+		EmotionsInfo->Type = 0;
+	}
+
+	if (this->nodeExists(Node, "SaleStart"))
+	{
+		uint32 SaleStart = -1;
+		if (!this->asUInt32(Node, "SaleStart", SaleStart))
+		{
+			return 0;
+		}
+
+		if (SaleStart != 0 && (SaleStart < 20020000 || SaleStart > 29990000))
+		{
+			this->invalidWarning(Node["SaleStart"], "Emotion expantion \'%hu\' sale start it is invalid, capping it to 0...\n", Id);
+			SaleStart = 0;
+		}
+
+		EmotionsInfo->SaleStart = SaleStart;
+	}
+	else
+	{
+		EmotionsInfo->SaleStart = 0;
+	}
+
+	if (this->nodeExists(Node, "SaleEnd"))
+	{
+		uint32 SaleEnd = -1;
+		if (!this->asUInt32(Node, "SaleEnd", SaleEnd))
+		{
+			return 0;
+		}
+
+		if (SaleEnd != 0 && (SaleEnd < 20020000 || SaleEnd > 29990000 || EmotionsInfo->SaleStart > SaleEnd))
+		{
+			this->invalidWarning(Node["SaleEnd"], "Emotion expantion \'%hu\' sale start it is invalid, capping it to 0...\n", Id);
+			EmotionsInfo->SaleStart = 0;
+			SaleEnd = 0;
+		}
+
+		EmotionsInfo->SaleEnd = SaleEnd;
+	}
+	else
+	{
+		EmotionsInfo->SaleEnd = 0;
+	}
+
+	if (this->nodeExists(Node, "SaleRentalPeriod"))
+	{
+		uint32 SaleRentalPeriod = -1;
+		if (!this->asUInt32(Node, "SaleRentalPeriod", SaleRentalPeriod))
+		{
+			return 0;
+		}
+
+		EmotionsInfo->SaleRentalPeriod = SaleRentalPeriod * 60 * 60 * 24;
+	}
+	else
+	{
+		EmotionsInfo->SaleRentalPeriod = 0;
+	}
+
+	for (const ryml::NodeRef& EmotionsNode : Node["Emotions"])
+	{
+		std::string EmotionName;
+		c4::from_chars(EmotionsNode.val(), &EmotionName);
+
+		int64 EmotionId;
+		script_get_constant(EmotionName.c_str(), &EmotionId);
+
+		if (EmotionId < 0 || EmotionId >= ET_MAX)
+		{
+			this->invalidWarning(Node["Emotions"], "Invalid emotion constant with name \'%s\'.\n", EmotionName.c_str());
+			return 0;
+		}
+
+		EmotionsInfo->Emotions.push_back(static_cast<emotion_type>(EmotionId));
+	}
+
+	if (!bExists)
+	{
+		this->put(Id, EmotionsInfo);
+	}
+
+	return 1;
+}
+
+void do_init_emotions(void)
+{
+	emotion_db.load();
+}
+
+void do_final_emotions(void)
+{
+	emotion_db.clear();
+}
+
+void pc_use_emotion(map_session_data* const sd, const uint16 Id, const uint16 EmotionId)
+{
+	nullpo_retv(sd);
+
+	//
+	// Prevent use of the mute emote [Valaris].
+	//
+
+	if (battle_config.basic_skill_check != 0 && pc_checkskill(sd, NV_BASIC) < 2 && pc_checkskill(sd, SU_BASIC_SKILL) < 1)
+	{
+		clif_emotion2_fail(sd, Id, EmotionId, EMSG_EMOTION_USE_FAIL_SKILL_LEVEL);
+		return;
+	}
+
+	//
+	// Fix flood of emotion icon (ro-proxy): flood only the hacker player
+	//
+
+	if (sd->emotionlasttime + 1 >= time(nullptr)) // not more than 1 per second
+	{
+		sd->emotionlasttime = time(nullptr);
+		clif_emotion2_fail(sd, Id, EmotionId, EMSG_EMOTION_EXPANTION_USE_FAIL_UNKNOWN);
+		return;
+	}
+
+	sd->emotionlasttime = time(nullptr);
+
+	if (battle_config.idletime_option & IDLE_EMOTION)
+	{
+		sd->idletime = last_tick;
+	}
+
+	if (battle_config.hom_idle_no_share && sd->hd && battle_config.idletime_hom_option & IDLE_EMOTION)
+	{
+		sd->idletime_hom = last_tick;
+	}
+
+	if (battle_config.mer_idle_no_share && sd->md && battle_config.idletime_mer_option & IDLE_EMOTION)
+	{
+		sd->idletime_mer = last_tick;
+	}
+
+	if (sd->state.block_action & PCBLOCK_EMOTION)
+	{
+		clif_emotion2_fail(sd, Id, EmotionId, EMSG_EMOTION_EXPANTION_USE_FAIL_UNKNOWN);
+		return;
+	}
+
+	if (battle_config.client_reshuffle_dice && EmotionId >= ET_DICE1 && EmotionId <= ET_DICE6) // re-roll dice
+	{
+		const uint16 DiceEmotionId = (rnd() % 6 + ET_DICE1);
+		clif_emotion2(sd, 0, DiceEmotionId);
+		return;
+	}
+
+	//
+	// Checks for the emotion expantion and emote id in the emotion database.
+	//
+
+	std::shared_ptr<s_emotion_db> EmotionsInfo = emotion_db.find(Id);
+	if (EmotionsInfo == nullptr)
+	{
+		clif_emotion2_fail(sd, Id, EmotionId, EMSG_EMOTION_EXPANTION_USE_FAIL_UNKNOWN);
+		return;
+	}
+
+	if (util::vector_exists(EmotionsInfo->Emotions, static_cast<emotion_type>(EmotionId)) != true)
+	{
+		clif_emotion2_fail(sd, Id, EmotionId, EMSG_EMOTION_EXPANTION_USE_FAIL_UNKNOWN);
+		return;
+	}
+
+	if (EmotionsInfo->Id != 0)
+	{
+		char Buffer[32];
+		const char* FormatString = nullptr;
+
+		if (EmotionsInfo->Type) // Character Bound
+		{
+			FormatString = "emotion_%hu";
+		}
+		else // Account Bound
+		{
+			FormatString = "#emotion_%hu";
+		}
+
+		memset(Buffer, '\0', sizeof(Buffer));
+		sprintf(Buffer, FormatString, EmotionsInfo->Id);
+
+		const bool bExpantionBought = static_cast<bool>(pc_readglobalreg(sd, add_str(Buffer)));
+		if (bExpantionBought == false)
+		{
+			clif_emotion2_fail(sd, Id, EmotionId, EMSG_EMOTION_EXPANTION_USE_FAIL_UNPURCHASED);
+			return;
+		}
+
+		if (EmotionsInfo->Type) // Character Bound
+		{
+			FormatString = "emotion_expire_%hu";
+		}
+		else // Account Bound
+		{
+			FormatString = "#emotion_expire_%hu";
+		}
+
+		memset(Buffer, '\0', sizeof(Buffer));
+		sprintf(Buffer, FormatString, EmotionsInfo->Id);
+
+		const time_t CurrentTime = time(nullptr);
+		const int64 ExpireTime = pc_readglobalreg(sd, add_str(Buffer));
+		if (EmotionsInfo->SaleRentalPeriod != 0 && CurrentTime > time_t(ExpireTime))
+		{
+			clif_emotion2_fail(sd, Id, EmotionId, EMSG_EMOTION_EXPANTION_USE_FAIL_DATE);
+			return;
+		}
+	}
+
+	clif_emotion2(sd, Id, EmotionId);
+}
+
+void pc_buy_emotion_expantion(map_session_data* const sd, const uint16 Id, const uint16 ItemId, const uint8 Amount)
+{
+	nullpo_retv(sd);
+
+	if (battle_config.basic_skill_check != 0 && pc_checkskill(sd, NV_BASIC) < 2 && pc_checkskill(sd, SU_BASIC_SKILL) < 1)
+	{
+		clif_emotion2_expantion_fail(sd, Id, EMSG_EMOTION_EXPANTION_FAIL_UNKNOWN);
+		return;
+	}
+
+	std::shared_ptr<s_emotion_db> EmotionsInfo = emotion_db.find(Id);
+	if (EmotionsInfo == nullptr)
+	{
+		clif_emotion2_expantion_fail(sd, Id, EMSG_EMOTION_EXPANTION_FAIL_UNKNOWN);
+		return;
+	}
+
+	const time_t CurrentTime = time(nullptr);
+	// 修改原因：SaleStart/SaleEnd 使用 YYYYMMDD，不能与 Unix 时间戳直接比较。
+	const uint32 CurrentDate = date_get(DT_YYYYMMDD);
+	if (EmotionsInfo->SaleEnd != 0 && EmotionsInfo->SaleEnd < CurrentDate)
+	{
+		clif_emotion2_expantion_fail(sd, Id, EMSG_EMOTION_EXPANTION_FAIL_DATE);
+		return;
+	}
+
+	if (EmotionsInfo->SaleStart != 0 && EmotionsInfo->SaleStart > CurrentDate)
+	{
+		clif_emotion2_expantion_fail(sd, Id, EMSG_NOT_YET_SALE_START_TIME);
+		return;
+	}
+
+	char Buffer[32];
+	const char* FormatString = nullptr;
+
+	if (EmotionsInfo->Type) // Character Bound
+	{
+		FormatString = "emotion_%hu";
+	}
+	else // Account Bound
+	{
+		FormatString = "#emotion_%hu";
+	}
+
+	memset(Buffer, '\0', sizeof(Buffer));
+	sprintf(Buffer, FormatString, EmotionsInfo->Id);
+
+	const bool bExpantionBought = static_cast<bool>(pc_readglobalreg(sd, add_str(Buffer)));
+	if (bExpantionBought == true)
+	{
+		clif_emotion2_expantion_fail(sd, Id, EMSG_EMOTION_EXPANTION_FAIL_ALREADY_BUY);
+		return;
+	}
+
+	if (ItemId != 6909)
+	{
+		clif_emotion2_expantion_fail(sd, Id, EMSG_EMOTION_EXPANTION_FAIL_UNKNOWN);
+		return;
+	}
+
+	if (EmotionsInfo->Price != Amount)
+	{
+		clif_emotion2_expantion_fail(sd, Id, EMSG_EMOTION_EXPANTION_FAIL_UNKNOWN);
+		return;
+	}
+
+	const int32 NyangvineIndex = pc_search_inventory(sd, ItemId);
+	if (NyangvineIndex < 0 || sd->inventory.u.items_inventory[NyangvineIndex].amount < Amount)
+	{
+		clif_emotion2_expantion_fail(sd, Id, EMSG_EMOTION_EXPANTION_NOT_ENOUGH_NYANGVINE);
+		return;
+	}
+
+	pc_delitem(sd, NyangvineIndex, Amount, 0, 0, LOG_TYPE_CONSUME);
+	pc_setglobalreg(sd, add_str(Buffer), 1);
+
+	if (EmotionsInfo->SaleRentalPeriod != 0)
+	{
+		if (EmotionsInfo->Type) // Character Bound
+		{
+			FormatString = "emotion_expire_%hu";
+		}
+		else // Account Bound
+		{
+			FormatString = "#emotion_expire_%hu";
+		}
+
+		memset(Buffer, '\0', sizeof(Buffer));
+		sprintf(Buffer, FormatString, EmotionsInfo->Id);
+
+		const int64 ExpireTime = CurrentTime + EmotionsInfo->SaleRentalPeriod;
+		pc_setglobalreg(sd, add_str(Buffer), ExpireTime);
+
+		clif_emotion2_expantion(sd, Id, true, (uint32)ExpireTime);
+		return;
+	}
+
+	clif_emotion2_expantion(sd, Id, false, 0);
+}
+
+void pc_load_emotion_expantion_list(map_session_data* const sd)
+{
+	nullpo_retv(sd);
+
+	char Buffer1[32];
+	char Buffer2[32];
+	const char* FormatString = nullptr;
+
+	std::vector<PACKET_ZC_EMOTION2_EXPANTION_LIST_SUB> EmotionExpantionList;
+	for (const std::pair<uint16, std::shared_ptr<s_emotion_db>>& EmotionPair : emotion_db)
+	{
+		const uint16& ExpantionId = EmotionPair.first;
+		const std::shared_ptr<s_emotion_db>& EmotionsInfo = EmotionPair.second;
+
+		if (EmotionsInfo->Type) // Character Bound
+		{
+			FormatString = "emotion_%hu";
+		}
+		else // Account Bound
+		{
+			FormatString = "#emotion_%hu";
+		}
+
+		memset(Buffer1, '\0', sizeof(Buffer1));
+		sprintf(Buffer1, FormatString, EmotionsInfo->Id);
+
+		if (EmotionsInfo->Type) // Character Bound
+		{
+			FormatString = "emotion_expire_%hu";
+		}
+		else // Account Bound
+		{
+			FormatString = "#emotion_expire_%hu";
+		}
+
+		memset(Buffer2, '\0', sizeof(Buffer2));
+		sprintf(Buffer2, FormatString, EmotionsInfo->Id);
+
+		const bool bRental = EmotionsInfo->SaleRentalPeriod != 0;
+		const time_t CurrentTime = time(nullptr);
+		const bool bExpantionBought = static_cast<bool>(pc_readglobalreg(sd, add_str(Buffer1)));
+		const int64 ExpireTime = pc_readglobalreg(sd, add_str(Buffer2));
+		if (bExpantionBought && bRental && CurrentTime > static_cast<time_t>(ExpireTime))
+		{
+			pc_setglobalreg(sd, add_str(Buffer1), 0);
+			pc_setglobalreg(sd, add_str(Buffer2), 0);
+			continue;
+		}
+
+		if (bExpantionBought)
+		{
+			EmotionExpantionList.push_back({ ExpantionId, bRental, static_cast<uint32>(ExpireTime) });
+		}
+	}
+
+	clif_emotion2_expantion_list(sd, EmotionExpantionList);
+}
+// ===== rAthena 移植 Pandas Cash Emotion 核心逻辑：结束 =====
+
 /**
  * Read job_noenter_map.txt
  **/
@@ -16316,6 +16831,10 @@ void do_init_pc(void) {
 	add_timer_func_list(pc_autotrade_timer, "pc_autotrade_timer");
 	add_timer_func_list(pc_on_expire_active, "pc_on_expire_active");
 	add_timer_func_list(pc_macro_detector_timeout, "pc_macro_detector_timeout");
+	// ===== rAthena 移植 Pandas GoldPC 定时器注册：开始 =====
+	// 修改内容：注册回调名称，确保定时器系统可以安全调度。
+	add_timer_func_list(pc_goldpc_update, "pc_goldpc_update");
+	// ===== rAthena 移植 Pandas GoldPC 定时器注册：结束 =====
 
 	add_timer(gettick() + autosave_interval, pc_autosave, 0, 0);
 

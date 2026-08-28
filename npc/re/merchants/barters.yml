@@ -63,5 +63,8 @@ Footer:
   - Path: npc/re/merchants/barters/quests_exp_175.yml
   - Path: npc/re/merchants/barters/refine.yml
   - Path: npc/re/merchants/barters/rgsr_in.yml
+  # ===== rAthena 移植 Pandas 符文材料兑换加载：开始 =====
+  # 修改内容：载入符文石板配套兑换商店。
+  - Path: npc/re/merchants/barters/Runstone.yml
+  # ===== rAthena 移植 Pandas 符文材料兑换加载：结束 =====
   - Path: npc/re/merchants/barters/Pet_Groomer.yml
-

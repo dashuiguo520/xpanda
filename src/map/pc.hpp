@@ -64,6 +64,11 @@ class MapGuild;
 #define ATTENDANCE_DATE_VAR "#AttendanceDate"
 #define ATTENDANCE_COUNT_VAR "#AttendanceCounter"
 #define ACHIEVEMENTLEVEL "AchievementLevel"
+// ===== rAthena 移植 Pandas GoldPC 角色变量：开始 =====
+// 修改内容：统一点数与当前计时秒数的永久角色变量名称。
+#define GOLDPC_POINT_VAR "Goldpc_Points"
+#define GOLDPC_SECONDS_VAR "Goldpc_Seconds"
+// ===== rAthena 移植 Pandas GoldPC 角色变量：结束 =====
 
 //Total number of classes (for data storage)
 #define CLASS_COUNT (JOB_MAX - JOB_NOVICE_HIGH + JOB_MAX_BASIC)
@@ -382,6 +387,23 @@ struct s_qi_display {
 	e_questinfo_markcolor color;
 };
 
+// ===== rAthena 移植 Pandas 符文石板角色数据：开始 =====
+// 修改内容：保存角色已解锁的符文书和符文套装状态。
+struct s_runebook_data {
+	uint16 tagId;
+	uint32 bookId;
+};
+
+struct s_runeset_data {
+	uint16 tagId;
+	uint32 setId;
+	uint8 selected;
+	uint16 upgrade;
+	uint16 failcount;
+	uint8 reward;
+};
+// ===== rAthena 移植 Pandas 符文石板角色数据：结束 =====
+
 class map_session_data : public block_list {
 public:
 	struct unit_data ud;
@@ -461,6 +483,10 @@ public:
 		t_itemid laphine_synthesis;
 		t_itemid laphine_upgrade;
 		bool roulette_open;
+		// ===== rAthena 移植 Pandas 符文石板界面状态：开始 =====
+		// 修改内容：拒绝在客户端未打开符文界面时处理分解请求。
+		bool runeui_open;
+		// ===== rAthena 移植 Pandas 符文石板界面状态：结束 =====
 		t_itemid item_reform;
 		uint64 item_enchant_index;
 	} state;
@@ -956,6 +982,20 @@ public:
 
 	std::vector<uint32> party_booking_requests;
 
+	// ===== rAthena 移植 Pandas GoldPC 与符文角色运行状态：开始 =====
+	// 修改内容：维护 GoldPC 定时器和当前激活的符文套装。
+	int32 goldpc_tid = INVALID_TIMER;
+	std::vector<s_runeset_data> runeSets;
+	std::vector<s_runebook_data> runeBooks;
+	struct s_runeactivated_data {
+		uint16 tagID = 0;
+		uint32 runesetid = 0;
+		uint16 upgrade = 0;
+		uint8 bookNumber = 0;
+		bool loaded = false;
+	} runeactivated_data;
+	// ===== rAthena 移植 Pandas GoldPC 与符文角色运行状态：结束 =====
+
 	void update_look( _look look );
 };
 
@@ -1379,6 +1419,50 @@ public:
 };
 
 extern PlayerStatPointDatabase statpoint_db;
+
+// ===== rAthena 移植 Pandas Cash Emotion 数据库：开始 =====
+// 修改内容：声明表情扩展校验、购买状态和 YAML 数据库接口。
+enum EEmotionStatus : uint8 {
+	EMSG_EMOTION_EXPANTION_USE_FAIL_DATE,
+	EMSG_EMOTION_EXPANTION_USE_FAIL_UNPURCHASED,
+	EMSG_EMOTION_USE_FAIL_SKILL_LEVEL,
+	EMSG_EMOTION_EXPANTION_USE_FAIL_UNKNOWN,
+};
+
+enum EEmotionExpantionStatus : uint8 {
+	EMSG_EMOTION_EXPANTION_NOT_ENOUGH_NYANGVINE,
+	EMSG_EMOTION_EXPANTION_FAIL_DATE,
+	EMSG_EMOTION_EXPANTION_FAIL_ALREADY_BUY,
+	EMSG_EMOTION_EXPANTION_FAIL_ANOTHER_SALE_BUY,
+	EMSG_EMOTION_EXPANTION_NOT_ENOUGH_BASICSKILL_LEVEL,
+	EMSG_NOT_YET_SALE_START_TIME,
+	EMSG_EMOTION_EXPANTION_FAIL_UNKNOWN,
+};
+
+struct s_emotion_db {
+	uint16 Id;
+	uint16 Price;
+	uint16 Type;
+	uint32 SaleStart;
+	uint32 SaleEnd;
+	uint16 SaleRentalPeriod;
+	std::vector<emotion_type> Emotions;
+};
+
+class EmotionDatabase : public TypesafeCachedYamlDatabase<uint16, s_emotion_db> {
+public:
+	EmotionDatabase() : TypesafeCachedYamlDatabase("EMOTION_DB", 1) {}
+	const std::string getDefaultLocation() override;
+	uint64 parseBodyNode(const ryml::NodeRef& node) override;
+};
+
+extern EmotionDatabase emotion_db;
+void do_init_emotions();
+void do_final_emotions();
+void pc_use_emotion(map_session_data* sd, uint16 expansionId, uint16 emotionId);
+void pc_buy_emotion_expantion(map_session_data* sd, uint16 expansionId, uint16 itemId, uint8 amount);
+void pc_load_emotion_expantion_list(map_session_data* sd);
+// ===== rAthena 移植 Pandas Cash Emotion 数据库：结束 =====
 
 /// Enum of Summoner Power of 
 enum e_summoner_power_type {
@@ -1813,5 +1897,10 @@ void pc_macro_reporter_process(map_session_data &sd, int32 reporter_account_id =
 #ifdef MAP_GENERATOR
 void pc_reputation_generate();
 #endif
+
+// ===== rAthena 移植 Pandas GoldPC 定时器接口：开始 =====
+// 修改内容：供登录、保存和参数设置流程统一启停计时器。
+TIMER_FUNC(pc_goldpc_update);
+// ===== rAthena 移植 Pandas GoldPC 定时器接口：结束 =====
 
 #endif /* PC_HPP */

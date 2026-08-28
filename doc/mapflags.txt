@@ -122,6 +122,21 @@ Disables normal monsters and MVPs from dropping items on a map. Looted items wil
 		
 ---------------------------------------
 
+// ===== rAthena 移植 Pandas 地图标记文档：开始 =====
+// 修改内容：说明普通怪物禁掉落和 NPC 自爆目标限制的脚本用法。
+*nolootnormalmob
+
+Disables only normal monsters from dropping database items on a map. Looted items still drop.
+
+---------------------------------------
+
+*no_npc_selfdestruction_on_all
+
+Makes NPC_SELFDESTRUCTION target enemies only instead of all units on a map.
+// ===== rAthena 移植 Pandas 地图标记文档：结束 =====
+
+---------------------------------------
+
 *noexp
 *nobaseexp
 *nojobexp

@@ -50,6 +50,10 @@
 #include "pc_groups.hpp"
 #include "pet.hpp"
 #include "quest.hpp"
+// ===== rAthena 移植 Pandas 符文数据库重载依赖：开始 =====
+// 修改内容：管理员命令可重新加载符文 YAML 数据库。
+#include "rune.hpp"
+// ===== rAthena 移植 Pandas 符文数据库重载依赖：结束 =====
 #include "script.hpp"
 #include "storage.hpp"
 #include "trade.hpp"
@@ -11488,6 +11492,16 @@ ACMD_FUNC(macrochecker){
 	return 0;
 }
 
+// ===== rAthena 移植 Pandas 符文数据库重载命令：开始 =====
+// 修改内容：提供 @reloadrunedb，修改配置后无需重启地图服务。
+ACMD_FUNC(reloadrunedb) {
+	nullpo_retr(-1, sd);
+	rune_db_reload();
+	clif_displaymessage(fd, "Rune system has been reloaded.");
+	return 0;
+}
+// ===== rAthena 移植 Pandas 符文数据库重载命令：结束 =====
+
 #include <custom/atcommand.inc>
 
 /**
@@ -11818,6 +11832,10 @@ void atcommand_basecommands(void) {
 		ACMD_DEFR(roulette, ATCMD_NOCONSOLE|ATCMD_NOAUTOTRADE),
 		ACMD_DEF(setcard),
 		ACMD_DEF(macrochecker),
+		// ===== rAthena 移植 Pandas 符文数据库重载命令注册：开始 =====
+		// 修改内容：注册 @reloadrunedb。
+		ACMD_DEF(reloadrunedb),
+		// ===== rAthena 移植 Pandas 符文数据库重载命令注册：结束 =====
 	};
 	AtCommandInfo* atcommand;
 	int32 i;

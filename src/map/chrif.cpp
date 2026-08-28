@@ -3,6 +3,10 @@
 
 #include "chrif.hpp"
 
+// ===== rAthena 移植 Pandas GoldPC 时间边界依赖：开始 =====
+// 修改原因：下线续算需要安全限制剩余毫秒为非负值。
+#include <algorithm>
+// ===== rAthena 移植 Pandas GoldPC 时间边界依赖：结束 =====
 #include <cstdlib>
 #include <cstring>
 
@@ -30,6 +34,10 @@
 #include "pc.hpp"
 #include "pc_groups.hpp"
 #include "pet.hpp"
+// ===== rAthena 移植 Pandas 符文石板保存依赖：开始 =====
+// 修改内容：角色保存流程写入符文状态。
+#include "rune.hpp"
+// ===== rAthena 移植 Pandas 符文石板保存依赖：结束 =====
 #include "script.hpp" // script_config
 #include "storage.hpp"
 
@@ -307,8 +315,23 @@ int32 chrif_save(map_session_data *sd, int32 flag) {
 	if (sd->premiumStorage.dirty)
 		storage_premiumStorage_save(sd);
 
-	if (flag&CSAVE_QUITTING)
+	if (flag&CSAVE_QUITTING) {
 		sd->state.storage_flag = 0; //Force close it.
+		// ===== rAthena 移植 Pandas GoldPC 下线续算：开始 =====
+		// 修改内容：下线前保存当前积分周期已在线秒数并撤销定时器。
+		if (sd->goldpc_tid != INVALID_TIMER) {
+			const TimerData* td = get_timer(sd->goldpc_tid);
+			if (td != nullptr) {
+				const t_tick remaining = std::max<t_tick>(td->tick - gettick(), 0);
+				// 使用标准库限制范围，避免 chrif.cpp 额外依赖 map 侧的 cap_value 宏。
+				const int32 elapsed = std::clamp(battle_config.feature_goldpc_time - static_cast<int32>((remaining + 999) / 1000), 0, battle_config.feature_goldpc_time - 1);
+				pc_setreg2(sd, GOLDPC_SECONDS_VAR, elapsed);
+			}
+			delete_timer(sd->goldpc_tid, pc_goldpc_update);
+			sd->goldpc_tid = INVALID_TIMER;
+		}
+		// ===== rAthena 移植 Pandas GoldPC 下线续算：结束 =====
+	}
 
 	//Saving of registry values.
 	if (sd->vars_dirty)
@@ -339,6 +362,10 @@ int32 chrif_save(map_session_data *sd, int32 flag) {
 		intif_quest_save(sd);
 	if (sd->achievement_data.save)
 		intif_achievement_save(sd);
+	// ===== rAthena 移植 Pandas 符文石板角色数据保存：开始 =====
+	// 修改内容：随角色保存写入符文书、套装、升级和奖励状态。
+	rune_save(sd);
+	// ===== rAthena 移植 Pandas 符文石板角色数据保存：结束 =====
 
 	return 0;
 }

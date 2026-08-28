@@ -3279,11 +3279,14 @@ int32 mob_dead(mob_data *md, block_list *src, int32 type)
 		}
 	}
 
-	if( !(type&1) && !map_getmapflag(m, MF_NOMOBLOOT) && !md->state.rebirth && (
+	// ===== rAthena 移植 Pandas nolootnormalmob：开始 =====
+	// 修改原因：仅阻止普通怪物的数据库掉落，MVP 和怪物已拾取的物品仍按原逻辑处理。
+	if( !(type&1) && !map_getmapflag(m, MF_NOMOBLOOT) && !(md->get_bosstype() != BOSSTYPE_MVP && map_getmapflag(m, MF_NOLOOTNORMALMOB)) && !md->state.rebirth && (
 		!md->special_state.ai || //Non special mob
 		battle_config.alchemist_summon_reward == 2 || //All summoned give drops
 		(md->special_state.ai==AI_SPHERE && battle_config.alchemist_summon_reward == 1) //Marine Sphere Drops items.
 		) )
+	// ===== rAthena 移植 Pandas nolootnormalmob：结束 =====
 	{ // Item Drop
 		int32 drop_rate, drop_modifier = 100;
 

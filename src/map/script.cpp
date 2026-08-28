@@ -28853,6 +28853,17 @@ struct script_function buildin_func[] = {
 	BUILDIN_DEF(whodropitem,"v??"),
 	BUILDIN_DEF(query_sql_async,"s*"),
 	BUILDIN_DEF(query_logsql_async,"s*"),
+	// ===== rAthena 移植 Pandas 单位与传送点指令注册：开始 =====
+	// 修改内容：注册 unitisforcewalk、specialeffect3 和 force_memo。
+	BUILDIN_DEF(unitisforcewalk,"?"),
+	BUILDIN_DEF(specialeffect3,"iii"),
+	BUILDIN_DEF(force_memo,"siii"),
+	// ===== rAthena 移植 Pandas 单位与传送点指令注册：结束 =====
+	// ===== rAthena 移植 Pandas 符文石板脚本指令注册：开始 =====
+	// 修改内容：注册符文界面和当前升级等级查询指令。
+	BUILDIN_DEF(runeui,"?"),
+	BUILDIN_DEF(getupgrade_rune,""),
+	// ===== rAthena 移植 Pandas 符文石板脚本指令注册：结束 =====
 	// ===== rAthena 移植 Pandas 脚本指令注册：结束 =====
 	BUILDIN_DEF(getrandgroupitem,"i????"),
 	BUILDIN_DEF(cleanmap,"s"),

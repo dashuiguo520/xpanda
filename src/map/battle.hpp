@@ -768,6 +768,13 @@ struct Battle_Config
 	int32 feature_stylist;
 	int32 feature_banking_state_enforce;
 	int32 instance_allow_reconnect;
+	// ===== rAthena 移植 Pandas GoldPC 配置：开始 =====
+	// 修改内容：控制计时器、积分周期、积分上限和 VIP 双倍奖励。
+	int32 feature_goldpc_active;
+	int32 feature_goldpc_time;
+	int32 feature_goldpc_max_points;
+	int32 feature_goldpc_vip;
+	// ===== rAthena 移植 Pandas GoldPC 配置：结束 =====
 	int32 synchronize_damage;
 	int32 item_stacking;
 	int32 hom_delay_reset_vaporize;

@@ -34,6 +34,10 @@
 #include "pc.hpp"
 #include "pc_groups.hpp"
 #include "pet.hpp"
+// ===== rAthena 移植 Pandas 符文石板属性依赖：开始 =====
+// 修改内容：状态重算时执行当前符文套装脚本。
+#include "rune.hpp"
+// ===== rAthena 移植 Pandas 符文石板属性依赖：结束 =====
 #include "script.hpp"
 
 using namespace rathena;
@@ -4226,6 +4230,12 @@ int32 status_calc_pc_sub(map_session_data* sd, uint8 opt)
 	}
 
 	pc_bonus_script(sd);
+
+	// ===== rAthena 移植 Pandas 符文石板属性加成：开始 =====
+	// 修改内容：装备和状态脚本计算完成后应用已启用符文套装效果。
+	if (sd->runeactivated_data.tagID != 0)
+		rune_active_bonus(sd);
+	// ===== rAthena 移植 Pandas 符文石板属性加成：结束 =====
 
 	if( sd->pd ) { // Pet Bonus
 		pet_data *pd = sd->pd;

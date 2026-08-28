@@ -8941,6 +8941,13 @@ static const struct _battle_data {
 #else
 	{ "feature.instance_allow_reconnect",   &battle_config.instance_allow_reconnect,        0,      0,      1,              },
 #endif
+	// ===== rAthena 移植 Pandas GoldPC 配置：开始 =====
+	// 修改内容：加载并限制 GoldPC 计时和积分配置。
+	{ "feature.goldpc_active",              &battle_config.feature_goldpc_active,           1,      0,      1,              },
+	{ "feature.goldpc_time",                &battle_config.feature_goldpc_time,          3600,      1,   3600,              },
+	{ "feature.goldpc_max_points",          &battle_config.feature_goldpc_max_points,     300,      0,  INT_MAX,              },
+	{ "feature.goldpc_vip",                 &battle_config.feature_goldpc_vip,              1,      0,      1,              },
+	// ===== rAthena 移植 Pandas GoldPC 配置：结束 =====
 	{ "synchronize_damage",                 &battle_config.synchronize_damage,              0,      0,      1,              },
 	{ "item_stacking",                      &battle_config.item_stacking,                   1,      0,      1,              },
 #ifdef RENEWAL

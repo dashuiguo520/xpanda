@@ -3466,6 +3466,10 @@ struct item_data
 	uint32 value_sell;
 	item_types type;
 	uint8 subtype;
+	// ===== rAthena 移植 Pandas 符文分解属性：开始 =====
+	// 修改内容：保存物品 YAML 中各分解类型对应的符文分解数据库编号。
+	std::map<std::string, uint16> decompoRune;
+	// ===== rAthena 移植 Pandas 符文分解属性：结束 =====
 	int32 maxchance; //For logs, for external game info, for scripts: Max drop chance of this item (e.g. 0.01% , etc.. if it = 0, then monsters don't drop it, -1 denotes items sold in shops only) [Lupus]
 	uint8 sex;
 	uint32 equip;

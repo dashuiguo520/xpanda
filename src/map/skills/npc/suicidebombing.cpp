@@ -28,7 +28,11 @@ void SkillSuicideBombing::castendNoDamageId(block_list *src, block_list *target,
 
 	//Self Destruction hits everyone in range (allies+enemies)
 	//Except for Summoned Marine spheres on non-versus maps, where it's just enemies and your own slaves.
-	if ((md == nullptr || md->special_state.ai == AI_SPHERE) && !map_flag_vs(src->m)) {
+	// ===== rAthena 移植 Pandas no_npc_selfdestruction_on_all：开始 =====
+	// 修改内容：启用地图标记后，所有 NPC_SELFDESTRUCTION 均只选择敌对目标。
+	if (((md == nullptr || md->special_state.ai == AI_SPHERE) && !map_flag_vs(src->m)) ||
+		(md != nullptr && map_getmapflag(src->m, MF_NO_NPC_SELFDESTRUCTION_ON_ALL))) {
+	// ===== rAthena 移植 Pandas no_npc_selfdestruction_on_all：结束 =====
 		// Enable Marine Spheres to damage own Homunculus and summons outside PVP
 		if (battle_config.alchemist_summon_setting&8)
 			i = BCT_ENEMY|BCT_SLAVE;

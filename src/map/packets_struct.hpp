@@ -5752,6 +5752,58 @@ struct PACKET_ZC_GOLDPCCAFE_POINT {
 	int32 playedTime;
 } __attribute__((packed));
 DEFINE_PACKET_HEADER(ZC_GOLDPCCAFE_POINT , 0x0a15);
+
+// ===== rAthena 移植 Pandas 符文石板协议：开始 =====
+// 修改内容：补充符文页签、书册、套装、升级、启用、分解和奖励数据包。
+#if PACKETVER_RE_NUM >= 20230802 || PACKETVER_MAIN_NUM >= 20230802
+struct PACKET_CZ_ASK_TAG_LOAD_RUNE { int16 packetType; uint16 tagID; } __attribute__((packed));
+DEFINE_PACKET_HEADER(CZ_ASK_TAG_LOAD_RUNE, 0x0bcb);
+struct PACKET_BOOK_LIST_RUNE_sub { uint32 runebookid; } __attribute__((packed));
+struct PACKET_ZC_BOOK_INFO_RUNE { int16 packetType; int16 packetLength; uint8 unknown; uint16 tagID; uint16 book_amount; struct PACKET_BOOK_LIST_RUNE_sub booklist_rune[]; } __attribute__((packed));
+DEFINE_PACKET_HEADER(ZC_BOOK_INFO_RUNE, 0x0bcc);
+struct PACKET_SET_LIST_RUNE_sub { uint32 runesetid; uint16 upgrade; uint16 failcount; } __attribute__((packed));
+struct PACKET_ZC_SET_INFO_RUNE { int16 packetType; int16 packetLength; uint8 unknown; uint16 tagID; uint16 set_amount; struct PACKET_SET_LIST_RUNE_sub setlist_rune[]; } __attribute__((packed));
+DEFINE_PACKET_HEADER(ZC_SET_INFO_RUNE, 0x0bcd);
+struct PACKET_CZ_BOOK_ACTIVATE_RUNE { int16 packetType; uint16 tagID; uint32 runebookid; } __attribute__((packed));
+DEFINE_PACKET_HEADER(CZ_BOOK_ACTIVATE_RUNE, 0x0bce);
+struct PACKET_ZC_BOOK_RESULT_RUNE { int16 packetType; uint8 result; uint16 tagID; uint32 runebookid; } __attribute__((packed));
+DEFINE_PACKET_HEADER(ZC_BOOK_RESULT_RUNE, 0x0bcf);
+struct PACKET_CZ_SET_ACTIVATE_RUNE { int16 packetType; uint16 tagID; uint32 runesetid; } __attribute__((packed));
+DEFINE_PACKET_HEADER(CZ_SET_ACTIVATE_RUNE, 0x0bd0);
+struct PACKET_ZC_SET_RESULT_RUNE { int16 packetType; uint8 result; uint16 tagID; uint32 runesetid; uint16 upgrade; uint16 failcount; } __attribute__((packed));
+DEFINE_PACKET_HEADER(ZC_SET_RESULT_RUNE, 0x0bd1);
+struct PACKET_CZ_SET_UPGRADE_RUNE { int16 packetType; uint16 tagID; uint32 runesetid; } __attribute__((packed));
+DEFINE_PACKET_HEADER(CZ_SET_UPGRADE_RUNE, 0x0bd2);
+struct PACKET_ZC_SET_RESULT_RUNE2 { int16 packetType; uint8 result; uint16 tagID; uint32 runesetid; uint16 upgrade; uint16 failcount; } __attribute__((packed));
+DEFINE_PACKET_HEADER(ZC_SET_RESULT_RUNE2, 0x0bd3);
+struct PACKET_ZC_REFRESH_ENABLE_RUNE2 { int16 packetType; uint8 result; uint16 tagID; uint32 runesetid; } __attribute__((packed));
+DEFINE_PACKET_HEADER(ZC_REFRESH_ENABLE_RUNE2, 0x0bd5);
+struct PACKET_CZ_ENABLE_RUNE { int16 packetType; uint16 tagID; uint32 runesetid; } __attribute__((packed));
+DEFINE_PACKET_HEADER(CZ_ENABLE_RUNE, 0x0bd6);
+struct PACKET_ZC_REFRESH_ENABLE_RUNE { int16 packetType; uint8 result; uint16 tagID; uint32 runesetid; } __attribute__((packed));
+DEFINE_PACKET_HEADER(ZC_REFRESH_ENABLE_RUNE, 0x0bd7);
+struct PACKET_CZ_RUNE_DECOMPO { int16 packetType; uint32 itemId; uint32 index; uint32 type; } __attribute__((packed));
+DEFINE_PACKET_HEADER(CZ_RUNE_DECOMPO, 0x0bd8);
+struct PACKET_ZC_RESULT_RUNE_DECOMPO { int16 packetType; uint32 itemlistdecompo_rune[MAX_RUNEDECOMPO]; uint16 amountlistdecompo_rune[MAX_RUNEDECOMPO]; uint8 result; } __attribute__((packed));
+DEFINE_PACKET_HEADER(ZC_RESULT_RUNE_DECOMPO, 0x0bd9);
+struct PACKET_ZC_OPEN_RUNE_UI { int16 packetType; uint8 state; } __attribute__((packed));
+DEFINE_PACKET_HEADER(ZC_OPEN_RUNE_UI, 0x0bdf);
+struct PACKET_CZ_RESULT_OPEN_RUNE_UI { int16 packetType; uint8 state; } __attribute__((packed));
+DEFINE_PACKET_HEADER(CZ_RESULT_OPEN_RUNE_UI, 0x0be0);
+struct PACKET_ZC_ONLOG_ENABLE_RUNE { int16 packetType; uint8 result; uint16 tagID; uint32 runesetid; uint16 upgrade; uint16 failcount; } __attribute__((packed));
+DEFINE_PACKET_HEADER(ZC_ONLOG_ENABLE_RUNE, 0x0bf2);
+#endif
+
+#if PACKETVER_RE_NUM >= 20241001 || PACKETVER_MAIN_NUM >= 20241001
+struct PACKET_ZC_REWARD_INFO_RUNE_sub { uint32 runesetid; uint8 reward; } __attribute__((packed));
+struct PACKET_ZC_REWARD_INFO_RUNE { int16 packetType; int16 packetLength; uint8 unknown; uint16 tagID; uint16 set_amount; struct PACKET_ZC_REWARD_INFO_RUNE_sub setreward_rune[]; } __attribute__((packed));
+DEFINE_PACKET_HEADER(ZC_REWARD_INFO_RUNE, 0x0c15);
+struct PACKET_CZ_RUNE_ASK_REWARD { int16 packetType; uint16 tagID; uint32 runesetid; uint8 reward; } __attribute__((packed));
+DEFINE_PACKET_HEADER(CZ_RUNE_ASK_REWARD, 0x0c16);
+struct PACKET_ZC_RUNE_RESULT_REWARD { int16 packetType; uint8 result; uint16 tagID; uint32 runesetid; uint8 reward; } __attribute__((packed));
+DEFINE_PACKET_HEADER(ZC_RUNE_RESULT_REWARD, 0x0c17);
+#endif
+// ===== rAthena 移植 Pandas 符文石板协议：结束 =====
 #endif // PACKETVER >= 20140611
 
 #if PACKETVER >= 20140430

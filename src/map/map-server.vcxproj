@@ -234,6 +234,10 @@
     <ClInclude Include="pc_groups.hpp" />
     <ClInclude Include="pet.hpp" />
     <ClInclude Include="quest.hpp" />
+    <!-- ===== rAthena 移植 Pandas 符文石板编译单元：开始 ===== -->
+    <!-- 修改内容：将符文石板接口加入 map-server 工程。 -->
+    <ClInclude Include="rune.hpp" />
+    <!-- ===== rAthena 移植 Pandas 符文石板编译单元：结束 ===== -->
     <ClInclude Include="script.hpp" />
     <ClInclude Include="script_constants.hpp" />
     <ClInclude Include="searchstore.hpp" />
@@ -1527,6 +1531,10 @@
     <ClCompile Include="pc_groups.cpp" />
     <ClCompile Include="pet.cpp" />
     <ClCompile Include="quest.cpp" />
+    <!-- ===== rAthena 移植 Pandas 符文石板编译单元：开始 ===== -->
+    <!-- 修改内容：编译符文石板核心实现。 -->
+    <ClCompile Include="rune.cpp" />
+    <!-- ===== rAthena 移植 Pandas 符文石板编译单元：结束 ===== -->
     <ClCompile Include="script.cpp" />
     <ClCompile Include="searchstore.cpp" />
     <ClCompile Include="skill.cpp" />

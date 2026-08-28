@@ -1155,3 +1155,24 @@ CREATE TABLE IF NOT EXISTS `vendings` (
   `autotrade` tinyint(4) NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=MyISAM;
+
+-- ===== rAthena 移植 Pandas 符文石板持久化表：开始 =====
+-- 修改内容：为全新数据库安装创建符文套装和符文书状态表。
+CREATE TABLE IF NOT EXISTS `runes` (
+  `char_id` int UNSIGNED NOT NULL,
+  `rune_id` int UNSIGNED NOT NULL,
+  `set_id` int UNSIGNED NOT NULL,
+  `selected` tinyint NOT NULL DEFAULT '0',
+  `upgrade` smallint UNSIGNED NOT NULL DEFAULT '0',
+  `failcount` tinyint UNSIGNED NOT NULL DEFAULT '0',
+  `reward` tinyint(1) UNSIGNED DEFAULT '0',
+  UNIQUE KEY `char_id` (`char_id`,`rune_id`,`set_id`)
+) ENGINE=MyISAM;
+
+CREATE TABLE IF NOT EXISTS `runes_book` (
+  `char_id` int UNSIGNED NOT NULL,
+  `rune_id` int UNSIGNED NOT NULL,
+  `book_id` int UNSIGNED NOT NULL,
+  UNIQUE KEY `char_id` (`char_id`,`rune_id`,`book_id`)
+) ENGINE=MyISAM;
+-- ===== rAthena 移植 Pandas 符文石板持久化表：结束 =====
