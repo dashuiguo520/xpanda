@@ -1,4 +1,4 @@
-// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
+﻿// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
 // For more information, see LICENCE in the main folder
 
 #include "map.hpp"
@@ -2810,6 +2810,9 @@ bool map_addnpc(int16 m,npc_data *nd)
 	}
 	mapdata->npc_num++;
 	idb_put(id_db,nd->id,nd);
+	// rathena-web 快照 开始
+	npc_runtime_snapshot_changed();
+	// rathena-web 快照 结束
 	return true;
 }
 
@@ -5009,6 +5012,9 @@ static int32 cleanup_db_sub(DBKey key, DBData *data, va_list va)
 void MapServer::finalize(){
 	ShowStatus("Terminating...\n");
 	channel_config.closing = true;
+	// rathena-web 快照 开始
+	npc_runtime_snapshot_stop();
+	// rathena-web 快照 结束
 
 	//Ladies and babies first.
 	struct s_mapiterator* iter = mapit_getallusers();
@@ -5448,6 +5454,9 @@ bool MapServer::initialize( int32 argc, char *argv[] ){
 	do_init_buyingstore();
 
 	npc_event_do_oninit();	// Init npcs (OnInit)
+	// rathena-web 快照 开始
+	npc_runtime_snapshot_start();
+	// rathena-web 快照 结束
 
 	if (battle_config.pk_mode)
 		ShowNotice("Server is running on '" CL_WHITE "PK Mode" CL_RESET "'.\n");

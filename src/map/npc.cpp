@@ -1,4 +1,4 @@
-// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
+﻿// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
 // For more information, see LICENCE in the main folder
 
 #include "npc.hpp"
@@ -7,6 +7,11 @@
 #include <cstdlib>
 #include <map>
 #include <vector>
+// rathena-web 快照 开始
+#include <cstdio>
+#include <fstream>
+#include <string>
+// rathena-web 快照 结束
 
 #include <common/cbasetypes.hpp>
 #include <common/db.hpp>
@@ -49,6 +54,10 @@ static int32 npc_script=0;
 static int32 npc_mob=0;
 static int32 npc_delay_mob=0;
 static int32 npc_cache_mob=0;
+// rathena-web 快照 开始
+static bool npc_runtime_snapshot_ready = false;
+static int32 npc_runtime_snapshot_timer = INVALID_TIMER;
+// rathena-web 快照 结束
 
 struct eri *npc_sc_display_ers;
 
@@ -88,6 +97,79 @@ int32 npc_get_new_npc_id(void) {
 }
 
 static DBMap* ev_db; // const char* event_name -> struct event_data*
+
+// rathena-web 快照 开始
+static std::string npc_runtime_snapshot_field(const char* value) {
+	std::string field = value == nullptr ? "" : value;
+	for (char& character : field) {
+		if (character == '\t' || character == '\r' || character == '\n')
+			character = ' ';
+	}
+	return field;
+}
+
+static void npc_runtime_snapshot_write(void) {
+	const char* temporary_path = "log/runtime_npcs.tsv.tmp";
+	const char* snapshot_path = "log/runtime_npcs.tsv";
+	std::ofstream output(temporary_path, std::ios::binary | std::ios::trunc);
+
+	if (!output.is_open()) {
+		ShowWarning("Unable to write runtime NPC snapshot '%s'.\n", temporary_path);
+		return;
+	}
+
+	output << "# rathena-runtime-npc-v1\n";
+	for (int32 map_id = 0; map_id < map_num; map_id++) {
+		map_data* mapdata = map_getmapdata(map_id);
+		for (int32 index = 0; index < mapdata->npc_num; index++) {
+			npc_data* nd = mapdata->npc[index];
+			if (nd == nullptr || nd == fake_nd || nd->m < 0 || nd->subtype == NPCTYPE_TOMB || nd->is_invisible)
+				continue;
+			if (nd->subtype != NPCTYPE_WARP && (nd->class_ == JT_INVISIBLE || (nd->sc.option & (OPTION_HIDE | OPTION_CLOAK))))
+				continue;
+
+			output << nd->id << '\t'
+				<< (nd->subtype == NPCTYPE_WARP ? "portal" : "npc") << '\t'
+				<< mapdata->name << '\t' << nd->x << '\t' << nd->y << '\t' << nd->class_ << '\t'
+				<< npc_runtime_snapshot_field(nd->name) << '\n';
+		}
+	}
+	output.close();
+	if (output.fail()) {
+		ShowWarning("Unable to finish runtime NPC snapshot '%s'.\n", temporary_path);
+		return;
+	}
+
+	std::remove(snapshot_path);
+	if (std::rename(temporary_path, snapshot_path) != 0)
+		ShowWarning("Unable to publish runtime NPC snapshot '%s'.\n", snapshot_path);
+}
+
+TIMER_FUNC(npc_runtime_snapshot_export_timer) {
+	npc_runtime_snapshot_timer = INVALID_TIMER;
+	if (npc_runtime_snapshot_ready)
+		npc_runtime_snapshot_write();
+	return 0;
+}
+
+void npc_runtime_snapshot_changed(void) {
+	if (npc_runtime_snapshot_ready && npc_runtime_snapshot_timer == INVALID_TIMER)
+		npc_runtime_snapshot_timer = add_timer(gettick() + 100, npc_runtime_snapshot_export_timer, 0, 0);
+}
+
+void npc_runtime_snapshot_start(void) {
+	npc_runtime_snapshot_ready = true;
+	npc_runtime_snapshot_write();
+}
+
+void npc_runtime_snapshot_stop(void) {
+	npc_runtime_snapshot_ready = false;
+	if (npc_runtime_snapshot_timer != INVALID_TIMER) {
+		delete_timer(npc_runtime_snapshot_timer, npc_runtime_snapshot_export_timer);
+		npc_runtime_snapshot_timer = INVALID_TIMER;
+	}
+}
+// rathena-web 快照 结束
 static DBMap* npcname_db; // const char* npc_name -> npc_data*
 
 struct event_data {
@@ -1113,6 +1195,10 @@ bool npc_enable_target(npc_data& nd, uint32 char_id, e_npcv_status flag)
 		if (xs > -1 && ys > -1)
 			map_foreachinallarea( npc_enable_sub, nd.m, nd.x-xs, nd.y-ys, nd.x+xs, nd.y+ys, BL_PC, &nd );
 	}
+	// rathena-web 快照 开始
+	if (char_id == 0)
+		npc_runtime_snapshot_changed();
+	// rathena-web 快照 结束
 
 	return true;
 }
@@ -3588,6 +3674,9 @@ int32 npc_unload(npc_data* nd, bool single) {
 
 	nd->~npc_data();
 	aFree(nd);
+	// rathena-web 快照 开始
+	npc_runtime_snapshot_changed();
+	// rathena-web 快照 结束
 
 	return 0;
 }

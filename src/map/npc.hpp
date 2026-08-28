@@ -1,4 +1,4 @@
-// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
+﻿// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
 // For more information, see LICENCE in the main folder
 
 #ifndef NPC_HPP
@@ -1658,6 +1658,11 @@ void do_clear_npc(void);
 void do_final_npc(void);
 void do_init_npc(void);
 void npc_event_do_oninit(void);
+// rathena-web 快照 开始
+void npc_runtime_snapshot_changed(void);
+void npc_runtime_snapshot_start(void);
+void npc_runtime_snapshot_stop(void);
+// rathena-web 快照 结束
 
 int32 npc_event_do(const char* name);
 int32 npc_event_do_id(const char* name, int32 rid);
