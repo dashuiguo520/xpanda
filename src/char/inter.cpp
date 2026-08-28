@@ -1,4 +1,4 @@
-// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
+﻿// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
 // For more information, see LICENCE in the main folder
 
 #include "inter.hpp"
@@ -52,6 +52,10 @@ std::string char_server_id = "ragnarok";
 std::string char_server_pw = ""; // Allow user to send empty password (bugreport:7787)
 std::string char_server_db = "ragnarok";
 std::string default_codepage = ""; //Feature by irmin.
+// ===== 数据库 Codepage 配置增强 开始 =====
+// 修改内容/原因：允许 Character 数据库覆盖 default_codepage。
+std::string char_codepage = "";
+// ===== 数据库 Codepage 配置增强 结束 =====
 uint32 party_share_level = 10;
 
 /// Received packet Lengths from map-server
@@ -854,6 +858,11 @@ int32 inter_config_read(const char* cfgName)
 			char_server_db = w2;
 		else if(!strcmpi(w1,"default_codepage"))
 			default_codepage = w2;
+		// ===== 数据库 Codepage 配置增强 开始 =====
+		// 修改内容/原因：读取 Character 数据库独立编码。
+		else if( !strcmpi( w1, "char_codepage" ) )
+			char_codepage = w2;
+		// ===== 数据库 Codepage 配置增强 结束 =====
 		else if(!strcmpi(w1,"party_share_level"))
 			party_share_level = (uint32)atof(w2);
 		else if(!strcmpi(w1,"log_inter"))
@@ -975,10 +984,11 @@ int32 inter_init_sql(const char *file)
 		exit(EXIT_FAILURE);
 	}
 
-	if( !default_codepage.empty() ) {
-		if( SQL_ERROR == Sql_SetEncoding(sql_handle, default_codepage.c_str()) )
-			Sql_ShowDebug(sql_handle);
-	}
+	// ===== 数据库 Codepage 配置增强 开始 =====
+	// 修改内容/原因：优先采用 char_codepage，为空时回退 default_codepage。
+	if( SQL_ERROR == Sql_SetEncoding( sql_handle, char_codepage.c_str(), default_codepage.c_str(), "Char-Server" ) )
+		Sql_ShowDebug(sql_handle);
+	// ===== 数据库 Codepage 配置增强 结束 =====
 
 	interServerDb.load();
 	inter_guild_sql_init();

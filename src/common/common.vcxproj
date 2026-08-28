@@ -37,6 +37,10 @@
     <ClInclude Include="packets.hpp" />
     <ClInclude Include="random.hpp" />
     <ClInclude Include="showmsg.hpp" />
+    <!-- ===== 终端信息翻译机制移植 开始 ===== -->
+    <!-- 修改内容/原因：将终端翻译头文件加入 Visual Studio common 项目。 -->
+    <ClInclude Include="translate.hpp" />
+    <!-- ===== 终端信息翻译机制移植 结束 ===== -->
     <ClInclude Include="socket.hpp" />
     <ClInclude Include="sql.hpp" />
     <ClInclude Include="strlib.hpp" />
@@ -61,6 +65,10 @@
     <ClCompile Include="nullpo.cpp" />
     <ClCompile Include="random.cpp" />
     <ClCompile Include="showmsg.cpp" />
+    <!-- ===== 终端信息翻译机制移植 开始 ===== -->
+    <!-- 修改内容/原因：将终端翻译实现加入 Visual Studio common 项目。 -->
+    <ClCompile Include="translate.cpp" />
+    <!-- ===== 终端信息翻译机制移植 结束 ===== -->
     <ClCompile Include="socket.cpp" />
     <ClCompile Include="sql.cpp" />
     <ClCompile Include="strlib.cpp" />

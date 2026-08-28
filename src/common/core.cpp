@@ -1,4 +1,4 @@
-// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
+﻿// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
 // For more information, see LICENCE in the main folder
 
 #include "core.hpp"
@@ -28,6 +28,16 @@
 #include "mmo.hpp"
 #include "showmsg.hpp"
 #include "strlib.hpp"
+
+// ===== 终端信息翻译机制移植 开始 =====
+// 修改内容/原因：接入翻译数据库生命周期，使启动信息及后续终端输出均可翻译。
+#ifndef MINICORE
+#include "translate.hpp"
+// 显式声明生命周期入口，避免部分 MSVC 工程的同名头文件缓存影响符号可见性。
+void do_init_translate();
+void do_final_translate();
+#endif
+// ===== 终端信息翻译机制移植 结束 =====
 
 #ifndef DEPRECATED_COMPILER_SUPPORT
 	#if defined( _MSC_VER ) && _MSC_VER < 1914
@@ -355,6 +365,12 @@ int32 Core::start( int32 argc, char **argv ){
 	}
 
 	malloc_init();// needed for Show* in display_title() [FlavioJS]
+	// ===== 终端信息翻译机制移植 开始 =====
+	// 修改内容/原因：在显示标题前加载翻译库，让启动阶段输出也能使用本地化文本。
+#ifndef MINICORE
+	do_init_translate();
+#endif
+	// ===== 终端信息翻译机制移植 结束 =====
 	display_title();
 	usercheck();
 
@@ -407,6 +423,12 @@ int32 Core::start( int32 argc, char **argv ){
 	ers_final();
 #endif
 
+	// ===== 终端信息翻译机制移植 开始 =====
+	// 修改内容/原因：在内存子系统关闭前释放翻译数据库。
+#ifndef MINICORE
+	do_final_translate();
+#endif
+	// ===== 终端信息翻译机制移植 结束 =====
 	malloc_final();
 	this->set_status( e_core_status::CORE_FINALIZED );
 

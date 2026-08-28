@@ -1,4 +1,4 @@
-// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
+﻿// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
 // For more information, see LICENCE in the main folder
 
 #include "account.hpp"
@@ -136,8 +136,11 @@ static bool account_db_sql_init(AccountDB* self) {
 		return false;
 	}
 
-	if( !db->codepage.empty() && SQL_ERROR == Sql_SetEncoding(sql_handle, db->codepage.c_str()) )
+	// ===== 数据库 Codepage 配置增强 开始 =====
+	// 修改内容/原因：login_codepage 为空时回退 default_codepage，并输出最终采用的编码。
+	if( SQL_ERROR == Sql_SetEncoding( sql_handle, db->codepage.c_str(), default_codepage.c_str(), "Login-Server" ) )
 		Sql_ShowDebug(sql_handle);
+	// ===== 数据库 Codepage 配置增强 结束 =====
 
 	self->remove_webtokens( self );
 

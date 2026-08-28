@@ -63,6 +63,11 @@ std::string map_server_ip = "127.0.0.1";
 std::string map_server_id = "ragnarok";
 std::string map_server_pw = "";
 std::string map_server_db = "ragnarok";
+// ===== 数据库 Codepage 配置增强 开始 =====
+// 修改内容/原因：允许 Map 与 Log 数据库分别覆盖 default_codepage。
+std::string map_codepage = "";
+std::string log_codepage = "";
+// ===== 数据库 Codepage 配置增强 结束 =====
 Sql* mmysql_handle;
 Sql* qsmysql_handle; /// For query_sql
 
@@ -4351,6 +4356,12 @@ int32 inter_config_read(const char *cfgName)
 		if(strcmpi(w1,"default_codepage")==0)
 			default_codepage = w2;
 		else
+		// ===== 数据库 Codepage 配置增强 开始 =====
+		// 修改内容/原因：读取 Map 数据库独立编码。
+		if( strcmpi( w1, "map_codepage" ) == 0 )
+			map_codepage = w2;
+		else
+		// ===== 数据库 Codepage 配置增强 结束 =====
 		if(strcmpi(w1,"use_sql_db")==0) {
 			db_use_sqldbs = config_switch(w2);
 			ShowStatus ("Using SQL dbs: %s\n",w2);
@@ -4370,6 +4381,12 @@ int32 inter_config_read(const char *cfgName)
 		if(strcmpi(w1,"log_db_db")==0)
 			log_db_db = w2;
 		else
+		// ===== 数据库 Codepage 配置增强 开始 =====
+		// 修改内容/原因：读取 Log 数据库独立编码。
+		if( strcmpi( w1, "log_codepage" ) == 0 )
+			log_codepage = w2;
+		else
+		// ===== 数据库 Codepage 配置增强 结束 =====
 		if(strcmpi(w1,"start_status_points")==0)
 			inter_config.start_status_points=atoi(w2);
 		else
@@ -4416,12 +4433,13 @@ int32 map_sql_init(void)
 	}
 	ShowStatus("Connect success! (Map Server Connection)\n");
 
-	if( !default_codepage.empty() ) {
-		if ( SQL_ERROR == Sql_SetEncoding(mmysql_handle, default_codepage.c_str()) )
-			Sql_ShowDebug(mmysql_handle);
-		if ( SQL_ERROR == Sql_SetEncoding(qsmysql_handle, default_codepage.c_str()) )
-			Sql_ShowDebug(qsmysql_handle);
-	}
+	// ===== 数据库 Codepage 配置增强 开始 =====
+	// 修改内容/原因：Map 主连接和 query_sql 连接统一采用 map_codepage，并回退默认值。
+	if( SQL_ERROR == Sql_SetEncoding( mmysql_handle, map_codepage.c_str(), default_codepage.c_str(), "Map-Server" ) )
+		Sql_ShowDebug(mmysql_handle);
+	if( SQL_ERROR == Sql_SetEncoding( qsmysql_handle, map_codepage.c_str(), default_codepage.c_str() ) )
+		Sql_ShowDebug(qsmysql_handle);
+	// ===== 数据库 Codepage 配置增强 结束 =====
 	return 0;
 }
 
@@ -4458,9 +4476,11 @@ int32 log_sql_init(void)
 	}
 	ShowStatus("" CL_WHITE "[SQL]" CL_RESET ": Successfully '" CL_GREEN "connected" CL_RESET "' to Database '" CL_WHITE "%s" CL_RESET "'.\n", log_db_db.c_str());
 
-	if( !default_codepage.empty() )
-		if ( SQL_ERROR == Sql_SetEncoding(logmysql_handle, default_codepage.c_str()) )
-			Sql_ShowDebug(logmysql_handle);
+	// ===== 数据库 Codepage 配置增强 开始 =====
+	// 修改内容/原因：Log 数据库优先采用 log_codepage，为空时回退 default_codepage。
+	if( SQL_ERROR == Sql_SetEncoding( logmysql_handle, log_codepage.c_str(), default_codepage.c_str(), "Log" ) )
+		Sql_ShowDebug(logmysql_handle);
+	// ===== 数据库 Codepage 配置增强 结束 =====
 
 	return 0;
 }

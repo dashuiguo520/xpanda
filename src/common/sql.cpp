@@ -1,15 +1,23 @@
-// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
+﻿// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
 // For more information, see LICENCE in the main folder
 
 #include "sql.hpp"
 
 #include <cstdlib>// strtoul
+#include <clocale>
+#include <string>
 
 #include "cbasetypes.hpp"
 #include "cli.hpp"
+#include "core.hpp"
 #include "malloc.hpp"
 #include "showmsg.hpp"
 #include "timer.hpp"
+
+// ===== 终端动态文本编码桥接 开始 =====
+// 修改内容/原因：数据库连接成功选择代码页后，同步控制台动态文本编码，供角色名等字段输出时统一转码。
+#include "translate.hpp"
+// ===== 终端动态文本编码桥接 结束 =====
 
 // MySQL 8.0 or later removed my_bool typedef.
 // Reintroduce it as a bandaid fix.
@@ -163,13 +171,80 @@ int32 Sql_GetColumnNames(Sql* self, const char* table, char* out_buf, size_t buf
 
 
 
-/// Changes the encoding of the connection.
-int32 Sql_SetEncoding(Sql* self, const char* encoding)
-{
-	if( self && Sql_Query(self, "SET NAMES %s", encoding) == 0 )
+// ===== 数据库 Codepage 配置增强 开始 =====
+// 修改内容/原因：统一 Pandas 的连接编码逻辑；空的独立配置回退 default_codepage，auto 按数据库及系统语言选择。
+static std::string Sql_AutoEncoding( const std::string& database_encoding ) {
+	if( database_encoding != "utf8" && database_encoding != "utf8mb3" && database_encoding != "utf8mb4" ) {
+		return database_encoding;
+	}
+
+	std::setlocale( LC_CTYPE, "" );
+	const char* locale_name = std::setlocale( LC_CTYPE, nullptr );
+	const std::string locale = locale_name == nullptr ? "" : locale_name;
+	if( locale.rfind( "zh_CN", 0 ) == 0 || locale.rfind( "zh_SG", 0 ) == 0 || locale.find( "Chinese (Simplified)" ) != std::string::npos || locale.find( ".936" ) != std::string::npos ) {
+		return "gbk";
+	}
+	if( locale.rfind( "zh_TW", 0 ) == 0 || locale.rfind( "zh_HK", 0 ) == 0 || locale.rfind( "zh_MO", 0 ) == 0 || locale.find( "Chinese (Traditional)" ) != std::string::npos || locale.find( ".950" ) != std::string::npos ) {
+		return "big5";
+	}
+	return database_encoding;
+}
+
+int32 Sql_SetEncoding( Sql* self, const char* encoding, const char* default_encoding, const char* connection_name ) {
+	if( self == nullptr ) {
+		return SQL_ERROR;
+	}
+
+	std::string selected = encoding == nullptr ? "" : encoding;
+	if( selected.empty() && default_encoding != nullptr ) {
+		selected = default_encoding;
+	}
+	if( selected.empty() ) {
 		return SQL_SUCCESS;
+	}
+
+	std::string database_encoding;
+	if( strcmpi( selected.c_str(), "auto" ) == 0 || connection_name != nullptr ) {
+		if( Sql_Query( self, "SHOW VARIABLES LIKE 'character_set_database'" ) == SQL_ERROR ) {
+			return SQL_ERROR;
+		}
+
+		char* value = nullptr;
+		size_t length = 0;
+		if( Sql_NextRow( self ) == SQL_SUCCESS && Sql_GetData( self, 1, &value, &length ) == SQL_SUCCESS && value != nullptr ) {
+			// 在释放 MySQL 结果前复制字符串，避免沿用 Pandas 原实现中的悬空指针。
+			database_encoding.assign( value, length );
+		}
+		Sql_FreeResult( self );
+		if( database_encoding.empty() ) {
+			return SQL_ERROR;
+		}
+
+		if( connection_name != nullptr ) {
+			ShowInfo( "Detected the " CL_WHITE "%s" CL_RESET " database character set is " CL_WHITE "%s" CL_RESET ".\n", connection_name, database_encoding.c_str() );
+		}
+	}
+
+	if( strcmpi( selected.c_str(), "auto" ) == 0 ) {
+		selected = Sql_AutoEncoding( database_encoding );
+	}
+	if( connection_name != nullptr ) {
+		ShowInfo( "Server will connect to " CL_WHITE "'%s'" CL_RESET " database using " CL_WHITE "'%s'" CL_RESET ".\n", connection_name, selected.c_str() );
+	}
+
+	if( mysql_set_character_set( &self->handle, selected.c_str() ) == 0 ) {
+		// ===== 终端动态文本编码桥接 开始 =====
+		// 修改内容/原因：包括 Web 在内的服务都可能输出数据库角色名；使用已生效的连接代码页进行控制台转码。
+		if( connection_name != nullptr && strcmpi( connection_name, "Log" ) != 0 && strcmpi( connection_name, "Ipban" ) != 0 ) {
+			set_console_data_encoding( selected.c_str() );
+		}
+		// ===== 终端动态文本编码桥接 结束 =====
+		return SQL_SUCCESS;
+	}
+	ShowSQL( "DB error - %s\n", mysql_error( &self->handle ) );
 	return SQL_ERROR;
 }
+// ===== 数据库 Codepage 配置增强 结束 =====
 
 
 

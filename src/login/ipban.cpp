@@ -1,4 +1,4 @@
-// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
+﻿// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
 // For more information, see LICENCE in the main folder
 
 #include "ipban.hpp"
@@ -199,8 +199,11 @@ void ipban_init(void) {
 
 	ShowInfo("Ipban connection made.\n");
 
-	if( !ipban_codepage.empty() && SQL_ERROR == Sql_SetEncoding(sql_handle, ipban_codepage.c_str()) )
+	// ===== 数据库 Codepage 配置增强 开始 =====
+	// 修改内容/原因：ipban_codepage 为空时回退 default_codepage。
+	if( SQL_ERROR == Sql_SetEncoding( sql_handle, ipban_codepage.c_str(), default_codepage.c_str(), "Ipban" ) )
 		Sql_ShowDebug(sql_handle);
+	// ===== 数据库 Codepage 配置增强 结束 =====
 
 	if( login_config.ipban_cleanup_interval > 0 )
 	{ // set up periodic cleanup of connection history and active bans

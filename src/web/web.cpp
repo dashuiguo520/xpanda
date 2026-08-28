@@ -1,4 +1,4 @@
-// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
+﻿// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
 // For more information, see LICENCE in the main folder
 
 #include "web.hpp"
@@ -69,6 +69,13 @@ std::string web_server_pw = "";
 std::string web_server_db = "ragnarok";
 
 std::string default_codepage = "";
+// ===== 数据库 Codepage 配置增强 开始 =====
+// 修改内容/原因：Web 服务的四个数据库连接可分别指定编码，并在空值时回退 default_codepage。
+std::string login_codepage = "";
+std::string char_codepage = "";
+std::string map_codepage = "";
+std::string web_codepage = "";
+// ===== 数据库 Codepage 配置增强 结束 =====
 
 Sql * login_handle = nullptr;
 Sql * char_handle = nullptr;
@@ -256,6 +263,17 @@ int32 inter_config_read(const char* cfgName)
 			web_server_db = w2;
 		else if(!strcmpi(w1,"default_codepage"))
 			default_codepage = w2;
+		// ===== 数据库 Codepage 配置增强 开始 =====
+		// 修改内容/原因：读取各数据库连接的独立编码。
+		else if( !strcmpi( w1, "login_codepage" ) )
+			login_codepage = w2;
+		else if( !strcmpi( w1, "char_codepage" ) )
+			char_codepage = w2;
+		else if( !strcmpi( w1, "map_codepage" ) )
+			map_codepage = w2;
+		else if( !strcmpi( w1, "web_codepage" ) )
+			web_codepage = w2;
+		// ===== 数据库 Codepage 配置增强 结束 =====
 		else if (!strcmpi(w1, "user_configs"))
 			safestrncpy(user_configs_table, w2, sizeof(user_configs_table));
 		else if (!strcmpi(w1, "char_configs"))
@@ -315,10 +333,11 @@ int32 web_sql_init(void) {
 	}
 	ShowStatus("Connect success! (Login Server Connection)\n");
 
-	if (!default_codepage.empty()) {
-		if (SQL_ERROR == Sql_SetEncoding(login_handle, default_codepage.c_str()))
-			Sql_ShowDebug(login_handle);
-	}
+	// ===== 数据库 Codepage 配置增强 开始 =====
+	// 修改内容/原因：Login 数据库采用独立编码并回退默认值。
+	if( SQL_ERROR == Sql_SetEncoding( login_handle, login_codepage.c_str(), default_codepage.c_str(), "Login-Server" ) )
+		Sql_ShowDebug(login_handle);
+	// ===== 数据库 Codepage 配置增强 结束 =====
 
 	char_handle = Sql_Malloc();
 	ShowInfo("Connecting to the Char DB server.....\n");
@@ -332,10 +351,11 @@ int32 web_sql_init(void) {
 	}
 	ShowStatus("Connect success! (Char Server Connection)\n");
 
-	if (!default_codepage.empty()) {
-		if (SQL_ERROR == Sql_SetEncoding(char_handle, default_codepage.c_str()))
-			Sql_ShowDebug(char_handle);
-	}
+	// ===== 数据库 Codepage 配置增强 开始 =====
+	// 修改内容/原因：Character 数据库采用独立编码并回退默认值。
+	if( SQL_ERROR == Sql_SetEncoding( char_handle, char_codepage.c_str(), default_codepage.c_str(), "Char-Server" ) )
+		Sql_ShowDebug(char_handle);
+	// ===== 数据库 Codepage 配置增强 结束 =====
 
 	map_handle = Sql_Malloc();
 	ShowInfo("Connecting to the Map DB server.....\n");
@@ -349,10 +369,11 @@ int32 web_sql_init(void) {
 	}
 	ShowStatus("Connect success! (Map Server Connection)\n");
 
-	if (!default_codepage.empty()) {
-		if (SQL_ERROR == Sql_SetEncoding(map_handle, default_codepage.c_str()))
-			Sql_ShowDebug(map_handle);
-	}
+	// ===== 数据库 Codepage 配置增强 开始 =====
+	// 修改内容/原因：Map 数据库采用独立编码并回退默认值。
+	if( SQL_ERROR == Sql_SetEncoding( map_handle, map_codepage.c_str(), default_codepage.c_str(), "Map-Server" ) )
+		Sql_ShowDebug(map_handle);
+	// ===== 数据库 Codepage 配置增强 结束 =====
 
 	web_handle = Sql_Malloc();
 	ShowInfo("Connecting to the Web DB server.....\n");
@@ -366,10 +387,11 @@ int32 web_sql_init(void) {
 	}
 	ShowStatus("Connect success! (Web Server Connection)\n");
 
-	if (!default_codepage.empty()) {
-		if (SQL_ERROR == Sql_SetEncoding(web_handle, default_codepage.c_str()))
-			Sql_ShowDebug(web_handle);
-	}
+	// ===== 数据库 Codepage 配置增强 开始 =====
+	// 修改内容/原因：Web 数据库采用独立编码并回退默认值；auto 在 Web 服务中保持数据库原生 UTF-8。
+	if( SQL_ERROR == Sql_SetEncoding( web_handle, web_codepage.c_str(), default_codepage.c_str(), "Web-Server" ) )
+		Sql_ShowDebug(web_handle);
+	// ===== 数据库 Codepage 配置增强 结束 =====
 
 
 	return 0;

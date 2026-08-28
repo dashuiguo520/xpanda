@@ -1,7 +1,14 @@
-// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
+﻿// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
 // For more information, see LICENCE in the main folder
 
 #include "showmsg.hpp"
+
+// ===== 终端信息翻译机制移植 开始 =====
+// 修改内容/原因：在所有 ShowMessage 系列函数的统一入口执行翻译，避免逐个修改输出调用点。
+#ifndef MINICORE
+#include "translate.hpp"
+#endif
+// ===== 终端信息翻译机制移植 结束 =====
 
 #include <cstdlib> // atexit
 #include <ctime>
@@ -208,14 +215,27 @@ int32	VFPRINTF(HANDLE handle, const char *fmt, va_list argptr)
 	// Print everything to the buffer
 	BUFVPRINTF(tempbuf,fmt,argptr);
 
+	// ===== 终端动态文本编码桥接 开始 =====
+	// 修改内容/原因：格式化完成后将包含数据库动态字段的整行转回 UTF-8，再交给 CP65001 控制台或重定向输出。
+#ifndef MINICORE
+	const std::string normalized_output = normalize_console_output( BUFVAL( tempbuf ), BUFLEN( tempbuf ) );
+	char* output_buffer = const_cast<char*>( normalized_output.c_str() );
+	const size_t output_length = normalized_output.size();
+#else
+	char* output_buffer = BUFVAL( tempbuf );
+	const size_t output_length = BUFLEN( tempbuf );
+#endif
+	// ===== 终端动态文本编码桥接 结束 =====
+
 	if( !is_console(handle) && stdout_with_ansisequence )
 	{
-		WriteFile( handle, BUFVAL( tempbuf ), (DWORD)BUFLEN( tempbuf ), &written, 0 );
+		WriteFile( handle, output_buffer, (DWORD)output_length, &written, 0 );
+		FREEBUF(tempbuf);
 		return 0;
 	}
 
 	// start with processing
-	p = BUFVAL(tempbuf);
+	p = output_buffer;
 	while ((q = strchr(p, 0x1b)) != nullptr)
 	{	// find the escape character
 		if( 0==WriteConsole(handle, p, (DWORD)(q-p), &written, 0) ) // write up to the escape
@@ -669,6 +689,13 @@ int32 _vShowMessage(enum msg_type flag, const char *string, va_list ap)
 #if defined(DEBUGLOGMAP) || defined(DEBUGLOGCHAR) || defined(DEBUGLOGLOGIN)
 	FILE *fp;
 #endif
+	// ===== 终端信息翻译机制移植 开始 =====
+	// 修改内容/原因：格式化前替换完整格式字符串，保留原有可变参数及颜色代码行为。
+#ifndef MINICORE
+	const std::string translated_string = translate_console_message( string );
+	string = translated_string.c_str();
+#endif
+	// ===== 终端信息翻译机制移植 结束 =====
 	
 	if (!string || *string == '\0') {
 		ShowError("Empty string passed to _vShowMessage().\n");

@@ -95,6 +95,10 @@ set( COMMON_BASE_HEADERS
 	"${COMMON_SOURCE_DIR}/nullpo.hpp"
 	"${COMMON_SOURCE_DIR}/random.hpp"
 	"${COMMON_SOURCE_DIR}/showmsg.hpp"
+	# ===== 终端信息翻译机制移植 开始 =====
+	# 修改内容/原因：将终端翻译模块加入 common_base 构建。
+	"${COMMON_SOURCE_DIR}/translate.hpp"
+	# ===== 终端信息翻译机制移植 结束 =====
 	"${COMMON_SOURCE_DIR}/socket.hpp"
 	"${COMMON_SOURCE_DIR}/strlib.hpp"
 	"${COMMON_SOURCE_DIR}/timer.hpp"
@@ -119,6 +123,10 @@ set( COMMON_BASE_SOURCES
 	"${COMMON_SOURCE_DIR}/nullpo.cpp"
 	"${COMMON_SOURCE_DIR}/random.cpp"
 	"${COMMON_SOURCE_DIR}/showmsg.cpp"
+	# ===== 终端信息翻译机制移植 开始 =====
+	# 修改内容/原因：编译终端翻译模块实现。
+	"${COMMON_SOURCE_DIR}/translate.cpp"
+	# ===== 终端信息翻译机制移植 结束 =====
 	"${COMMON_SOURCE_DIR}/socket.cpp"
 	"${COMMON_SOURCE_DIR}/strlib.cpp"
 	"${COMMON_SOURCE_DIR}/timer.cpp"

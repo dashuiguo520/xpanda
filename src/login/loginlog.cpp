@@ -1,4 +1,4 @@
-// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
+﻿// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
 // For more information, see LICENCE in the main folder
 
 #include "loginlog.hpp"
@@ -12,6 +12,11 @@
 #include <common/socket.hpp>
 #include <common/sql.hpp>
 #include <common/strlib.hpp>
+
+// ===== 数据库 Codepage 配置增强 开始 =====
+// 修改内容/原因：日志连接需要读取 Login 统一的 default_codepage。
+#include "login.hpp"
+// ===== 数据库 Codepage 配置增强 结束 =====
 
 
 std::string log_db_hostname = "127.0.0.1";
@@ -132,8 +137,11 @@ bool loginlog_init(void) {
 		exit(EXIT_FAILURE);
 	}
 
-	if( !log_codepage.empty() && SQL_ERROR == Sql_SetEncoding(sql_handle, log_codepage.c_str()) )
+	// ===== 数据库 Codepage 配置增强 开始 =====
+	// 修改内容/原因：log_codepage 为空时回退 default_codepage。
+	if( SQL_ERROR == Sql_SetEncoding( sql_handle, log_codepage.c_str(), default_codepage.c_str(), "Log" ) )
 		Sql_ShowDebug(sql_handle);
+	// ===== 数据库 Codepage 配置增强 结束 =====
 
 	enabled = true;
 

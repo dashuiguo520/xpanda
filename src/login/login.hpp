@@ -1,10 +1,11 @@
-// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
+﻿// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
 // For more information, see LICENCE in the main folder
 
 #ifndef LOGIN_HPP
 #define LOGIN_HPP
 
 #include <memory>
+#include <string>
 
 #include <common/cbasetypes.hpp>
 #include <common/core.hpp>
@@ -33,6 +34,11 @@ class LoginServer : public Core {
 
 /// supported encryption types: 1- passwordencrypt, 2- passwordencrypt2, 3- both
 #define PASSWORDENC 3
+
+// ===== 数据库 Codepage 配置增强 开始 =====
+// 修改内容/原因：Login 的账号、IPBan、日志连接共享 default_codepage 回退值。
+extern std::string default_codepage;
+// ===== 数据库 Codepage 配置增强 结束 =====
 
 ///Struct of 1 client connected to login-serv
 struct login_session_data {

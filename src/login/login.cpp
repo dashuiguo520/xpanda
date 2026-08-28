@@ -1,4 +1,4 @@
-// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
+﻿// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
 // For more information, see LICENCE in the main folder
 
 #pragma warning(disable:4800)
@@ -36,6 +36,11 @@ using namespace rathena::server_login;
 
 #define LOGIN_MAX_MSG 30				/// Max number predefined in msg_conf
 static char* msg_table[LOGIN_MAX_MSG];	/// Login Server messages_conf
+
+// ===== 数据库 Codepage 配置增强 开始 =====
+// 修改内容/原因：为 Login 的多个数据库连接提供统一默认编码，auto 会在连接后自动判定。
+std::string default_codepage = "auto";
+// ===== 数据库 Codepage 配置增强 结束 =====
 
 //definition of exported var declared in header
 struct mmo_char_server ch_server[MAX_SERVERS];	/// char server data
@@ -727,6 +732,11 @@ bool login_config_read(const char* cfgName, bool normal) {
 			}
 		}
 #endif
+		// ===== 数据库 Codepage 配置增强 开始 =====
+		// 修改内容/原因：读取 inter_athena.conf 的全局数据库连接编码。
+		else if( !strcmpi( w1, "default_codepage" ) )
+			default_codepage = w2;
+		// ===== 数据库 Codepage 配置增强 结束 =====
 		else if(!strcmpi(w1, "import"))
 			login_config_read(w2, normal);
 		else {// try the account engines

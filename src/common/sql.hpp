@@ -1,4 +1,4 @@
-// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
+﻿// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
 // For more information, see LICENCE in the main folder
 
 #ifndef SQL_HPP
@@ -102,7 +102,10 @@ int32 Sql_GetColumnNames(Sql* self, const char* table, char* out_buf, size_t buf
 /// Changes the encoding of the connection.
 ///
 /// @return SQL_SUCCESS or SQL_ERROR
-int32 Sql_SetEncoding(Sql* self, const char* encoding);
+// ===== 数据库 Codepage 配置增强 开始 =====
+// 修改内容/原因：支持连接独立编码、默认编码回退、auto 自动检测及可读的连接名称。
+int32 Sql_SetEncoding( Sql* self, const char* encoding, const char* default_encoding = nullptr, const char* connection_name = nullptr );
+// ===== 数据库 Codepage 配置增强 结束 =====
 
 
 
