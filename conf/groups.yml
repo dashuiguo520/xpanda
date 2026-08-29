@@ -53,6 +53,9 @@ Body:
       can_trade: true
       can_party: true
       attendance: true
+      # ===== rAthena Web 挂机系统第一阶段账号组权限：开始 =====
+      autoplay: true
+      # ===== rAthena Web 挂机系统第一阶段账号组权限：结束 =====
   - Id: 1
     Name: Super Player
     # Can do everything Players can and more

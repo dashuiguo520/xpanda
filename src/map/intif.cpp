@@ -6,6 +6,7 @@
 #include <cstdlib>
 
 #include <common/malloc.hpp>
+#include <common/autoplay.hpp>
 #include <common/mmo.hpp>
 #include <common/nullpo.hpp>
 #include <common/showmsg.hpp>
@@ -14,6 +15,7 @@
 #include <common/timer.hpp>
 
 #include "achievement.hpp"
+#include "autoplay.hpp"
 #include "battle.hpp"
 #include "chrif.hpp"
 #include "clan.hpp"
@@ -46,6 +48,7 @@ static const int32 packet_len_table[] = {
 	12,-1, 7, 3,  0, 0, 0, 0,  0, 0,-1, 9, -1, 0,  0, 0, //0x3880  Pet System,  Storages
 	-1,-1, 7, 3,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0,  0, 0, //0x3890  Homunculus [albator]
 	-1,-1, 8, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0,  0, 0, //0x38A0  Clans
+	static_cast<int32>(7 + sizeof(s_autoplay_config)),11,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, //0x38B0 Autoplay
 };
 
 extern int32 char_fd; // inter server Fd used for char_fd
@@ -3761,6 +3764,26 @@ int32 intif_parse_clan_onlinecount( int32 fd ){
  *  1 success (no error)
  *  2 invalid length of packet (not enough data yet)
  */
+bool intif_autoplay_request(uint32 char_id) {
+	if (CheckForCharServer()) return false;
+	WFIFOHEAD(inter_fd, 6); WFIFOW(inter_fd, 0) = 0x30B0; WFIFOL(inter_fd, 2) = char_id; WFIFOSET(inter_fd, 6);
+	return true;
+}
+
+bool intif_autoplay_save(uint32 char_id, const s_autoplay_config& config) {
+	if (CheckForCharServer()) return false;
+	WFIFOHEAD(inter_fd, 6 + sizeof(config)); WFIFOW(inter_fd, 0) = 0x30B1; WFIFOL(inter_fd, 2) = char_id; memcpy(WFIFOP(inter_fd, 6), &config, sizeof(config)); WFIFOSET(inter_fd, 6 + sizeof(config));
+	return true;
+}
+
+static void intif_parse_autoplay_load(int32 fd) {
+	if (auto* sd = map_charid2sd(RFIFOL(fd, 2))) { s_autoplay_config config{}; memcpy(&config, RFIFOP(fd, 7), sizeof(config)); if (RFIFOB(fd, 6)) autoplay_config_loaded(*sd, config); }
+}
+
+static void intif_parse_autoplay_save(int32 fd) {
+	if (auto* sd = map_charid2sd(RFIFOL(fd, 2))) autoplay_config_saved(*sd, RFIFOB(fd, 6) != 0, RFIFOL(fd, 7));
+}
+
 int32 intif_parse(int32 fd)
 {
 	int32 packet_len, cmd;
@@ -3887,6 +3910,8 @@ int32 intif_parse(int32 fd)
 	case 0x38A0:	intif_parse_clans(fd); break;
 	case 0x38A1:	intif_parse_clan_message(fd); break;
 	case 0x38A2:	intif_parse_clan_onlinecount(fd); break;
+	case 0x38B0:	intif_parse_autoplay_load(fd); break;
+	case 0x38B1:	intif_parse_autoplay_save(fd); break;
 
 	default:
 		ShowError("intif_parse : unknown packet %d %x\n",fd,RFIFOW(fd,0));

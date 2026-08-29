@@ -6,6 +6,7 @@
 #define MAP_PACKETS_STRUCT_HPP
 
 #include <common/cbasetypes.hpp>
+#include <common/autoplay.hpp>
 #include <common/mmo.hpp>
 
 /**
@@ -346,6 +347,34 @@ enum packet_headers {
 #if PACKETVER_MAIN_NUM >= 20200916 || PACKETVER_RE_NUM >= 20200723 || PACKETVER_ZERO_NUM >= 20221024
 DEFINE_PACKET_ID(ZC_PAR_4JOB_CHANGE, 0x0b25);
 #endif  // PACKETVER_MAIN_NUM >= 20200916 || PACKETVER_RE_NUM >= 20200723 || PACKETVER_ZERO_NUM >= 20221024
+
+#if !defined(sun) && (!defined(__NETBSD__) || __NetBSD_Version__ >= 600000000)
+#pragma pack(push, 1)
+#endif
+struct PACKET_CZ_AUTOPLAY_CONFIG_GET { uint16 packetType; } __attribute__((packed));
+DEFINE_PACKET_HEADER(CZ_AUTOPLAY_CONFIG_GET, 0x0c80);
+struct PACKET_CZ_AUTOPLAY_CONFIG_SAVE { uint16 packetType; s_autoplay_config config; } __attribute__((packed));
+DEFINE_PACKET_HEADER(CZ_AUTOPLAY_CONFIG_SAVE, 0x0c81);
+struct PACKET_CZ_AUTOPLAY_CONTROL { uint16 packetType; uint8 control; } __attribute__((packed));
+DEFINE_PACKET_HEADER(CZ_AUTOPLAY_CONTROL, 0x0c82);
+struct PACKET_CZ_AUTOPLAY_STATUS_GET { uint16 packetType; } __attribute__((packed));
+DEFINE_PACKET_HEADER(CZ_AUTOPLAY_STATUS_GET, 0x0c83);
+struct PACKET_ZC_AUTOPLAY_CONFIG { uint16 packetType; uint8 result; s_autoplay_config config; } __attribute__((packed));
+DEFINE_PACKET_HEADER(ZC_AUTOPLAY_CONFIG, 0x0c84);
+struct PACKET_ZC_AUTOPLAY_RESULT { uint16 packetType; uint8 operation; uint8 result; uint32 revision; } __attribute__((packed));
+DEFINE_PACKET_HEADER(ZC_AUTOPLAY_RESULT, 0x0c85);
+struct PACKET_ZC_AUTOPLAY_STATUS { uint16 packetType; uint8 state; uint8 stop_reason; uint32 target_id; uint32 kills; } __attribute__((packed));
+DEFINE_PACKET_HEADER(ZC_AUTOPLAY_STATUS, 0x0c86);
+#if !defined(sun) && (!defined(__NETBSD__) || __NetBSD_Version__ >= 600000000)
+#pragma pack(pop)
+#endif
+static_assert(sizeof(PACKET_CZ_AUTOPLAY_CONFIG_GET) == 2);
+static_assert(sizeof(PACKET_CZ_AUTOPLAY_CONFIG_SAVE) == 326);
+static_assert(sizeof(PACKET_CZ_AUTOPLAY_CONTROL) == 3);
+static_assert(sizeof(PACKET_CZ_AUTOPLAY_STATUS_GET) == 2);
+static_assert(sizeof(PACKET_ZC_AUTOPLAY_CONFIG) == 327);
+static_assert(sizeof(PACKET_ZC_AUTOPLAY_RESULT) == 8);
+static_assert(sizeof(PACKET_ZC_AUTOPLAY_STATUS) == 12);
 
 #if !defined(sun) && (!defined(__NETBSD__) || __NetBSD_Version__ >= 600000000) // NetBSD 5 and Solaris don't like pragma pack but accept the packed attribute
 #pragma pack(push, 1)

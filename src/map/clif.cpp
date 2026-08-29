@@ -26,6 +26,7 @@
 #include <common/utils.hpp>
 
 #include "achievement.hpp"
+#include "autoplay.hpp"
 #include "atcommand.hpp"
 #include "battle.hpp"
 #include "battleground.hpp"
@@ -26045,6 +26046,57 @@ void packetdb_readdb(){
 /*==========================================
  *
  *------------------------------------------*/
+static void clif_autoplay_send_config(int32 fd, map_session_data& sd) {
+	PACKET_ZC_AUTOPLAY_CONFIG packet{}; packet.packetType = HEADER_ZC_AUTOPLAY_CONFIG;
+	packet.result = sd.autoplay && sd.autoplay->loaded;
+	if (sd.autoplay) packet.config = sd.autoplay->config;
+	WFIFOHEAD(fd, sizeof(packet)); memcpy(WFIFOP(fd, 0), &packet, sizeof(packet)); WFIFOSET(fd, sizeof(packet));
+}
+
+static void clif_autoplay_send_result(int32 fd, uint8 operation, bool result, uint32 revision) {
+	PACKET_ZC_AUTOPLAY_RESULT packet{}; packet.packetType = HEADER_ZC_AUTOPLAY_RESULT; packet.operation = operation; packet.result = result; packet.revision = revision;
+	WFIFOHEAD(fd, sizeof(packet)); memcpy(WFIFOP(fd, 0), &packet, sizeof(packet)); WFIFOSET(fd, sizeof(packet));
+}
+
+void clif_parse_autoplay_config_get(int32 fd, map_session_data* sd) {
+	if (!sd)
+		return;
+	if (!sd->autoplay || !sd->autoplay->loaded) {
+		autoplay_attach(*sd);
+		intif_autoplay_request(sd->status.char_id);
+	}
+	clif_autoplay_send_config(fd, *sd);
+}
+
+void clif_parse_autoplay_config_save(int32 fd, map_session_data* sd) {
+	if (!sd || !sd->autoplay || sd->autoplay->save_pending) { clif_autoplay_send_result(fd, 0, false, 0); return; }
+	s_autoplay_config config{}; memcpy(&config, RFIFOP(fd, 2), sizeof(config));
+	bool valid = config.version == AUTOPLAY_CONFIG_VERSION && config.search_range >= 1 && config.search_range <= 30 && config.autoloot_rate <= 10000 && config.death_action <= AUTOPLAY_DEATH_RESPAWN && config.skill_count <= AUTOPLAY_MAX_SKILLS && config.recovery_count <= AUTOPLAY_MAX_RECOVERY_ITEMS && config.monster_count <= AUTOPLAY_MAX_MONSTER_RULES && config.follow_distance >= 1 && config.follow_distance <= 12 && config.follow_attack <= 1 && config.auto_accept_party <= 1 && config.sit_recovery <= 1 && config.sit_hp_below >= 1 && config.sit_hp_below <= 100 && config.sit_sp_below >= 1 && config.sit_sp_below <= 100 && (config.inventory_stop_at == 0 || (config.inventory_stop_at >= 50 && config.inventory_stop_at <= 100)) && (config.autoloot_types & ~AUTOPLAY_AUTOLOOT_TYPE_MASK) == 0 && config.discard_count <= AUTOPLAY_MAX_DISCARD_ITEMS && config.autoloot_item_count <= AUTOPLAY_MAX_LOOT_ITEMS;
+	for (uint8 i = 0; valid && i < config.skill_count; ++i) valid = config.skills[i].target_type <= AUTOPLAY_SKILL_PARTY_HEAL && config.skills[i].hp_min <= config.skills[i].hp_max && config.skills[i].hp_max <= 100;
+	for (uint8 i = 0; valid && i < config.monster_count; ++i) valid = config.monster_rules[i].mob_id != 0 && config.monster_rules[i].action >= AUTOPLAY_MONSTER_PRIORITY && config.monster_rules[i].action <= AUTOPLAY_MONSTER_AVOID;
+	for (uint8 i = 0; valid && i < config.discard_count; ++i) valid = config.discard_items[i].item_id != 0;
+	for (uint8 i = 0; valid && i < config.autoloot_item_count; ++i) valid = config.autoloot_items[i] != 0;
+	if (valid && sd->autoplay->follow_char_id != 0) config.follow_char_id = sd->autoplay->follow_char_id;
+	if (valid) { sd->autoplay->pending_config = config; sd->autoplay->save_pending = intif_autoplay_save(sd->status.char_id, config); }
+	clif_autoplay_send_result(fd, 0, valid && sd->autoplay->save_pending, sd->autoplay->config.revision);
+}
+
+void clif_parse_autoplay_control(int32 fd, map_session_data* sd) {
+	const uint8 control = RFIFOB(fd, 2); const bool valid = sd && control >= AUTOPLAY_CONTROL_START && control <= AUTOPLAY_CONTROL_STOP;
+	const bool result = valid && autoplay_control(*sd, static_cast<e_autoplay_control>(control));
+	if (sd) {
+		static constexpr const char* operations[] = { "invalid", "start", "pause", "resume", "stop" };
+		ShowInfo("Autoplay control: account_id=%d char_id=%d operation=%s result=%s map=%s (%d,%d)\n", sd->status.account_id, sd->status.char_id, control < ARRAYLENGTH(operations) ? operations[control] : operations[0], result ? "success" : "denied", mapindex_id2name(sd->mapindex), sd->x, sd->y);
+	}
+	clif_autoplay_send_result(fd, control, result, sd && sd->autoplay ? sd->autoplay->config.revision : 0);
+}
+
+void clif_parse_autoplay_status_get(int32 fd, map_session_data* sd) {
+	PACKET_ZC_AUTOPLAY_STATUS packet{}; packet.packetType = HEADER_ZC_AUTOPLAY_STATUS;
+	if (sd && sd->autoplay) { packet.state = sd->autoplay->state; packet.stop_reason = sd->autoplay->stop_reason; packet.target_id = sd->autoplay->target_id; packet.kills = sd->autoplay->kills; }
+	WFIFOHEAD(fd, sizeof(packet)); memcpy(WFIFOP(fd, 0), &packet, sizeof(packet)); WFIFOSET(fd, sizeof(packet));
+}
+
 void do_init_clif(void) {
 	const int32 colors[COLOR_MAX] = {
 		0x00FF00, // COLOR_DEFAULT

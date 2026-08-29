@@ -404,8 +404,11 @@ struct s_runeset_data {
 };
 // ===== rAthena 移植 Pandas 符文石板角色数据：结束 =====
 
+struct s_autoplay_session;
+
 class map_session_data : public block_list {
 public:
+	std::shared_ptr<s_autoplay_session> autoplay;
 	struct unit_data ud;
 	struct view_data vd;
 	struct status_data base_status, battle_status;

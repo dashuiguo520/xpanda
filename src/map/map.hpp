@@ -710,6 +710,7 @@ enum e_mapflag : int16 {
 	MF_NOLOOTNORMALMOB,
 	MF_NO_NPC_SELFDESTRUCTION_ON_ALL,
 	// ===== rAthena 移植 Pandas 地图标记：结束 =====
+	MF_NOAUTOPLAY,
 	MF_MAX
 };
 

@@ -1327,6 +1327,17 @@ OnNaviGenerate:
 		naviregisterwarp("Warper > Para Market", "paramk", 97, 17);
 	}
 
+OnAutoplayWarp:
+	.@map$ = @autoplay_warp_map$;
+	.@x = @autoplay_warp_x;
+	.@y = @autoplay_warp_y;
+	@autoplay_warp_map$ = "";
+	@autoplay_warp_x = 0;
+	@autoplay_warp_y = 0;
+	if (.@map$ != "")
+		warp .@map$,.@x,.@y;
+	end;
+
 OnInit:
 	.Satan_Morocc = true;	//	false will enable moc_fild 4,5,6,8,9,10,14,15 while disable moc_fild 20,21,22 Default is true.
 	.OnlyFirstFld = false;	//	true will teleport to the first level of the Fields  Default is false.

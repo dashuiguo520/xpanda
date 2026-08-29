@@ -17,6 +17,7 @@
 
 #include "achievement.hpp"
 #include "atcommand.hpp"	//msg_txt()
+#include "autoplay.hpp"
 #include "battle.hpp"
 #include "chrif.hpp" // charserver_name
 #include "clif.hpp"
@@ -476,6 +477,8 @@ bool party_invite( map_session_data& sd, map_session_data *tsd ){
 
 	tsd->party_invite = sd.status.party_id;
 	tsd->party_invite_account = sd.status.account_id;
+	if( tsd->autoplay && tsd->autoplay->active && tsd->autoplay->config.auto_accept_party )
+		return party_reply_invite( *tsd, sd.status.party_id, 1 );
 
 	clif_party_invite( sd, *tsd );
 
@@ -693,6 +696,15 @@ int32 party_member_added(int32 party_id,uint32 account_id,uint32 char_id, int32 
 	}
 
 	sd2 = map_id2sd(sd->party_invite_account);
+	uint32 inviter_char_id = sd2 != nullptr ? sd2->status.char_id : 0;
+	if (inviter_char_id == 0 && p != nullptr && sd->party_invite_account != 0) {
+		for (const party_member& member : p->party.member) {
+			if (member.account_id == sd->party_invite_account) {
+				inviter_char_id = member.char_id;
+				break;
+			}
+		}
+	}
 
 	sd->party_joining = false;
 	sd->party_invite = 0;
@@ -711,6 +723,8 @@ int32 party_member_added(int32 party_id,uint32 account_id,uint32 char_id, int32 
 	}
 
 	sd->status.party_id = party_id;
+	if (sd->autoplay && sd->autoplay->active && inviter_char_id != 0)
+		autoplay_set_follow(*sd, inviter_char_id);
 
 	clif_party_member_info( *p, *sd );
 	clif_party_option(p,sd,0x100);

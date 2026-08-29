@@ -535,6 +535,7 @@
 	export_constant(MF_NOBANK);
 	export_constant(MF_SPECIALPOPUP);
 	export_constant(MF_NOMACROCHECKER);
+	export_constant(MF_NOAUTOPLAY);
 	export_constant(MF_INVINCIBLE_TIME);
 	// ===== rAthena 移植 Pandas 地图标记常量：开始 =====
 	// 修改内容：向脚本引擎公开 nolootnormalmob 和 no_npc_selfdestruction_on_all。

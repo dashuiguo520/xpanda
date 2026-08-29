@@ -56,6 +56,8 @@ void clif_onlogreward_rune(map_session_data* sd, uint16 tagID) {
 }
 void clif_goldpc_info( map_session_data& sd ){
 #if PACKETVER_MAIN_NUM >= 20140508 || PACKETVER_RE_NUM >= 20140508 || defined(PACKETVER_ZERO)
+	if (!sd.vars_ok)
+		return;
 	const static int32 client_max_seconds = 3600;
 	if( battle_config.feature_goldpc_active ){
 		struct PACKET_ZC_GOLDPCCAFE_POINT p = {};

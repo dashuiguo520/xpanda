@@ -30,6 +30,7 @@
 #include <common/utils.hpp>
 
 #include "achievement.hpp"
+#include "autoplay.hpp"
 #include "atcommand.hpp" // get_atcommand_level()
 #include "battle.hpp" // battle_config
 #include "battleground.hpp"
@@ -2471,6 +2472,9 @@ void pc_reg_received(map_session_data *sd)
 	if (sd->state.active)
 		return;
 	sd->state.active = 1;
+	// Load the character's autoplay configuration without starting it.
+	autoplay_attach(*sd);
+	intif_autoplay_request(sd->status.char_id);
 	sd->state.pc_loaded = false; // Ensure inventory data and status data is loaded before we calculate player stats
 
 	intif_storage_request(sd,TABLE_STORAGE, 0, STOR_MODE_ALL); // Request storage data
@@ -7185,6 +7189,8 @@ enum e_setpos pc_setpos(map_session_data* sd, uint16 mapindex, int32 x, int32 y,
 
 		npc_script_event( *sd, NPCE_LOGOUT );
 
+		autoplay_notify_map_change(*sd, mapindex, static_cast<int16>(x), static_cast<int16>(y));
+
 		//remove from map, THEN change x/y coordinates
 		unit_remove_map_pc(sd,clrtype);
 		sd->mapindex = mapindex;
@@ -7234,6 +7240,8 @@ enum e_setpos pc_setpos(map_session_data* sd, uint16 mapindex, int32 x, int32 y,
 		clif_displaymessage(sd->fd, msg_txt(sd, 204)); // "You can't open a shop on this cell."
 		buyingstore_close(sd);
 	}
+
+	autoplay_notify_map_change(*sd, mapindex, static_cast<int16>(x), static_cast<int16>(y));
 
 	if(sd->prev != nullptr){
 		unit_remove_map_pc(sd,clrtype);
