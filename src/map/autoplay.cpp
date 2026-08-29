@@ -153,7 +153,7 @@ static npc_data* autoplay_nearest_warper(map_session_data& sd) {
 	for (int32 i = map[sd.m].npc_num_area; i < map[sd.m].npc_num; ++i) {
 		npc_data* npc = map[sd.m].npc[i];
 		const int32 npc_distance = npc != nullptr ? distance_bl(&sd, npc) : INT_MAX;
-		if (autoplay_is_custom_warper(npc) && npc_distance < nearest_distance && unit_can_reach_bl(&sd, npc, 0, 0, nullptr, nullptr)) {
+		if (autoplay_is_custom_warper(npc) && npc_distance < nearest_distance) {
 			nearest = npc;
 			nearest_distance = npc_distance;
 		}
@@ -255,6 +255,42 @@ static void autoplay_set_warp_step(s_autoplay_transition& step, npc_data& warp) 
 
 static bool autoplay_walk_transition(map_session_data& sd, s_autoplay_session& session, const s_autoplay_transition& transition);
 
+static bool autoplay_walk_toward(map_session_data& sd, int16 destination_x, int16 destination_y) {
+	if (unit_walktoxy(&sd, destination_x, destination_y, 0))
+		return true;
+	const int32 dx = destination_x - sd.x;
+	const int32 dy = destination_y - sd.y;
+	const int32 distance = std::max(std::abs(dx), std::abs(dy));
+	if (distance <= 1)
+		return false;
+	const int32 stride = std::max(1, std::min(distance - 1, battle_config.max_walk_path - 1));
+	const int16 waypoint_x = static_cast<int16>(sd.x + dx * stride / distance);
+	const int16 waypoint_y = static_cast<int16>(sd.y + dy * stride / distance);
+	if ((waypoint_x != sd.x || waypoint_y != sd.y) && unit_walktoxy(&sd, waypoint_x, waypoint_y, 0))
+		return true;
+
+	struct s_candidate {
+		int16 x;
+		int16 y;
+		int64 distance;
+	};
+	std::vector<s_candidate> candidates;
+	for (uint8 direction = DIR_NORTH; direction < DIR_MAX; ++direction) {
+		const int16 x = static_cast<int16>(sd.x + dirx[direction] * stride);
+		const int16 y = static_cast<int16>(sd.y + diry[direction] * stride);
+		const int64 remaining_x = destination_x - x;
+		const int64 remaining_y = destination_y - y;
+		candidates.push_back({ x, y, remaining_x * remaining_x + remaining_y * remaining_y });
+	}
+	std::sort(candidates.begin(), candidates.end(), [](const s_candidate& left, const s_candidate& right) {
+		return left.distance < right.distance;
+	});
+	for (const s_candidate& candidate : candidates)
+		if (unit_walktoxy(&sd, candidate.x, candidate.y, 0))
+			return true;
+	return false;
+}
+
 static bool autoplay_route_to_map(map_session_data& sd, s_autoplay_session& session, int16 destination_map,
 	int16 destination_x, int16 destination_y, s_autoplay_transition& step, int16& route_map,
 	const s_autoplay_transition* preferred = nullptr) {
@@ -324,7 +360,7 @@ static bool autoplay_walk_transition(map_session_data& sd, s_autoplay_session& s
 		npc_event(&sd, "Warper::OnAutoplayWarp", 0);
 		return true;
 	}
-	if (!unit_is_walking(&sd) && !unit_walktoxy(&sd, transition.source_x, transition.source_y, 0)) {
+	if (!unit_is_walking(&sd) && !autoplay_walk_toward(sd, transition.source_x, transition.source_y)) {
 		session.state = AUTOPLAY_PAUSED;
 		session.stop_reason = AUTOPLAY_STOP_MAP;
 		++session.path_failures;
@@ -592,8 +628,8 @@ static bool autoplay_follow(map_session_data& sd, s_autoplay_session& session, m
 	unit_stop_attack(&sd);
 	session.target_id = 0;
 	session.state = AUTOPLAY_MOVING;
-	unit_data* ud = unit_bl2ud(&sd);
-	if ((!unit_is_walking(&sd) || ud == nullptr || ud->target_to != target.id) && !unit_walktobl(&sd, &target, session.config.follow_distance, 0)) {
+	if (!unit_is_walking(&sd) && !unit_walktobl(&sd, &target, session.config.follow_distance, 0) &&
+		!autoplay_walk_toward(sd, target.x, target.y)) {
 		session.state = AUTOPLAY_PAUSED;
 		session.stop_reason = AUTOPLAY_STOP_PARTY;
 		++session.path_failures;
@@ -692,7 +728,7 @@ static void autoplay_tick_character(map_session_data& sd, t_tick tick) {
 		}
 		if (!check_distance_xy(sd.x, sd.y, session.origin_x, session.origin_y, session.config.search_range)) {
 			session.state = AUTOPLAY_MOVING;
-			if (!unit_is_walking(&sd) && !unit_walktoxy(&sd, session.origin_x, session.origin_y, 0)) {
+			if (!unit_is_walking(&sd) && !autoplay_walk_toward(sd, session.origin_x, session.origin_y)) {
 				session.state = AUTOPLAY_PAUSED;
 				session.stop_reason = AUTOPLAY_STOP_MAP;
 				++session.path_failures;
