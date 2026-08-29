@@ -30,7 +30,7 @@ static size_t autoplay_cursor = 0;
 // Dispatch online characters in batches and reuse native movement and combat entry points.
 struct s_target_search {
 	map_session_data* sd;
-	const s_autoplay_config* config;
+	const s_autoplay_session* session;
 	block_list* target;
 	int32 nearest_distance;
 	bool priority;
@@ -48,11 +48,21 @@ struct s_sit_danger_search {
 	bool found;
 };
 
+struct s_surrounded_search {
+	map_session_data* sd;
+	uint8 count;
+	uint8 limit;
+};
+
 static uint8 autoplay_monster_action(const s_autoplay_config& config, int32 mob_id) {
 	for (uint8 i = 0; i < config.monster_count && i < AUTOPLAY_MAX_MONSTER_RULES; ++i)
 		if (config.monster_rules[i].mob_id == static_cast<uint32>(mob_id))
 			return config.monster_rules[i].action;
 	return 0;
+}
+
+static bool autoplay_boss_attacking(const mob_data& md, const map_session_data& sd) {
+	return md.target_id == sd.id || md.attacked_id == sd.id || md.norm_attacked_id == sd.id;
 }
 
 static int32 autoplay_target_sub(block_list* bl, va_list ap) {
@@ -61,10 +71,19 @@ static int32 autoplay_target_sub(block_list* bl, va_list ap) {
 		return 0;
 	if (battle_check_target(search->sd, bl, BCT_ENEMY) <= 0)
 		return 0;
-	const uint8 action = autoplay_monster_action(*search->config, static_cast<mob_data*>(bl)->mob_id);
+	const auto* md = static_cast<mob_data*>(bl);
+	const auto& config = search->session->config;
+	const uint8 action = autoplay_monster_action(config, md->mob_id);
 	if (action == AUTOPLAY_MONSTER_EXCLUDE || action == AUTOPLAY_MONSTER_AVOID)
 		return 0;
-	const bool priority = action == AUTOPLAY_MONSTER_PRIORITY;
+	const bool boss = action == 0 && md->get_bosstype() != BOSSTYPE_NONE;
+	if (boss && (config.boss_action == AUTOPLAY_BOSS_AVOID ||
+		(config.boss_action == AUTOPLAY_BOSS_RETALIATE && !autoplay_boss_attacking(*md, *search->sd))))
+		return 0;
+	if (config.mode == AUTOPLAY_MODE_FIXED && (search->sd->m != search->session->origin_map ||
+		!check_distance_xy(bl->x, bl->y, search->session->origin_x, search->session->origin_y, config.search_range)))
+		return 0;
+	const bool priority = action == AUTOPLAY_MONSTER_PRIORITY || (boss && config.boss_action == AUTOPLAY_BOSS_PRIORITY);
 	const int32 target_distance = distance_bl(search->sd, bl);
 	if ((!priority && search->priority) || (priority == search->priority && target_distance >= search->nearest_distance) || !unit_can_reach_bl(search->sd, bl, 0, 0, nullptr, nullptr))
 		return 0;
@@ -76,8 +95,11 @@ static int32 autoplay_target_sub(block_list* bl, va_list ap) {
 
 static int32 autoplay_avoid_sub(block_list* bl, va_list ap) {
 	auto* search = va_arg(ap, s_avoid_search*);
-	if (bl == nullptr || bl->type != BL_MOB || status_isdead(*bl) || battle_check_target(search->sd, bl, BCT_ENEMY) <= 0 ||
-		autoplay_monster_action(*search->config, static_cast<mob_data*>(bl)->mob_id) != AUTOPLAY_MONSTER_AVOID)
+	if (bl == nullptr || bl->type != BL_MOB || status_isdead(*bl) || battle_check_target(search->sd, bl, BCT_ENEMY) <= 0)
+		return 0;
+	const auto* md = static_cast<mob_data*>(bl);
+	const uint8 action = autoplay_monster_action(*search->config, md->mob_id);
+	if (action != AUTOPLAY_MONSTER_AVOID && !(action == 0 && md->get_bosstype() != BOSSTYPE_NONE && search->config->boss_action == AUTOPLAY_BOSS_AVOID))
 		return 0;
 	const int32 threat_distance = distance_bl(search->sd, bl);
 	if (threat_distance >= search->nearest_distance)
@@ -477,9 +499,13 @@ static bool autoplay_storage_item(const map_session_data& sd, const s_autoplay_s
 		return false;
 	if (entry.nameid == session.config.teleport_item_id)
 		return false;
+	if (entry.nameid == 7621 || entry.nameid == 25310 || entry.nameid == 6316)
+		return false;
 	for (uint8 i = 0; i < session.config.recovery_count; ++i)
 		if (entry.nameid == session.config.recovery_items[i].item_id)
 			return false;
+	if (session.storage_by_weight)
+		return true;
 	for (uint8 i = 0; i < session.config.autoloot_item_count; ++i)
 		if (entry.nameid == session.config.autoloot_items[i])
 			return true;
@@ -527,6 +553,7 @@ static bool autoplay_manage_storage(map_session_data& sd, s_autoplay_session& se
 		}
 		session.storage_trip = false;
 		session.storage_returning = false;
+		session.storage_by_weight = false;
 		session.storage_step = {};
 		session.storage_route_map = -1;
 		return false;
@@ -559,12 +586,14 @@ static bool autoplay_manage_storage(map_session_data& sd, s_autoplay_session& se
 }
 
 static bool autoplay_manage_inventory(map_session_data& sd, s_autoplay_session& session) {
-	if (session.config.inventory_stop_at == 0 || sd.status.inventory_slots == 0)
+	if (sd.status.inventory_slots == 0)
 		return false;
 	size_t used = 0;
 	for (int32 i = 0; i < sd.status.inventory_slots; ++i)
 		used += sd.inventory.u.items_inventory[i].nameid != 0;
-	if (used * 100 < static_cast<size_t>(sd.status.inventory_slots) * session.config.inventory_stop_at) {
+	const bool slots_full = session.config.inventory_stop_at > 0 && used * 100 >= static_cast<size_t>(sd.status.inventory_slots) * session.config.inventory_stop_at;
+	const bool weight_full = session.config.storage_weight_at > 0 && pc_getpercentweight(sd) >= session.config.storage_weight_at;
+	if (!slots_full && !weight_full) {
 		session.storage_blocked = false;
 		return false;
 	}
@@ -589,8 +618,9 @@ static bool autoplay_manage_inventory(map_session_data& sd, s_autoplay_session& 
 			}
 		}
 	}
-	if (session.config.autoloot_item_count > 0 && !session.storage_blocked) {
+	if ((session.config.autoloot_item_count > 0 || weight_full) && !session.storage_blocked) {
 		session.storage_trip = true;
+		session.storage_by_weight = weight_full;
 		session.storage_returning = false;
 		session.storage_moved = false;
 		session.storage_step = {};
@@ -624,10 +654,8 @@ static void autoplay_restore_autoloot(map_session_data& sd, s_autoplay_session& 
 	session.autoloot_overridden = false;
 }
 
-static bool autoplay_emergency_teleport(map_session_data& sd, s_autoplay_session& session, t_tick tick) {
-	const auto& status = sd.battle_status;
-	const uint8 hp = status.max_hp > 0 ? static_cast<uint8>(status.hp * 100 / status.max_hp) : 0;
-	if (hp > session.config.emergency_hp_below || DIFF_TICK(tick, session.last_teleport_tick) < session.config.teleport_min_interval)
+static bool autoplay_teleport(map_session_data& sd, s_autoplay_session& session, t_tick tick) {
+	if (DIFF_TICK(tick, session.last_teleport_tick) < session.config.teleport_min_interval)
 		return false;
 	if (!autoplay_stand(sd, session))
 		return true;
@@ -635,6 +663,7 @@ static bool autoplay_emergency_teleport(map_session_data& sd, s_autoplay_session
 		const uint16 learned = pc_checkskill(&sd, session.config.teleport_skill_id);
 		if (learned > 0 && unit_skilluse_id(&sd, sd.id, session.config.teleport_skill_id, learned)) {
 			session.last_teleport_tick = tick;
+			session.consecutive_misses = 0;
 			session.next_action_tick = std::max(tick, sd.ud.canact_tick);
 			session.state = AUTOPLAY_CASTING;
 			return true;
@@ -644,12 +673,38 @@ static bool autoplay_emergency_teleport(map_session_data& sd, s_autoplay_session
 		for (int32 index = 0; index < MAX_INVENTORY; ++index) {
 			if (sd.inventory.u.items_inventory[index].nameid == session.config.teleport_item_id && pc_useitem(&sd, index)) {
 				session.last_teleport_tick = tick;
+				session.consecutive_misses = 0;
 				session.state = AUTOPLAY_RECOVERING;
 				return true;
 			}
 		}
 	}
 	return false;
+}
+
+static int32 autoplay_surrounded_sub(block_list* bl, va_list ap) {
+	auto* search = va_arg(ap, s_surrounded_search*);
+	if (bl == nullptr || bl->type != BL_MOB || status_isdead(*bl) || battle_check_target(search->sd, bl, BCT_ENEMY) <= 0)
+		return 0;
+	const auto* md = static_cast<mob_data*>(bl);
+	if (md->target_id != search->sd->id && md->attacked_id != search->sd->id && md->norm_attacked_id != search->sd->id)
+		return 0;
+	if (search->count < search->limit)
+		++search->count;
+	return search->count >= search->limit;
+}
+
+static bool autoplay_danger_teleport(map_session_data& sd, s_autoplay_session& session, t_tick tick) {
+	const uint8 hp = sd.battle_status.max_hp > 0 ? static_cast<uint8>(sd.battle_status.hp * 100 / sd.battle_status.max_hp) : 0;
+	bool triggered = hp <= session.config.emergency_hp_below;
+	if (!triggered && session.config.surrounded_teleport_count > 0) {
+		s_surrounded_search search{ &sd, 0, session.config.surrounded_teleport_count };
+		map_foreachinrange(autoplay_surrounded_sub, &sd, session.config.search_range, BL_MOB, &search);
+		triggered = search.count >= search.limit;
+	}
+	if (!triggered && session.config.miss_teleport && session.consecutive_misses >= 7)
+		triggered = true;
+	return triggered && autoplay_teleport(sd, session, tick);
 }
 
 static uint16 autoplay_skill_level(map_session_data& sd, const s_autoplay_skill_config& rule) {
@@ -747,16 +802,17 @@ static bool autoplay_follow(map_session_data& sd, s_autoplay_session& session, m
 }
 
 static bool autoplay_cast(map_session_data& sd, s_autoplay_session& session, block_list& target) {
-	for (size_t i = 0; i < session.config.skill_count && i < 5; ++i) {
+	for (size_t i = 0; i < session.config.skill_count && i < AUTOPLAY_MAX_SKILLS; ++i) {
 		const auto& rule = session.config.skills[i];
 		if (rule.target_type != AUTOPLAY_SKILL_ENEMY)
 			continue;
 		const uint16 level = autoplay_skill_level(sd, rule);
 		if (level == 0)
 			continue;
-		const bool started = skill_get_inf(rule.skill_id) & INF_GROUND_SKILL
+		const uint32 inf = skill_get_inf(rule.skill_id);
+		const bool started = inf & INF_GROUND_SKILL
 			? unit_skilluse_pos(&sd, target.x, target.y, rule.skill_id, level) != 0
-			: unit_skilluse_id(&sd, target.id, rule.skill_id, level) != 0;
+			: unit_skilluse_id(&sd, inf & INF_SELF_SKILL ? sd.id : target.id, rule.skill_id, level) != 0;
 		if (started) {
 			session.next_action_tick = std::max(gettick(), sd.ud.canact_tick);
 			session.state = AUTOPLAY_CASTING;
@@ -767,12 +823,15 @@ static bool autoplay_cast(map_session_data& sd, s_autoplay_session& session, blo
 }
 
 static int32 autoplay_skill_range(map_session_data& sd, const s_autoplay_session& session) {
-	for (size_t i = 0; i < session.config.skill_count && i < 5; ++i) {
+	for (size_t i = 0; i < session.config.skill_count && i < AUTOPLAY_MAX_SKILLS; ++i) {
 		const auto& rule = session.config.skills[i];
 		if (rule.target_type != AUTOPLAY_SKILL_ENEMY)
 			continue;
-		if (const uint16 level = autoplay_skill_level(sd, rule); level > 0)
+		if (const uint16 level = autoplay_skill_level(sd, rule); level > 0) {
+			if (skill_get_inf(rule.skill_id) & INF_SELF_SKILL)
+				return std::max(1, skill_get_splash(rule.skill_id, level));
 			return std::max(1, skill_get_range2(&sd, rule.skill_id, level, true));
+		}
 	}
 	return 0;
 }
@@ -815,6 +874,13 @@ static void autoplay_tick_character(map_session_data& sd, t_tick tick) {
 		session.sitting_recovery = false;
 		unit_stop_attack(&sd);
 		session.target_id = 0;
+		if (session.config.death_action >= AUTOPLAY_DEATH_TOKEN_7621) {
+			static constexpr t_itemid token_ids[] = { 0, 0, 7621, 25310, 6316 };
+			if (session.config.death_action < ARRAYLENGTH(token_ids) && pc_revive_item(&sd, token_ids[session.config.death_action])) {
+				session.state = AUTOPLAY_RECOVERING;
+				return;
+			}
+		}
 		if (session.config.death_action == AUTOPLAY_DEATH_RESPAWN) {
 			session.waiting_return = true;
 			session.state = AUTOPLAY_TELEPORTING;
@@ -870,7 +936,7 @@ static void autoplay_tick_character(map_session_data& sd, t_tick tick) {
 		return;
 	// Cast end can extend the native delay after an autoplay skill was started.
 	const bool action_delayed = DIFF_TICK(tick, std::max(session.next_action_tick, sd.ud.canact_tick)) < 0;
-	if (!action_delayed && autoplay_emergency_teleport(sd, session, tick))
+	if (!action_delayed && autoplay_danger_teleport(sd, session, tick))
 		return;
 	if (!action_delayed && autoplay_use_recovery(sd, session))
 		return;
@@ -938,8 +1004,12 @@ static void autoplay_tick_character(map_session_data& sd, t_tick tick) {
 
 	block_list* target = session.target_id != 0 ? map_id2bl(session.target_id) : nullptr;
 	bool target_acquired = false;
-	if (target == nullptr || target->m != sd.m || status_isdead(*target) || battle_check_target(&sd, target, BCT_ENEMY) <= 0) {
-		s_target_search search{ &sd, &session.config, nullptr, session.config.search_range + 1, false };
+	const bool outside_fixed_area = target != nullptr && session.config.mode == AUTOPLAY_MODE_FIXED &&
+		(target->m != session.origin_map || !check_distance_xy(target->x, target->y, session.origin_x, session.origin_y, session.config.search_range));
+	if (target == nullptr || target->m != sd.m || status_isdead(*target) || outside_fixed_area || battle_check_target(&sd, target, BCT_ENEMY) <= 0) {
+		if (target != nullptr)
+			unit_stop_attack(&sd);
+		s_target_search search{ &sd, &session, nullptr, session.config.search_range + 1, false };
 		session.state = AUTOPLAY_SEARCHING;
 		map_foreachinrange(autoplay_target_sub, &sd, session.config.search_range, BL_MOB, &search);
 		target = search.target;
@@ -947,12 +1017,27 @@ static void autoplay_tick_character(map_session_data& sd, t_tick tick) {
 		target_acquired = target != nullptr;
 	}
 	if (target == nullptr) {
+		const bool no_monster_enabled = follow == nullptr && session.config.no_monster_teleport_seconds > 0;
+		if (no_monster_enabled && session.no_target_since == 0)
+			session.no_target_since = tick;
+		if (no_monster_enabled && !action_delayed && DIFF_TICK(tick, session.no_target_since) >= static_cast<t_tick>(session.config.no_monster_teleport_seconds) * 1000 && autoplay_teleport(sd, session, tick)) {
+			session.no_target_since = tick;
+			return;
+		}
+		if (!no_monster_enabled)
+			session.no_target_since = 0;
 		if (follow != nullptr)
 			session.state = AUTOPLAY_IDLE;
-		else
+		else if (session.config.mode == AUTOPLAY_MODE_SEARCH)
 			autoplay_roam(sd, session);
+		else {
+			session.state = AUTOPLAY_IDLE;
+			if (sd.m == session.origin_map && !check_distance_xy(sd.x, sd.y, session.origin_x, session.origin_y, 1) && !unit_is_walking(&sd))
+				autoplay_walk_toward(sd, session.origin_x, session.origin_y);
+		}
 		return;
 	}
+	session.no_target_since = 0;
 	// Drop the roaming path before the skill or normal attack establishes a chase.
 	if (target_acquired && unit_is_walking(&sd))
 		unit_stop_walking(&sd, USW_FORCE_STOP | USW_RELEASE_TARGET);
@@ -1079,6 +1164,10 @@ bool autoplay_control(map_session_data& sd, e_autoplay_control control) {
 		(!pc_has_permission(&sd, PC_PERM_AUTOPLAY) || status_isdead(sd) || autoplay_forbidden(sd)))
 		return false;
 	if (control == AUTOPLAY_CONTROL_START || control == AUTOPLAY_CONTROL_RESUME) {
+		if (control == AUTOPLAY_CONTROL_START) {
+			session.kills = 0;
+			session.loot_count = 0;
+		}
 		session.follow_char_id = session.config.follow_char_id;
 		session.origin_map = sd.m;
 		session.origin_x = sd.x;
@@ -1096,6 +1185,7 @@ bool autoplay_control(map_session_data& sd, e_autoplay_control control) {
 		session.storage_returning = false;
 		session.storage_blocked = false;
 		session.storage_moved = false;
+		session.storage_by_weight = false;
 	}
 	switch (control) {
 		case AUTOPLAY_CONTROL_START:
@@ -1110,6 +1200,8 @@ bool autoplay_control(map_session_data& sd, e_autoplay_control control) {
 			autoplay_apply_autoloot(sd, session.config);
 			session.active = true;
 			session.next_action_tick = 0;
+			session.no_target_since = 0;
+			session.consecutive_misses = 0;
 			session.state = AUTOPLAY_IDLE;
 			session.stop_reason = AUTOPLAY_STOP_NONE;
 			return true;
@@ -1131,9 +1223,31 @@ bool autoplay_control(map_session_data& sd, e_autoplay_control control) {
 	return false;
 }
 
+void autoplay_record_kill(map_session_data& sd) {
+	if (sd.autoplay && sd.autoplay->active && sd.autoplay->kills < UINT32_MAX)
+		++sd.autoplay->kills;
+}
+
+void autoplay_record_loot(map_session_data& sd, uint32 amount) {
+	if (!sd.autoplay || !sd.autoplay->active)
+		return;
+	sd.autoplay->loot_count = amount > UINT32_MAX - sd.autoplay->loot_count ? UINT32_MAX : sd.autoplay->loot_count + amount;
+}
+
+void autoplay_record_attack_result(map_session_data& sd, bool missed) {
+	if (!sd.autoplay || !sd.autoplay->active)
+		return;
+	if (missed) {
+		if (sd.autoplay->consecutive_misses < UINT8_MAX)
+			++sd.autoplay->consecutive_misses;
+	} else
+		sd.autoplay->consecutive_misses = 0;
+}
+
 void autoplay_config_loaded(map_session_data& sd, const s_autoplay_config& config) {
 	autoplay_attach(sd);
 	sd.autoplay->config = config;
+	sd.autoplay->config.search_range = battle_config.autoplay_search_range;
 	sd.autoplay->follow_char_id = config.follow_char_id;
 	sd.autoplay->loaded = true;
 	sd.autoplay->state = AUTOPLAY_STOPPED;
@@ -1143,6 +1257,7 @@ void autoplay_config_saved(map_session_data& sd, bool success, uint32 revision) 
 	if (!sd.autoplay) return;
 	if (success && sd.autoplay->save_pending) {
 		sd.autoplay->config = sd.autoplay->pending_config;
+		sd.autoplay->config.search_range = battle_config.autoplay_search_range;
 		sd.autoplay->config.revision = revision;
 		if (sd.autoplay->active)
 			autoplay_apply_autoloot(sd, sd.autoplay->config);

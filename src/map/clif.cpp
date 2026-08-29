@@ -26071,8 +26071,15 @@ void clif_parse_autoplay_config_get(int32 fd, map_session_data* sd) {
 void clif_parse_autoplay_config_save(int32 fd, map_session_data* sd) {
 	if (!sd || !sd->autoplay || sd->autoplay->save_pending) { clif_autoplay_send_result(fd, 0, false, 0); return; }
 	s_autoplay_config config{}; memcpy(&config, RFIFOP(fd, 2), sizeof(config));
-	bool valid = config.version == AUTOPLAY_CONFIG_VERSION && config.search_range >= 1 && config.search_range <= 30 && config.autoloot_rate <= 10000 && config.death_action <= AUTOPLAY_DEATH_RESPAWN && config.skill_count <= AUTOPLAY_MAX_SKILLS && config.recovery_count <= AUTOPLAY_MAX_RECOVERY_ITEMS && config.monster_count <= AUTOPLAY_MAX_MONSTER_RULES && config.follow_distance >= 1 && config.follow_distance <= 12 && config.follow_attack <= 1 && config.auto_accept_party <= 1 && config.sit_recovery <= 1 && config.sit_hp_below >= 1 && config.sit_hp_below <= 100 && config.sit_sp_below >= 1 && config.sit_sp_below <= 100 && (config.inventory_stop_at == 0 || (config.inventory_stop_at >= 50 && config.inventory_stop_at <= 100)) && (config.autoloot_types & ~AUTOPLAY_AUTOLOOT_TYPE_MASK) == 0 && config.discard_count <= AUTOPLAY_MAX_DISCARD_ITEMS && config.autoloot_item_count <= AUTOPLAY_MAX_LOOT_ITEMS;
-	for (uint8 i = 0; valid && i < config.skill_count; ++i) valid = config.skills[i].target_type <= AUTOPLAY_SKILL_PARTY_HEAL && config.skills[i].hp_min <= config.skills[i].hp_max && config.skills[i].hp_max <= 100;
+	config.search_range = battle_config.autoplay_search_range;
+	bool valid = config.version == AUTOPLAY_CONFIG_VERSION && config.autoloot_rate <= 10000 && config.death_action <= AUTOPLAY_DEATH_TOKEN_6316 && config.mode <= AUTOPLAY_MODE_FIXED && config.boss_action >= AUTOPLAY_BOSS_AVOID && config.boss_action <= AUTOPLAY_BOSS_PRIORITY && config.miss_teleport <= 1 && (config.storage_weight_at == 0 || (config.storage_weight_at >= 50 && config.storage_weight_at <= 100)) && config.skill_count <= AUTOPLAY_MAX_SKILLS && config.recovery_count <= AUTOPLAY_MAX_RECOVERY_ITEMS && config.monster_count <= AUTOPLAY_MAX_MONSTER_RULES && config.follow_distance >= 1 && config.follow_distance <= 12 && config.follow_attack <= 1 && config.auto_accept_party <= 1 && config.sit_recovery <= 1 && config.sit_hp_below >= 1 && config.sit_hp_below <= 100 && config.sit_sp_below >= 1 && config.sit_sp_below <= 100 && config.surrounded_teleport_count <= 20 && (config.inventory_stop_at == 0 || (config.inventory_stop_at >= 50 && config.inventory_stop_at <= 100)) && (config.autoloot_types & ~AUTOPLAY_AUTOLOOT_TYPE_MASK) == 0 && config.discard_count <= AUTOPLAY_MAX_DISCARD_ITEMS && config.autoloot_item_count <= AUTOPLAY_MAX_LOOT_ITEMS;
+	uint8 skill_counts[AUTOPLAY_SKILL_PARTY_HEAL + 1]{};
+	for (uint8 i = 0; valid && i < config.skill_count; ++i) {
+		const auto& skill = config.skills[i];
+		valid = skill.target_type <= AUTOPLAY_SKILL_PARTY_HEAL && ++skill_counts[skill.target_type] <= AUTOPLAY_MAX_SKILLS_PER_TARGET && skill.hp_min <= skill.hp_max && skill.hp_max <= 100;
+		if (valid && skill.target_type >= AUTOPLAY_SKILL_PARTY_BUFF)
+			valid = (skill_get_inf(skill.skill_id) & (INF_SUPPORT_SKILL | INF_GROUND_SKILL)) != 0;
+	}
 	for (uint8 i = 0; valid && i < config.monster_count; ++i) valid = config.monster_rules[i].mob_id != 0 && config.monster_rules[i].action >= AUTOPLAY_MONSTER_PRIORITY && config.monster_rules[i].action <= AUTOPLAY_MONSTER_AVOID;
 	for (uint8 i = 0; valid && i < config.discard_count; ++i) valid = config.discard_items[i].item_id != 0;
 	for (uint8 i = 0; valid && i < config.autoloot_item_count; ++i) valid = config.autoloot_items[i] != 0;
@@ -26093,7 +26100,7 @@ void clif_parse_autoplay_control(int32 fd, map_session_data* sd) {
 
 void clif_parse_autoplay_status_get(int32 fd, map_session_data* sd) {
 	PACKET_ZC_AUTOPLAY_STATUS packet{}; packet.packetType = HEADER_ZC_AUTOPLAY_STATUS;
-	if (sd && sd->autoplay) { packet.state = sd->autoplay->state; packet.stop_reason = sd->autoplay->stop_reason; packet.target_id = sd->autoplay->target_id; packet.kills = sd->autoplay->kills; }
+	if (sd && sd->autoplay) { packet.state = sd->autoplay->state; packet.stop_reason = sd->autoplay->stop_reason; packet.target_id = sd->autoplay->target_id; packet.kills = sd->autoplay->kills; packet.loot_count = sd->autoplay->loot_count; }
 	WFIFOHEAD(fd, sizeof(packet)); memcpy(WFIFOP(fd, 0), &packet, sizeof(packet)); WFIFOSET(fd, sizeof(packet));
 }
 

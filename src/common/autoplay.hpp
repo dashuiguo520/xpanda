@@ -5,8 +5,9 @@
 
 #include "cbasetypes.hpp"
 
-#define AUTOPLAY_CONFIG_VERSION 7
-#define AUTOPLAY_MAX_SKILLS 5
+#define AUTOPLAY_CONFIG_VERSION 10
+#define AUTOPLAY_MAX_SKILLS_PER_TARGET 5
+#define AUTOPLAY_MAX_SKILLS (AUTOPLAY_MAX_SKILLS_PER_TARGET * 5)
 #define AUTOPLAY_MAX_RECOVERY_ITEMS 5
 #define AUTOPLAY_MAX_MONSTER_RULES 10
 #define AUTOPLAY_MAX_DISCARD_ITEMS 10
@@ -50,6 +51,20 @@ enum e_autoplay_stop_reason : uint8 {
 enum e_autoplay_death_action : uint8 {
 	AUTOPLAY_DEATH_STOP = 0,
 	AUTOPLAY_DEATH_RESPAWN,
+	AUTOPLAY_DEATH_TOKEN_7621,
+	AUTOPLAY_DEATH_TOKEN_25310,
+	AUTOPLAY_DEATH_TOKEN_6316,
+};
+
+enum e_autoplay_mode : uint8 {
+	AUTOPLAY_MODE_SEARCH = 0,
+	AUTOPLAY_MODE_FIXED,
+};
+
+enum e_autoplay_boss_action : uint8 {
+	AUTOPLAY_BOSS_AVOID = 1,
+	AUTOPLAY_BOSS_RETALIATE,
+	AUTOPLAY_BOSS_PRIORITY,
 };
 
 enum e_autoplay_monster_action : uint8 {
@@ -126,8 +141,14 @@ struct s_autoplay_config {
 	uint8 sit_sp_below = 20;
 	s_autoplay_discard_config discard_items[AUTOPLAY_MAX_DISCARD_ITEMS]{};
 	uint32 autoloot_items[AUTOPLAY_MAX_LOOT_ITEMS]{};
+	uint16 no_monster_teleport_seconds = 0;
+	uint8 surrounded_teleport_count = 0;
+	uint8 mode = AUTOPLAY_MODE_SEARCH;
+	uint8 boss_action = AUTOPLAY_BOSS_RETALIATE;
+	uint8 miss_teleport = 0;
+	uint8 storage_weight_at = 70;
 };
 
-static_assert(sizeof(s_autoplay_config) == 324, "autoplay wire config size changed");
+static_assert(sizeof(s_autoplay_config) == 492, "autoplay wire config size changed");
 
 #endif

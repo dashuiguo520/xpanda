@@ -10305,7 +10305,7 @@ void pc_revive(map_session_data *sd,uint32 hp, uint32 sp, uint32 ap) {
 	}
 }
 
-bool pc_revive_item(map_session_data *sd) {
+bool pc_revive_item(map_session_data *sd, t_itemid item_id) {
 	nullpo_retr(false, sd);
 
 	// ===== rAthena 移植 OnPCUseReviveTokenFilter：开始 =====
@@ -10320,7 +10320,9 @@ bool pc_revive_item(map_session_data *sd) {
 	if (sd->sc.getSCE(SC_HELLPOWER)) // Cannot resurrect while under the effect of SC_HELLPOWER.
 		return false;
 
-	int16 item_position = itemdb_group.item_exists_pc(sd, IG_TOKEN_OF_SIEGFRIED);
+	if (item_id != 0 && item_id != 7621 && item_id != 25310 && item_id != 6316)
+		return false;
+	int16 item_position = item_id != 0 ? pc_search_inventory(sd, item_id) : itemdb_group.item_exists_pc(sd, IG_TOKEN_OF_SIEGFRIED);
 	uint8 hp = 100, sp = 100;
 
 	if (item_position < 0) {

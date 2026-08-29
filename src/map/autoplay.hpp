@@ -35,7 +35,10 @@ struct s_autoplay_session {
 	t_tick next_decision_tick = 0;
 	t_tick next_action_tick = 0;
 	t_tick last_teleport_tick = 0;
+	t_tick no_target_since = 0;
+	uint8 consecutive_misses = 0;
 	uint32 kills = 0;
+	uint32 loot_count = 0;
 	uint32 path_failures = 0;
 	uint32 follow_char_id = 0;
 	uint16 previous_autoloot = 0;
@@ -65,6 +68,7 @@ struct s_autoplay_session {
 	bool storage_returning = false;
 	bool storage_blocked = false;
 	bool storage_moved = false;
+	bool storage_by_weight = false;
 };
 
 void do_init_autoplay();
@@ -76,5 +80,8 @@ void autoplay_notify_map_change(map_session_data& sd, uint16 destination_mapinde
 bool autoplay_control(map_session_data& sd, e_autoplay_control control);
 void autoplay_config_loaded(map_session_data& sd, const s_autoplay_config& config);
 void autoplay_config_saved(map_session_data& sd, bool success, uint32 revision);
+void autoplay_record_kill(map_session_data& sd);
+void autoplay_record_loot(map_session_data& sd, uint32 amount);
+void autoplay_record_attack_result(map_session_data& sd, bool missed);
 
 #endif

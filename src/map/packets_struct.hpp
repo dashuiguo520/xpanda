@@ -363,18 +363,18 @@ struct PACKET_ZC_AUTOPLAY_CONFIG { uint16 packetType; uint8 result; s_autoplay_c
 DEFINE_PACKET_HEADER(ZC_AUTOPLAY_CONFIG, 0x0c84);
 struct PACKET_ZC_AUTOPLAY_RESULT { uint16 packetType; uint8 operation; uint8 result; uint32 revision; } __attribute__((packed));
 DEFINE_PACKET_HEADER(ZC_AUTOPLAY_RESULT, 0x0c85);
-struct PACKET_ZC_AUTOPLAY_STATUS { uint16 packetType; uint8 state; uint8 stop_reason; uint32 target_id; uint32 kills; } __attribute__((packed));
+struct PACKET_ZC_AUTOPLAY_STATUS { uint16 packetType; uint8 state; uint8 stop_reason; uint32 target_id; uint32 kills; uint32 loot_count; } __attribute__((packed));
 DEFINE_PACKET_HEADER(ZC_AUTOPLAY_STATUS, 0x0c86);
 #if !defined(sun) && (!defined(__NETBSD__) || __NetBSD_Version__ >= 600000000)
 #pragma pack(pop)
 #endif
 static_assert(sizeof(PACKET_CZ_AUTOPLAY_CONFIG_GET) == 2);
-static_assert(sizeof(PACKET_CZ_AUTOPLAY_CONFIG_SAVE) == 326);
+static_assert(sizeof(PACKET_CZ_AUTOPLAY_CONFIG_SAVE) == 494);
 static_assert(sizeof(PACKET_CZ_AUTOPLAY_CONTROL) == 3);
 static_assert(sizeof(PACKET_CZ_AUTOPLAY_STATUS_GET) == 2);
-static_assert(sizeof(PACKET_ZC_AUTOPLAY_CONFIG) == 327);
+static_assert(sizeof(PACKET_ZC_AUTOPLAY_CONFIG) == 495);
 static_assert(sizeof(PACKET_ZC_AUTOPLAY_RESULT) == 8);
-static_assert(sizeof(PACKET_ZC_AUTOPLAY_STATUS) == 12);
+static_assert(sizeof(PACKET_ZC_AUTOPLAY_STATUS) == 16);
 
 #if !defined(sun) && (!defined(__NETBSD__) || __NetBSD_Version__ >= 600000000) // NetBSD 5 and Solaris don't like pragma pack but accept the packed attribute
 #pragma pack(push, 1)

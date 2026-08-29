@@ -1648,7 +1648,7 @@ int32 pc_skillheal2_bonus(map_session_data *sd, uint16 skill_id);
 void pc_damage(map_session_data *sd,block_list *src,uint32 hp, uint32 sp, uint32 ap);
 int32 pc_dead(map_session_data *sd,block_list *src);
 void pc_revive(map_session_data *sd,uint32 hp, uint32 sp, uint32 ap = 0);
-bool pc_revive_item(map_session_data *sd);
+bool pc_revive_item(map_session_data *sd, t_itemid item_id = 0);
 void pc_heal(map_session_data *sd,uint32 hp,uint32 sp, uint32 ap, int32 type);
 int32 pc_itemheal(map_session_data *sd, t_itemid itemid, int32 hp,int32 sp);
 int32 pc_percentheal(map_session_data *sd,int32,int32);
