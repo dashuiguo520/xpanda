@@ -53,12 +53,18 @@ struct s_autoplay_session {
 	int16 follow_route_map = -1;
 	s_autoplay_transition pending_follow_transition{};
 	t_tick pending_follow_expires = 0;
+	s_autoplay_transition storage_step{};
+	int16 storage_route_map = -1;
 	bool loaded = false;
 	bool active = false;
 	bool save_pending = false;
 	bool autoloot_overridden = false;
 	bool waiting_return = false;
 	bool sitting_recovery = false;
+	bool storage_trip = false;
+	bool storage_returning = false;
+	bool storage_blocked = false;
+	bool storage_moved = false;
 };
 
 void do_init_autoplay();

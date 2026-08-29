@@ -1,0 +1,9 @@
+prontera,165,192,4	script	Autoplay Storage::AutoplayStorage	114,{
+	mes "[Autoplay Storage]";
+	mes "Autoplay characters can store configured loot here.";
+	close;
+
+OnAutoplayOpen:
+	openstorage;
+	end;
+}

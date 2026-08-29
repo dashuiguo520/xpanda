@@ -12,6 +12,7 @@
 #include "battle.hpp"
 #include "clif.hpp"
 #include "intif.hpp"
+#include "itemdb.hpp"
 #include "map.hpp"
 #include "mob.hpp"
 #include "npc.hpp"
@@ -19,6 +20,7 @@
 #include "pc.hpp"
 #include "skill.hpp"
 #include "status.hpp"
+#include "storage.hpp"
 #include "unit.hpp"
 
 #define AUTOPLAY_INTERVAL 250
@@ -159,6 +161,15 @@ static npc_data* autoplay_nearest_warper(map_session_data& sd) {
 		}
 	}
 	return nearest;
+}
+
+static npc_data* autoplay_storage_npc(map_session_data& sd) {
+	for (int32 i = map[sd.m].npc_num_area; i < map[sd.m].npc_num; ++i) {
+		npc_data* npc = map[sd.m].npc[i];
+		if (npc != nullptr && npc->subtype == NPCTYPE_SCRIPT && !npc->is_invisible && std::strcmp(npc->name, "Autoplay Storage") == 0)
+			return npc;
+	}
+	return nullptr;
 }
 
 static npc_data* autoplay_touching_warp(const map_session_data& sd) {
@@ -460,14 +471,103 @@ static bool autoplay_manage_sit_recovery(map_session_data& sd, s_autoplay_sessio
 	return true;
 }
 
+static bool autoplay_storage_item(const map_session_data& sd, const s_autoplay_session& session, const item& entry) {
+	if (entry.nameid == 0 || entry.equip != 0 || entry.equipSwitch != 0 || entry.favorite != 0 || entry.expire_time != 0 ||
+		!itemdb_canstore(&entry, pc_get_group_level(&sd)) || (entry.bound > BOUND_ACCOUNT && !pc_can_give_bounded_items(&sd)))
+		return false;
+	if (entry.nameid == session.config.teleport_item_id)
+		return false;
+	for (uint8 i = 0; i < session.config.recovery_count; ++i)
+		if (entry.nameid == session.config.recovery_items[i].item_id)
+			return false;
+	for (uint8 i = 0; i < session.config.autoloot_item_count; ++i)
+		if (entry.nameid == session.config.autoloot_items[i])
+			return true;
+	return false;
+}
+
+static bool autoplay_manage_storage(map_session_data& sd, s_autoplay_session& session) {
+	if (!session.storage_trip)
+		return false;
+	unit_stop_attack(&sd);
+	session.target_id = 0;
+	if (sd.state.storage_flag == 1) {
+		for (int32 i = 0; i < sd.status.inventory_slots; ++i) {
+			item& entry = sd.inventory.u.items_inventory[i];
+			if (!autoplay_storage_item(sd, session, entry))
+				continue;
+			const int16 previous_amount = entry.amount;
+			storage_storageadd(&sd, &sd.storage, i, previous_amount);
+			if (entry.nameid == 0 || entry.amount < previous_amount) {
+				session.storage_moved = true;
+				session.state = AUTOPLAY_RECOVERING;
+				return true;
+			}
+			session.storage_blocked = true;
+			break;
+		}
+		storage_storageclose(&sd);
+		session.storage_blocked = session.storage_blocked || !session.storage_moved;
+		session.storage_returning = true;
+		session.storage_step = {};
+		session.storage_route_map = -1;
+		return true;
+	}
+	if (session.storage_returning) {
+		if (sd.m != session.origin_map)
+			return autoplay_route_to_map(sd, session, session.origin_map, session.origin_x, session.origin_y,
+				session.storage_step, session.storage_route_map, &session.return_transition);
+		if (!check_distance_xy(sd.x, sd.y, session.origin_x, session.origin_y, session.config.search_range)) {
+			session.state = AUTOPLAY_MOVING;
+			if (!unit_is_walking(&sd) && !autoplay_walk_toward(sd, session.origin_x, session.origin_y)) {
+				session.state = AUTOPLAY_PAUSED;
+				session.stop_reason = AUTOPLAY_STOP_MAP;
+			}
+			return true;
+		}
+		session.storage_trip = false;
+		session.storage_returning = false;
+		session.storage_step = {};
+		session.storage_route_map = -1;
+		return false;
+	}
+	const int16 storage_map = map_mapindex2mapid(mapindex_name2idx("prontera", nullptr));
+	if (sd.m != storage_map)
+		return autoplay_route_to_map(sd, session, storage_map, 165, 192, session.storage_step, session.storage_route_map);
+	npc_data* npc = autoplay_storage_npc(sd);
+	if (npc == nullptr) {
+		session.storage_blocked = true;
+		session.storage_trip = false;
+		session.state = AUTOPLAY_PAUSED;
+		session.stop_reason = AUTOPLAY_STOP_RESOURCE;
+		return true;
+	}
+	if (check_distance_bl(&sd, npc, 3)) {
+		session.storage_moved = false;
+		npc_event(&sd, "AutoplayStorage::OnAutoplayOpen", 0);
+		session.state = AUTOPLAY_RECOVERING;
+		return true;
+	}
+	session.state = AUTOPLAY_MOVING;
+	if (!unit_is_walking(&sd) && !autoplay_walk_toward(sd, npc->x, npc->y)) {
+		session.storage_blocked = true;
+		session.storage_trip = false;
+		session.state = AUTOPLAY_PAUSED;
+		session.stop_reason = AUTOPLAY_STOP_RESOURCE;
+	}
+	return true;
+}
+
 static bool autoplay_manage_inventory(map_session_data& sd, s_autoplay_session& session) {
 	if (session.config.inventory_stop_at == 0 || sd.status.inventory_slots == 0)
 		return false;
 	size_t used = 0;
 	for (int32 i = 0; i < sd.status.inventory_slots; ++i)
 		used += sd.inventory.u.items_inventory[i].nameid != 0;
-	if (used * 100 < static_cast<size_t>(sd.status.inventory_slots) * session.config.inventory_stop_at)
+	if (used * 100 < static_cast<size_t>(sd.status.inventory_slots) * session.config.inventory_stop_at) {
+		session.storage_blocked = false;
 		return false;
+	}
 	for (uint8 rule = 0; rule < session.config.discard_count; ++rule) {
 		const auto& discard = session.config.discard_items[rule];
 		uint32 total = 0;
@@ -488,6 +588,15 @@ static bool autoplay_manage_inventory(map_session_data& sd, s_autoplay_session& 
 				return true;
 			}
 		}
+	}
+	if (session.config.autoloot_item_count > 0 && !session.storage_blocked) {
+		session.storage_trip = true;
+		session.storage_returning = false;
+		session.storage_moved = false;
+		session.storage_step = {};
+		session.storage_route_map = -1;
+		session.state = AUTOPLAY_MOVING;
+		return true;
 	}
 	unit_stop_attack(&sd);
 	session.target_id = 0;
@@ -739,6 +848,8 @@ static void autoplay_tick_character(map_session_data& sd, t_tick tick) {
 		session.return_step = {};
 		session.return_route_map = -1;
 	}
+	if (autoplay_manage_storage(sd, session))
+		return;
 	if (autoplay_forbidden(sd)) {
 		autoplay_stand(sd, session);
 		session.state = AUTOPLAY_PAUSED;
@@ -979,6 +1090,12 @@ bool autoplay_control(map_session_data& sd, e_autoplay_control control) {
 		session.follow_route_map = -1;
 		session.pending_follow_transition = {};
 		session.waiting_return = false;
+		session.storage_step = {};
+		session.storage_route_map = -1;
+		session.storage_trip = false;
+		session.storage_returning = false;
+		session.storage_blocked = false;
+		session.storage_moved = false;
 	}
 	switch (control) {
 		case AUTOPLAY_CONTROL_START:
