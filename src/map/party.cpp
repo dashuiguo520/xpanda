@@ -723,8 +723,10 @@ int32 party_member_added(int32 party_id,uint32 account_id,uint32 char_id, int32 
 	}
 
 	sd->status.party_id = party_id;
-	if (sd->autoplay && sd->autoplay->active && inviter_char_id != 0)
-		autoplay_set_follow(*sd, inviter_char_id);
+	if (sd->autoplay && sd->autoplay->active)
+		autoplay_sync_party_follow(*sd, inviter_char_id);
+	if (sd2 != nullptr && sd2->autoplay && sd2->autoplay->active)
+		autoplay_sync_party_follow(*sd2, char_id);
 
 	clif_party_member_info( *p, *sd );
 	clif_party_option(p,sd,0x100);

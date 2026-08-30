@@ -5,7 +5,7 @@
 
 #include "cbasetypes.hpp"
 
-#define AUTOPLAY_CONFIG_VERSION 10
+#define AUTOPLAY_CONFIG_VERSION 11
 #define AUTOPLAY_MAX_SKILLS_PER_TARGET 5
 #define AUTOPLAY_MAX_SKILLS (AUTOPLAY_MAX_SKILLS_PER_TARGET * 5)
 #define AUTOPLAY_MAX_RECOVERY_ITEMS 5
@@ -65,6 +65,13 @@ enum e_autoplay_boss_action : uint8 {
 	AUTOPLAY_BOSS_AVOID = 1,
 	AUTOPLAY_BOSS_RETALIATE,
 	AUTOPLAY_BOSS_PRIORITY,
+};
+
+enum e_autoplay_follow_offline_action : uint8 {
+	AUTOPLAY_FOLLOW_OFFLINE_WAIT = 0,
+	AUTOPLAY_FOLLOW_OFFLINE_CONTINUE,
+	AUTOPLAY_FOLLOW_OFFLINE_RETURN,
+	AUTOPLAY_FOLLOW_OFFLINE_LOGOUT,
 };
 
 enum e_autoplay_monster_action : uint8 {
@@ -147,6 +154,7 @@ struct s_autoplay_config {
 	uint8 boss_action = AUTOPLAY_BOSS_RETALIATE;
 	uint8 miss_teleport = 0;
 	uint8 storage_weight_at = 70;
+	uint8 follow_offline_action = AUTOPLAY_FOLLOW_OFFLINE_WAIT;
 };
 
 static_assert(sizeof(s_autoplay_config) == 492, "autoplay wire config size changed");

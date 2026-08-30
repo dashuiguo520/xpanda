@@ -69,6 +69,7 @@ struct s_autoplay_session {
 	bool storage_blocked = false;
 	bool storage_moved = false;
 	bool storage_by_weight = false;
+	bool follow_offline_handled = false;
 };
 
 void do_init_autoplay();
@@ -76,6 +77,7 @@ void do_final_autoplay();
 void autoplay_attach(map_session_data& sd);
 void autoplay_detach(map_session_data& sd);
 void autoplay_set_follow(map_session_data& sd, uint32 char_id);
+void autoplay_sync_party_follow(map_session_data& sd, uint32 preferred_char_id = 0);
 void autoplay_notify_map_change(map_session_data& sd, uint16 destination_mapindex, int16 destination_x, int16 destination_y);
 bool autoplay_control(map_session_data& sd, e_autoplay_control control);
 void autoplay_config_loaded(map_session_data& sd, const s_autoplay_config& config);

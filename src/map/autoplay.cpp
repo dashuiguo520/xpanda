@@ -959,6 +959,30 @@ static void autoplay_tick_character(map_session_data& sd, t_tick tick) {
 		if (no_longer_party_members)
 			autoplay_set_follow(sd, 0);
 		else {
+			const bool follow_offline = follow_member != nullptr && !follow_member->online;
+			if (!follow_offline)
+				session.follow_offline_handled = false;
+			if (follow_offline && session.config.follow_offline_action == AUTOPLAY_FOLLOW_OFFLINE_RETURN) {
+				if (!session.follow_offline_handled) {
+					unit_stop_attack(&sd);
+					session.target_id = 0;
+					pc_setpos_savepoint(sd);
+					session.follow_offline_handled = true;
+				}
+				session.state = AUTOPLAY_PAUSED;
+				session.stop_reason = AUTOPLAY_STOP_PARTY;
+				return;
+			}
+			if (follow_offline && session.config.follow_offline_action == AUTOPLAY_FOLLOW_OFFLINE_LOGOUT) {
+				autoplay_stand(sd, session);
+				autoplay_restore_autoloot(sd, session);
+				session.active = false;
+				session.state = AUTOPLAY_STOPPED;
+				session.stop_reason = AUTOPLAY_STOP_PARTY;
+				unit_stop_attack(&sd);
+				clif_authfail_fd(sd.fd, 15);
+				return;
+			}
 			map_session_data* online_follow = map_charid2sd(session.follow_char_id);
 			int16 follow_map = -1;
 			int16 follow_x = 0;
@@ -983,7 +1007,9 @@ static void autoplay_tick_character(map_session_data& sd, t_tick tick) {
 				session.follow_route_map = -1;
 			}
 		}
-		if (!no_longer_party_members && follow == nullptr) {
+		const bool continue_while_offline = follow_member != nullptr && !follow_member->online &&
+			session.config.follow_offline_action == AUTOPLAY_FOLLOW_OFFLINE_CONTINUE;
+		if (!no_longer_party_members && follow == nullptr && !continue_while_offline) {
 			session.state = AUTOPLAY_PAUSED;
 			session.stop_reason = AUTOPLAY_STOP_PARTY;
 			return;
@@ -1105,6 +1131,7 @@ void autoplay_set_follow(map_session_data& sd, uint32 char_id) {
 		session.follow_step = {};
 		session.follow_route_map = -1;
 		session.pending_follow_transition = {};
+		session.follow_offline_handled = false;
 	}
 	session.follow_char_id = char_id;
 	if (!session.loaded || session.config.follow_char_id == char_id)
@@ -1113,6 +1140,37 @@ void autoplay_set_follow(map_session_data& sd, uint32 char_id) {
 	if (session.save_pending)
 		session.pending_config.follow_char_id = char_id;
 	intif_autoplay_save(sd.status.char_id, session.save_pending ? session.pending_config : session.config);
+}
+
+void autoplay_sync_party_follow(map_session_data& sd, uint32 preferred_char_id) {
+	if (!sd.autoplay || !sd.autoplay->loaded)
+		return;
+	party_data* party = party_search(sd.status.party_id);
+	if (party == nullptr) {
+		autoplay_set_follow(sd, 0);
+		return;
+	}
+	auto valid_target = [&](uint32 char_id) {
+		if (char_id == 0 || char_id == sd.status.char_id)
+			return false;
+		if (map_session_data* target = map_charid2sd(char_id); target != nullptr)
+			return target->status.party_id == sd.status.party_id;
+		return std::any_of(&party->party.member[0], &party->party.member[MAX_PARTY], [&](const party_member& member) {
+			return member.char_id == char_id;
+		});
+	};
+	if (valid_target(sd.autoplay->follow_char_id))
+		return;
+	uint32 target_char_id = valid_target(preferred_char_id) ? preferred_char_id : 0;
+	for (const party_member& member : party->party.member) {
+		if (target_char_id == 0 && member.leader && valid_target(member.char_id))
+			target_char_id = member.char_id;
+	}
+	for (const party_member& member : party->party.member) {
+		if (target_char_id == 0 && member.online && valid_target(member.char_id))
+			target_char_id = member.char_id;
+	}
+	autoplay_set_follow(sd, target_char_id);
 }
 
 void autoplay_notify_map_change(map_session_data& sd, uint16 destination_mapindex, int16 destination_x, int16 destination_y) {
@@ -1186,6 +1244,8 @@ bool autoplay_control(map_session_data& sd, e_autoplay_control control) {
 		session.storage_blocked = false;
 		session.storage_moved = false;
 		session.storage_by_weight = false;
+		session.follow_offline_handled = false;
+		autoplay_sync_party_follow(sd);
 	}
 	switch (control) {
 		case AUTOPLAY_CONTROL_START:
