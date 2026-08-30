@@ -65,6 +65,9 @@
     <ClInclude Include="int_clan.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="int_autoplay.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="char.cpp">
@@ -119,6 +122,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="int_clan.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="int_autoplay.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -13,7 +13,9 @@
 #include <sys/stat.h> // for stat/lstat/fstat - [Dekamaster/Ultimate GM Tool]
 
 #include <common/cbasetypes.hpp>
+// ===== 挂机系统：开始 =====
 #include <common/autoplay.hpp>
+// ===== 挂机系统：结束 =====
 #include <common/database.hpp>
 #include <common/malloc.hpp>
 #include <common/showmsg.hpp>
@@ -26,7 +28,9 @@
 #include "char_mapif.hpp"
 #include "inter.hpp"
 #include "int_achievement.hpp"
+// ===== 挂机系统：开始 =====
 #include "int_autoplay.hpp"
+// ===== 挂机系统：结束 =====
 #include "int_auction.hpp"
 #include "int_clan.hpp"
 #include "int_elemental.hpp"
@@ -78,7 +82,9 @@ int32 inter_recv_packet_length[] = {
 	52,14,-1, 6,  0, 0, 0, 0,  0, 0,13,-1,  0, 0,  0, 0,	// 3080-  Pet System, Storage
 	-1,10,-1, 6,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0,  0, 0,	// 3090-  Homunculus packets [albator]
 	 2,-1, 6, 6,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0,  0, 0,	// 30A0-  Clan packets
+	// ===== 挂机系统：开始 =====
 	 6, static_cast<int32>(6 + sizeof(s_autoplay_config)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	// 30B0-  Autoplay
+	// ===== 挂机系统：结束 =====
 };
 
 #ifndef WHISPER_MESSAGE_SIZE
@@ -1460,7 +1466,9 @@ int32 inter_parse_frommap(int32 fd)
 		  || inter_quest_parse_frommap(fd)
 		  || inter_clan_parse_frommap(fd)
 		  || inter_achievement_parse_frommap(fd)
+		  // ===== 挂机系统：开始 =====
 		  || inter_autoplay_parse_frommap(fd)
+		  // ===== 挂机系统：结束 =====
 		   )
 			break;
 		else

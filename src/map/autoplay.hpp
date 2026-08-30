@@ -46,6 +46,7 @@ struct s_autoplay_session {
 	uint32 previous_autolootids[AUTOPLAY_MAX_LOOT_ITEMS]{};
 	bool previous_autolooting = false;
 	int16 origin_map = -1;
+	int32 instance_id = 0;
 	int16 origin_x = 0;
 	int16 origin_y = 0;
 	s_autoplay_transition last_transition{};

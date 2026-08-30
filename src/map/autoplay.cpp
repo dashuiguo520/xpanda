@@ -210,6 +210,14 @@ static bool autoplay_map_allowed(int16 map_id) {
 		!map_getmapflag(map_id, MF_GVG_TE) && !map_getmapflag(map_id, MF_NOAUTOPLAY);
 }
 
+static int32 autoplay_map_instance(int16 map_id) {
+	return map_id >= 0 && map_id < map_num && map[map_id].cell != nullptr ? map[map_id].instance_id : 0;
+}
+
+static bool autoplay_same_route_scope(int16 source_map, int16 destination_map) {
+	return autoplay_map_instance(source_map) == autoplay_map_instance(destination_map);
+}
+
 static npc_data* autoplay_next_warp(int16 source_map, int16 destination_map) {
 	if (!autoplay_map_allowed(source_map) || !autoplay_map_allowed(destination_map))
 		return nullptr;
@@ -226,7 +234,7 @@ static npc_data* autoplay_next_warp(int16 source_map, int16 destination_map) {
 			if (warp == nullptr || warp->subtype != NPCTYPE_WARP || warp->is_invisible)
 				continue;
 			const int16 next_map = map_mapindex2mapid(warp->u.warp.mapindex);
-			if (!autoplay_map_allowed(next_map) || visited[next_map])
+			if (!autoplay_map_allowed(next_map) || !autoplay_same_route_scope(source_map, next_map) || visited[next_map])
 				continue;
 			visited[next_map] = true;
 			first_warp[next_map] = current_map == source_map ? warp->id : first_warp[current_map];
@@ -332,7 +340,7 @@ static bool autoplay_route_to_map(map_session_data& sd, s_autoplay_session& sess
 		route_map = -1;
 		return false;
 	}
-	if (!autoplay_map_allowed(destination_map)) {
+	if (!autoplay_map_allowed(destination_map) || !autoplay_same_route_scope(sd.m, destination_map)) {
 		session.state = AUTOPLAY_PAUSED;
 		session.stop_reason = AUTOPLAY_STOP_MAP;
 		return true;
@@ -346,7 +354,7 @@ static bool autoplay_route_to_map(map_session_data& sd, s_autoplay_session& sess
 		else if (preferred != nullptr && preferred->source_map == sd.m &&
 			map_mapindex2mapid(preferred->destination_mapindex) == destination_map)
 			step = *preferred;
-		else if (npc_data* warper = autoplay_nearest_warper(sd)) {
+		else if (npc_data* warper = autoplay_map_instance(sd.m) == 0 ? autoplay_nearest_warper(sd) : nullptr) {
 			step.destination_mapindex = map_id2index(destination_map);
 			step.source_x = warper->x;
 			step.source_y = warper->y;
@@ -354,7 +362,7 @@ static bool autoplay_route_to_map(map_session_data& sd, s_autoplay_session& sess
 			step.destination_y = destination_y;
 			step.npc_id = warper->id;
 			step.kind = AUTOPLAY_TRANSITION_WARPER;
-		} else if (npc_data* warp = autoplay_next_warp_to_warper(sd.m))
+		} else if (npc_data* warp = autoplay_map_instance(sd.m) == 0 ? autoplay_next_warp_to_warper(sd.m) : nullptr)
 			autoplay_set_warp_step(step, *warp);
 	}
 	if (step.kind == AUTOPLAY_TRANSITION_NONE) {
@@ -369,7 +377,8 @@ static bool autoplay_walk_transition(map_session_data& sd, s_autoplay_session& s
 	unit_stop_attack(&sd);
 	session.target_id = 0;
 	session.state = AUTOPLAY_MOVING;
-	if (transition.source_map != sd.m || !autoplay_map_allowed(map_mapindex2mapid(transition.destination_mapindex))) {
+	const int16 destination_map = map_mapindex2mapid(transition.destination_mapindex);
+	if (transition.source_map != sd.m || !autoplay_map_allowed(destination_map) || !autoplay_same_route_scope(sd.m, destination_map)) {
 		session.state = AUTOPLAY_PAUSED;
 		session.stop_reason = AUTOPLAY_STOP_MAP;
 		return true;
@@ -515,6 +524,14 @@ static bool autoplay_storage_item(const map_session_data& sd, const s_autoplay_s
 static bool autoplay_manage_storage(map_session_data& sd, s_autoplay_session& session) {
 	if (!session.storage_trip)
 		return false;
+	if (autoplay_map_instance(sd.m) != 0) {
+		session.storage_trip = false;
+		session.storage_returning = false;
+		session.storage_by_weight = false;
+		session.storage_step = {};
+		session.storage_route_map = -1;
+		return false;
+	}
 	unit_stop_attack(&sd);
 	session.target_id = 0;
 	if (sd.state.storage_flag == 1) {
@@ -618,7 +635,7 @@ static bool autoplay_manage_inventory(map_session_data& sd, s_autoplay_session& 
 			}
 		}
 	}
-	if ((session.config.autoloot_item_count > 0 || weight_full) && !session.storage_blocked) {
+	if (autoplay_map_instance(sd.m) == 0 && (session.config.autoloot_item_count > 0 || weight_full) && !session.storage_blocked) {
 		session.storage_trip = true;
 		session.storage_by_weight = weight_full;
 		session.storage_returning = false;
@@ -882,7 +899,7 @@ static void autoplay_tick_character(map_session_data& sd, t_tick tick) {
 			}
 		}
 		if (session.config.death_action == AUTOPLAY_DEATH_RESPAWN) {
-			session.waiting_return = true;
+			session.waiting_return = session.instance_id == 0;
 			session.state = AUTOPLAY_TELEPORTING;
 			pc_respawn(&sd, CLR_OUTSIGHT);
 			return;
@@ -891,6 +908,26 @@ static void autoplay_tick_character(map_session_data& sd, t_tick tick) {
 		session.active = false;
 		session.state = AUTOPLAY_STOPPED;
 		session.stop_reason = AUTOPLAY_STOP_DEAD;
+		return;
+	}
+	const int32 current_instance = autoplay_map_instance(sd.m);
+	if (session.instance_id == 0 && current_instance != 0) {
+		session.instance_id = current_instance;
+		session.origin_map = sd.m;
+		session.origin_x = sd.x;
+		session.origin_y = sd.y;
+		session.storage_trip = false;
+		session.storage_returning = false;
+	}
+	if (session.instance_id != 0 && current_instance != session.instance_id) {
+		unit_stop_attack(&sd);
+		unit_stop_walking(&sd, USW_FORCE_STOP | USW_RELEASE_TARGET);
+		session.target_id = 0;
+		session.waiting_return = false;
+		session.storage_trip = false;
+		session.storage_returning = false;
+		session.state = AUTOPLAY_PAUSED;
+		session.stop_reason = AUTOPLAY_STOP_MAP;
 		return;
 	}
 	if (session.waiting_return) {
@@ -966,7 +1003,8 @@ static void autoplay_tick_character(map_session_data& sd, t_tick tick) {
 				if (!session.follow_offline_handled) {
 					unit_stop_attack(&sd);
 					session.target_id = 0;
-					pc_setpos_savepoint(sd);
+					if (session.instance_id == 0)
+						pc_setpos_savepoint(sd);
 					session.follow_offline_handled = true;
 				}
 				session.state = AUTOPLAY_PAUSED;
@@ -1178,6 +1216,7 @@ void autoplay_notify_map_change(map_session_data& sd, uint16 destination_mapinde
 		return;
 	autoplay_attach(sd);
 	s_autoplay_transition transition{};
+	const int16 destination_map = map_mapindex2mapid(destination_mapindex);
 	transition.destination_mapindex = destination_mapindex;
 	transition.source_map = sd.m;
 	transition.destination_x = destination_x;
@@ -1204,7 +1243,7 @@ void autoplay_notify_map_change(map_session_data& sd, uint16 destination_mapinde
 	const t_tick expires = gettick() + 60000;
 	for (auto& member : party->data) {
 		map_session_data* follower = member.sd;
-		if (follower == nullptr || follower == &sd || follower->m != sd.m || !follower->autoplay ||
+		if (follower == nullptr || follower == &sd || follower->m != sd.m || !autoplay_same_route_scope(sd.m, destination_map) || !follower->autoplay ||
 			!follower->autoplay->active || follower->autoplay->follow_char_id != sd.status.char_id)
 			continue;
 		auto& session = *follower->autoplay;
@@ -1228,6 +1267,7 @@ bool autoplay_control(map_session_data& sd, e_autoplay_control control) {
 		}
 		session.follow_char_id = session.config.follow_char_id;
 		session.origin_map = sd.m;
+		session.instance_id = autoplay_map_instance(sd.m);
 		session.origin_x = sd.x;
 		session.origin_y = sd.y;
 		session.return_transition = map_mapindex2mapid(session.last_transition.destination_mapindex) == sd.m ? session.last_transition : s_autoplay_transition{};

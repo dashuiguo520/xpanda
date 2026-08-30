@@ -6,7 +6,9 @@
 #include <cstdlib>
 
 #include <common/malloc.hpp>
+// ===== 挂机系统：开始 =====
 #include <common/autoplay.hpp>
+// ===== 挂机系统：结束 =====
 #include <common/mmo.hpp>
 #include <common/nullpo.hpp>
 #include <common/showmsg.hpp>
@@ -15,7 +17,9 @@
 #include <common/timer.hpp>
 
 #include "achievement.hpp"
+// ===== 挂机系统：开始 =====
 #include "autoplay.hpp"
+// ===== 挂机系统：结束 =====
 #include "battle.hpp"
 #include "chrif.hpp"
 #include "clan.hpp"
@@ -48,7 +52,9 @@ static const int32 packet_len_table[] = {
 	12,-1, 7, 3,  0, 0, 0, 0,  0, 0,-1, 9, -1, 0,  0, 0, //0x3880  Pet System,  Storages
 	-1,-1, 7, 3,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0,  0, 0, //0x3890  Homunculus [albator]
 	-1,-1, 8, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0,  0, 0, //0x38A0  Clans
+	// ===== 挂机系统：开始 =====
 	static_cast<int32>(7 + sizeof(s_autoplay_config)),11,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, //0x38B0 Autoplay
+	// ===== 挂机系统：结束 =====
 };
 
 extern int32 char_fd; // inter server Fd used for char_fd
@@ -3764,6 +3770,7 @@ int32 intif_parse_clan_onlinecount( int32 fd ){
  *  1 success (no error)
  *  2 invalid length of packet (not enough data yet)
  */
+// ===== 挂机系统：开始 =====
 bool intif_autoplay_request(uint32 char_id) {
 	if (CheckForCharServer()) return false;
 	WFIFOHEAD(inter_fd, 6); WFIFOW(inter_fd, 0) = 0x30B0; WFIFOL(inter_fd, 2) = char_id; WFIFOSET(inter_fd, 6);
@@ -3783,6 +3790,7 @@ static void intif_parse_autoplay_load(int32 fd) {
 static void intif_parse_autoplay_save(int32 fd) {
 	if (auto* sd = map_charid2sd(RFIFOL(fd, 2))) autoplay_config_saved(*sd, RFIFOB(fd, 6) != 0, RFIFOL(fd, 7));
 }
+// ===== 挂机系统：结束 =====
 
 int32 intif_parse(int32 fd)
 {
@@ -3910,8 +3918,10 @@ int32 intif_parse(int32 fd)
 	case 0x38A0:	intif_parse_clans(fd); break;
 	case 0x38A1:	intif_parse_clan_message(fd); break;
 	case 0x38A2:	intif_parse_clan_onlinecount(fd); break;
+	// ===== 挂机系统：开始 =====
 	case 0x38B0:	intif_parse_autoplay_load(fd); break;
 	case 0x38B1:	intif_parse_autoplay_save(fd); break;
+	// ===== 挂机系统：结束 =====
 
 	default:
 		ShowError("intif_parse : unknown packet %d %x\n",fd,RFIFOW(fd,0));

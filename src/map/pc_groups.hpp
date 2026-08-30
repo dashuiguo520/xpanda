@@ -51,7 +51,9 @@ enum e_pc_permission : uint32 {
 	PC_PERM_MACRO_DETECT,
 	PC_PERM_MACRO_REGISTER,
 	PC_PERM_TRADE_UNCONDITIONAL,
+	// ===== 挂机系统：开始 =====
 	PC_PERM_AUTOPLAY,
+	// ===== 挂机系统：结束 =====
 	//.. add other here
 	PC_PERM_MAX,
 };
@@ -91,7 +93,9 @@ static const struct s_pcg_permission_name {
 	{ "macro_detect",PC_PERM_MACRO_DETECT },
 	{ "macro_register",PC_PERM_MACRO_REGISTER },
 	{ "trade_unconditional",PC_PERM_TRADE_UNCONDITIONAL },
+	// ===== 挂机系统：开始 =====
 	{ "autoplay", PC_PERM_AUTOPLAY },
+	// ===== 挂机系统：结束 =====
 };
 
 struct s_player_group{

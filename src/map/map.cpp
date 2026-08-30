@@ -25,7 +25,9 @@
 
 #include "achievement.hpp"
 #include "atcommand.hpp"
+// ===== 挂机系统：开始 =====
 #include "autoplay.hpp"
+// ===== 挂机系统：结束 =====
 #include "battle.hpp"
 #include "battleground.hpp"
 #include "cashshop.hpp"
@@ -2234,7 +2236,9 @@ void map_deliddb(block_list *bl)
  * Standard call when a player connection is closed.
  *------------------------------------------*/
 int32 map_quit(map_session_data *sd) {
+	// ===== 挂机系统：开始 =====
 	autoplay_detach(*sd);
+	// ===== 挂机系统：结束 =====
 	int32 i;
 
 	if (sd->state.keepshop == false) { // Close vending/buyingstore
@@ -5077,7 +5081,9 @@ void MapServer::finalize(){
 	chrif_flush_fifo();
 
 	do_final_atcommand();
+	// ===== 挂机系统：开始 =====
 	do_final_autoplay();
+	// ===== 挂机系统：结束 =====
 	do_final_battle();
 	do_final_chrif();
 	do_final_clan();
@@ -5459,7 +5465,9 @@ bool MapServer::initialize( int32 argc, char *argv[] ){
 	map_do_init_msg();
 	do_init_path();
 	do_init_atcommand();
+	// ===== 挂机系统：开始 =====
 	do_init_autoplay();
+	// ===== 挂机系统：结束 =====
 	do_init_battle();
 	do_init_instance();
 	do_init_chrif();

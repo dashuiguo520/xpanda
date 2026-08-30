@@ -404,11 +404,15 @@ struct s_runeset_data {
 };
 // ===== rAthena 移植 Pandas 符文石板角色数据：结束 =====
 
+// ===== 挂机系统：开始 =====
 struct s_autoplay_session;
+// ===== 挂机系统：结束 =====
 
 class map_session_data : public block_list {
 public:
+	// ===== 挂机系统：开始 =====
 	std::shared_ptr<s_autoplay_session> autoplay;
+	// ===== 挂机系统：结束 =====
 	struct unit_data ud;
 	struct view_data vd;
 	struct status_data base_status, battle_status;
@@ -1648,7 +1652,9 @@ int32 pc_skillheal2_bonus(map_session_data *sd, uint16 skill_id);
 void pc_damage(map_session_data *sd,block_list *src,uint32 hp, uint32 sp, uint32 ap);
 int32 pc_dead(map_session_data *sd,block_list *src);
 void pc_revive(map_session_data *sd,uint32 hp, uint32 sp, uint32 ap = 0);
+// ===== 挂机系统：开始 =====
 bool pc_revive_item(map_session_data *sd, t_itemid item_id = 0);
+// ===== 挂机系统：结束 =====
 void pc_heal(map_session_data *sd,uint32 hp,uint32 sp, uint32 ap, int32 type);
 int32 pc_itemheal(map_session_data *sd, t_itemid itemid, int32 hp,int32 sp);
 int32 pc_percentheal(map_session_data *sd,int32,int32);

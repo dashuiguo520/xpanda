@@ -1553,10 +1553,12 @@ void clif_dynamicnpc_result( const map_session_data& sd, e_dynamicnpc_result res
 void clif_goldpc_info(map_session_data& sd);
 void clif_parse_dynamic_npc(int32 fd, map_session_data* sd);
 
+// ===== 挂机系统：开始 =====
 void clif_parse_autoplay_config_get(int32 fd, map_session_data* sd);
 void clif_parse_autoplay_config_save(int32 fd, map_session_data* sd);
 void clif_parse_autoplay_control(int32 fd, map_session_data* sd);
 void clif_parse_autoplay_status_get(int32 fd, map_session_data* sd);
+// ===== 挂机系统：结束 =====
 // ===== rAthena 移植 Pandas GoldPC 客户端接口：结束 =====
 
 // ===== rAthena 移植 Pandas 符文石板客户端接口：开始 =====

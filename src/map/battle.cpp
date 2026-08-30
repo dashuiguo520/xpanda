@@ -18,7 +18,9 @@
 #include <common/utils.hpp>
 
 #include "atcommand.hpp"
+// ===== 挂机系统：开始 =====
 #include "autoplay.hpp"
+// ===== 挂机系统：结束 =====
 #include "battleground.hpp"
 #include "chrif.hpp"
 #include "clif.hpp"
@@ -341,6 +343,7 @@ int32 battle_damage(block_list *src, block_list *target, int64 damage, int16 div
 
 	if (src)
 		sd = BL_CAST(BL_PC, src);
+	// ===== 挂机系统：开始 =====
 	block_list* autoplay_master = src != nullptr && src->type != BL_PC ? battle_get_master(src) : src;
 	map_session_data* autoplay_sd = BL_CAST(BL_PC, autoplay_master);
 	if (autoplay_sd != nullptr && target->type == BL_MOB) {
@@ -349,6 +352,7 @@ int32 battle_damage(block_list *src, block_list *target, int64 damage, int16 div
 		else if (dmg_lv == ATK_DEF)
 			autoplay_record_attack_result(*autoplay_sd, false);
 	}
+	// ===== 挂机系统：结束 =====
 	FreeBlockLock freeLock;
 	if (sd && battle_check_coma(*sd, *target, (e_battle_flag)attack_type))
 		dmg_change = status_damage(src, target, damage, 0, delay, 16, skill_id); // Coma attack
@@ -8975,7 +8979,9 @@ static const struct _battle_data {
 	{ "enable_bonus_map_drops",             &battle_config.enable_bonus_map_drops,          1,      0,      1,              },
 	{ "hide_cloaked_units",                 &battle_config.hide_cloaked_units,              0,      0,      BL_ALL,         },
 	{ "oridecon_research_fix",              &battle_config.oridecon_research_fix,           0,      0,      1,              },
+	// ===== 挂机系统：开始 =====
 	{ "autoplay_search_range",              &battle_config.autoplay_search_range,           12,     1,      30,             },
+	// ===== 挂机系统：结束 =====
 
 #include <custom/battle_config_init.inc>
 };

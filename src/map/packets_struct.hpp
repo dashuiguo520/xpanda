@@ -6,7 +6,9 @@
 #define MAP_PACKETS_STRUCT_HPP
 
 #include <common/cbasetypes.hpp>
+// ===== 挂机系统：开始 =====
 #include <common/autoplay.hpp>
+// ===== 挂机系统：结束 =====
 #include <common/mmo.hpp>
 
 /**
@@ -348,6 +350,7 @@ enum packet_headers {
 DEFINE_PACKET_ID(ZC_PAR_4JOB_CHANGE, 0x0b25);
 #endif  // PACKETVER_MAIN_NUM >= 20200916 || PACKETVER_RE_NUM >= 20200723 || PACKETVER_ZERO_NUM >= 20221024
 
+// ===== 挂机系统：开始 =====
 #if !defined(sun) && (!defined(__NETBSD__) || __NetBSD_Version__ >= 600000000)
 #pragma pack(push, 1)
 #endif
@@ -375,6 +378,7 @@ static_assert(sizeof(PACKET_CZ_AUTOPLAY_STATUS_GET) == 2);
 static_assert(sizeof(PACKET_ZC_AUTOPLAY_CONFIG) == 495);
 static_assert(sizeof(PACKET_ZC_AUTOPLAY_RESULT) == 8);
 static_assert(sizeof(PACKET_ZC_AUTOPLAY_STATUS) == 16);
+// ===== 挂机系统：结束 =====
 
 #if !defined(sun) && (!defined(__NETBSD__) || __NetBSD_Version__ >= 600000000) // NetBSD 5 and Solaris don't like pragma pack but accept the packed attribute
 #pragma pack(push, 1)

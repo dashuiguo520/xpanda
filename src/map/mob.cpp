@@ -24,7 +24,9 @@
 #include <common/utils.hpp>
 
 #include "achievement.hpp"
+// ===== 挂机系统：开始 =====
 #include "autoplay.hpp"
+// ===== 挂机系统：结束 =====
 #include "battle.hpp"
 #include "clif.hpp"
 #include "elemental.hpp"
@@ -2635,7 +2637,9 @@ static void mob_item_drop(mob_data *md, std::shared_ptr<s_item_drop_list>& dlist
 		if (party_share_loot(party_search(sd->status.party_id),
 			sd, &ditem->item_data, sd->status.char_id) == 0
 		) {
+			// ===== 挂机系统：开始 =====
 			autoplay_record_loot(*sd, ditem->item_data.amount);
+			// ===== 挂机系统：结束 =====
 			return;
 		}
 	}
@@ -2977,10 +2981,12 @@ int32 mob_dead(mob_data *md, block_list *src, int32 type)
 	bool rebirth, homkillonly, merckillonly;
 
 	status = &md->status;
+	// ===== 挂机系统：开始 =====
 	if (src != nullptr) {
 		if (map_session_data* killer = BL_CAST(BL_PC, battle_get_master(src)); killer != nullptr)
 			autoplay_record_kill(*killer);
 	}
+	// ===== 挂机系统：结束 =====
 
 	if( src && src->type == BL_PC ) {
 		sd = (map_session_data *)src;

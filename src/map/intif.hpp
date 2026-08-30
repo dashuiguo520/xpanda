@@ -4,7 +4,9 @@
 #ifndef INTIF_HPP
 #define INTIF_HPP
 
+// ===== 挂机系统：开始 =====
 #include <common/autoplay.hpp>
+// ===== 挂机系统：结束 =====
 
 #include <vector>
 
@@ -36,8 +38,10 @@ int32 intif_wis_message_to_gm(char *Wisp_name, int32 permission, char *mes);
 
 int32 intif_saveregistry(map_session_data *sd);
 
+// ===== 挂机系统：开始 =====
 bool intif_autoplay_request(uint32 char_id);
 bool intif_autoplay_save(uint32 char_id, const s_autoplay_config& config);
+// ===== 挂机系统：结束 =====
 int32 intif_request_registry(map_session_data *sd, int32 flag);
 
 bool intif_request_guild_storage(uint32 account_id, int32 guild_id);

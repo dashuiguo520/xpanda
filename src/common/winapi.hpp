@@ -26,8 +26,12 @@
 #include <sdkddkver.h>
 #endif
 
-#define STRICT
-#define WIN32_LEAN_AND_MEAN
+#ifndef STRICT
+	#define STRICT 1
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+	#define WIN32_LEAN_AND_MEAN
+#endif
 #define NOCOMM 
 #define NOKANJI
 #define NOHELP

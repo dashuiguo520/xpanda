@@ -30,7 +30,9 @@
 #include <common/utils.hpp>
 
 #include "achievement.hpp"
+// ===== 挂机系统：开始 =====
 #include "autoplay.hpp"
+// ===== 挂机系统：结束 =====
 #include "atcommand.hpp" // get_atcommand_level()
 #include "battle.hpp" // battle_config
 #include "battleground.hpp"
@@ -2472,9 +2474,11 @@ void pc_reg_received(map_session_data *sd)
 	if (sd->state.active)
 		return;
 	sd->state.active = 1;
+	// ===== 挂机系统：开始 =====
 	// Load the character's autoplay configuration without starting it.
 	autoplay_attach(*sd);
 	intif_autoplay_request(sd->status.char_id);
+	// ===== 挂机系统：结束 =====
 	sd->state.pc_loaded = false; // Ensure inventory data and status data is loaded before we calculate player stats
 
 	intif_storage_request(sd,TABLE_STORAGE, 0, STOR_MODE_ALL); // Request storage data
@@ -7189,7 +7193,9 @@ enum e_setpos pc_setpos(map_session_data* sd, uint16 mapindex, int32 x, int32 y,
 
 		npc_script_event( *sd, NPCE_LOGOUT );
 
+		// ===== 挂机系统：开始 =====
 		autoplay_notify_map_change(*sd, mapindex, static_cast<int16>(x), static_cast<int16>(y));
+		// ===== 挂机系统：结束 =====
 
 		//remove from map, THEN change x/y coordinates
 		unit_remove_map_pc(sd,clrtype);
@@ -7241,7 +7247,9 @@ enum e_setpos pc_setpos(map_session_data* sd, uint16 mapindex, int32 x, int32 y,
 		buyingstore_close(sd);
 	}
 
+	// ===== 挂机系统：开始 =====
 	autoplay_notify_map_change(*sd, mapindex, static_cast<int16>(x), static_cast<int16>(y));
+	// ===== 挂机系统：结束 =====
 
 	if(sd->prev != nullptr){
 		unit_remove_map_pc(sd,clrtype);
@@ -10305,7 +10313,9 @@ void pc_revive(map_session_data *sd,uint32 hp, uint32 sp, uint32 ap) {
 	}
 }
 
+// ===== 挂机系统：开始 =====
 bool pc_revive_item(map_session_data *sd, t_itemid item_id) {
+	// ===== 挂机系统：结束 =====
 	nullpo_retr(false, sd);
 
 	// ===== rAthena 移植 OnPCUseReviveTokenFilter：开始 =====
@@ -10320,9 +10330,11 @@ bool pc_revive_item(map_session_data *sd, t_itemid item_id) {
 	if (sd->sc.getSCE(SC_HELLPOWER)) // Cannot resurrect while under the effect of SC_HELLPOWER.
 		return false;
 
+	// ===== 挂机系统：开始 =====
 	if (item_id != 0 && item_id != 7621 && item_id != 25310 && item_id != 6316)
 		return false;
 	int16 item_position = item_id != 0 ? pc_search_inventory(sd, item_id) : itemdb_group.item_exists_pc(sd, IG_TOKEN_OF_SIEGFRIED);
+	// ===== 挂机系统：结束 =====
 	uint8 hp = 100, sp = 100;
 
 	if (item_position < 0) {

@@ -788,7 +788,9 @@ struct Battle_Config
 	int32 enable_bonus_map_drops;
 	int32 hide_cloaked_units;
 	int32 oridecon_research_fix;
+	// ===== 挂机系统：开始 =====
 	int32 autoplay_search_range;
+	// ===== 挂机系统：结束 =====
 
 #include <custom/battle_config_struct.inc>
 };

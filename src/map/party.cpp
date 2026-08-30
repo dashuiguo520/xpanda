@@ -17,7 +17,9 @@
 
 #include "achievement.hpp"
 #include "atcommand.hpp"	//msg_txt()
+// ===== 挂机系统：开始 =====
 #include "autoplay.hpp"
+// ===== 挂机系统：结束 =====
 #include "battle.hpp"
 #include "chrif.hpp" // charserver_name
 #include "clif.hpp"
@@ -477,8 +479,10 @@ bool party_invite( map_session_data& sd, map_session_data *tsd ){
 
 	tsd->party_invite = sd.status.party_id;
 	tsd->party_invite_account = sd.status.account_id;
+	// ===== 挂机系统：开始 =====
 	if( tsd->autoplay && tsd->autoplay->active && tsd->autoplay->config.auto_accept_party )
 		return party_reply_invite( *tsd, sd.status.party_id, 1 );
+	// ===== 挂机系统：结束 =====
 
 	clif_party_invite( sd, *tsd );
 
@@ -696,6 +700,7 @@ int32 party_member_added(int32 party_id,uint32 account_id,uint32 char_id, int32 
 	}
 
 	sd2 = map_id2sd(sd->party_invite_account);
+	// ===== 挂机系统：开始 =====
 	uint32 inviter_char_id = sd2 != nullptr ? sd2->status.char_id : 0;
 	if (inviter_char_id == 0 && p != nullptr && sd->party_invite_account != 0) {
 		for (const party_member& member : p->party.member) {
@@ -705,6 +710,7 @@ int32 party_member_added(int32 party_id,uint32 account_id,uint32 char_id, int32 
 			}
 		}
 	}
+	// ===== 挂机系统：结束 =====
 
 	sd->party_joining = false;
 	sd->party_invite = 0;
@@ -723,10 +729,12 @@ int32 party_member_added(int32 party_id,uint32 account_id,uint32 char_id, int32 
 	}
 
 	sd->status.party_id = party_id;
+	// ===== 挂机系统：开始 =====
 	if (sd->autoplay && sd->autoplay->active)
 		autoplay_sync_party_follow(*sd, inviter_char_id);
 	if (sd2 != nullptr && sd2->autoplay && sd2->autoplay->active)
 		autoplay_sync_party_follow(*sd2, char_id);
+	// ===== 挂机系统：结束 =====
 
 	clif_party_member_info( *p, *sd );
 	clif_party_option(p,sd,0x100);

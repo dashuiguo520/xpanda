@@ -535,7 +535,9 @@
 	export_constant(MF_NOBANK);
 	export_constant(MF_SPECIALPOPUP);
 	export_constant(MF_NOMACROCHECKER);
+	// ===== 挂机系统：开始 =====
 	export_constant(MF_NOAUTOPLAY);
+	// ===== 挂机系统：结束 =====
 	export_constant(MF_INVINCIBLE_TIME);
 	// ===== rAthena 移植 Pandas 地图标记常量：开始 =====
 	// 修改内容：向脚本引擎公开 nolootnormalmob 和 no_npc_selfdestruction_on_all。

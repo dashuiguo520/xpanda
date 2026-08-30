@@ -26,7 +26,9 @@
 #include <common/utils.hpp>
 
 #include "achievement.hpp"
+// ===== 挂机系统：开始 =====
 #include "autoplay.hpp"
+// ===== 挂机系统：结束 =====
 #include "atcommand.hpp"
 #include "battle.hpp"
 #include "battleground.hpp"
@@ -26046,6 +26048,7 @@ void packetdb_readdb(){
 /*==========================================
  *
  *------------------------------------------*/
+// ===== 挂机系统：开始 =====
 static void clif_autoplay_send_config(int32 fd, map_session_data& sd) {
 	PACKET_ZC_AUTOPLAY_CONFIG packet{}; packet.packetType = HEADER_ZC_AUTOPLAY_CONFIG;
 	packet.result = sd.autoplay && sd.autoplay->loaded;
@@ -26103,6 +26106,7 @@ void clif_parse_autoplay_status_get(int32 fd, map_session_data* sd) {
 	if (sd && sd->autoplay) { packet.state = sd->autoplay->state; packet.stop_reason = sd->autoplay->stop_reason; packet.target_id = sd->autoplay->target_id; packet.kills = sd->autoplay->kills; packet.loot_count = sd->autoplay->loot_count; }
 	WFIFOHEAD(fd, sizeof(packet)); memcpy(WFIFOP(fd, 0), &packet, sizeof(packet)); WFIFOSET(fd, sizeof(packet));
 }
+// ===== 挂机系统：结束 =====
 
 void do_init_clif(void) {
 	const int32 colors[COLOR_MAX] = {

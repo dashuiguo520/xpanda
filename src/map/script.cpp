@@ -38,7 +38,9 @@
 
 #include "achievement.hpp"
 #include "atcommand.hpp"
+// ===== 挂机系统：开始 =====
 #include "autoplay.hpp"
+// ===== 挂机系统：结束 =====
 #include "battle.hpp"
 #include "battleground.hpp"
 #include "cashshop.hpp"
@@ -13636,6 +13638,7 @@ BUILDIN_FUNC(isloggedin)
 	return SCRIPT_CMD_SUCCESS;
 }
 
+// ===== 挂机系统：开始 =====
 /*==========================================
  * Check whether a character is actively using autoplay.
  *------------------------------------------*/
@@ -13653,6 +13656,7 @@ BUILDIN_FUNC(isautoplay)
 	script_pushint(st, sd != nullptr && sd->autoplay != nullptr && sd->autoplay->active);
 	return SCRIPT_CMD_SUCCESS;
 }
+// ===== 挂机系统：结束 =====
 
 
 /*==========================================
@@ -28454,7 +28458,9 @@ struct script_function buildin_func[] = {
 	BUILDIN_DEF(addrid,"i?????"),
 	BUILDIN_DEF(detachrid,""),
 	BUILDIN_DEF(isloggedin,"i?"),
+	// ===== 挂机系统：开始 =====
 	BUILDIN_DEF(isautoplay,"?"),
+	// ===== 挂机系统：结束 =====
 	BUILDIN_DEF(setmapflagnosave,"ssii"),
 	BUILDIN_DEF(getmapflag,"si?"),
 	// ===== rAthena 移植 Pandas setmapflag 参数扩展：开始 =====

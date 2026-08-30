@@ -176,6 +176,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>$(SolutionDir)src;$(SolutionDir)3rdparty\rapidyaml\src;$(SolutionDir)3rdparty\rapidyaml\ext\c4core\src;$(SolutionDir)3rdparty\libconfig\;$(SolutionDir)3rdparty\mysql\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AdditionalOptions>/bigobj /utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -194,6 +195,7 @@
     <ClInclude Include="inter.hpp" />
     <ClInclude Include="int_achievement.hpp" />
     <ClInclude Include="int_auction.hpp" />
+    <ClInclude Include="int_autoplay.hpp" />
     <ClInclude Include="int_clan.hpp" />
     <ClInclude Include="int_elemental.hpp" />
     <ClInclude Include="int_guild.hpp" />
@@ -214,6 +216,7 @@
     <ClCompile Include="inter.cpp" />
     <ClCompile Include="int_achievement.cpp" />
     <ClCompile Include="int_auction.cpp" />
+    <ClCompile Include="int_autoplay.cpp" />
     <ClCompile Include="int_clan.cpp" />
     <ClCompile Include="int_elemental.cpp" />
     <ClCompile Include="int_guild.cpp" />
