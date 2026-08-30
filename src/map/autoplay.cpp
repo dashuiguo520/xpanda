@@ -296,40 +296,86 @@ static void autoplay_set_warp_step(s_autoplay_transition& step, npc_data& warp) 
 
 static bool autoplay_walk_transition(map_session_data& sd, s_autoplay_session& session, const s_autoplay_transition& transition);
 
-static bool autoplay_walk_toward(map_session_data& sd, int16 destination_x, int16 destination_y) {
-	if (unit_walktoxy(&sd, destination_x, destination_y, 0))
-		return true;
-	const int32 dx = destination_x - sd.x;
-	const int32 dy = destination_y - sd.y;
-	const int32 distance = std::max(std::abs(dx), std::abs(dy));
-	if (distance <= 1)
+static bool autoplay_long_waypoint(const map_session_data& sd, int16 destination_x, int16 destination_y, int16 range_x,
+	int16 range_y, int16& waypoint_x, int16& waypoint_y) {
+	if (sd.m < 0 || destination_x < 0 || destination_y < 0 || destination_x >= map[sd.m].xs || destination_y >= map[sd.m].ys)
 		return false;
-	const int32 stride = std::max(1, std::min(distance - 1, battle_config.max_walk_path - 1));
-	const int16 waypoint_x = static_cast<int16>(sd.x + dx * stride / distance);
-	const int16 waypoint_y = static_cast<int16>(sd.y + dy * stride / distance);
-	if ((waypoint_x != sd.x || waypoint_y != sd.y) && unit_walktoxy(&sd, waypoint_x, waypoint_y, 0))
-		return true;
-
-	struct s_candidate {
-		int16 x;
-		int16 y;
-		int64 distance;
+	const int32 width = map[sd.m].xs;
+	const int32 height = map[sd.m].ys;
+	const int32 left = std::max<int32>(0, destination_x - range_x);
+	const int32 right = std::min<int32>(width - 1, destination_x + range_x);
+	const int32 bottom = std::max<int32>(0, destination_y - range_y);
+	const int32 top = std::min<int32>(height - 1, destination_y + range_y);
+	const int32 start = sd.x + sd.y * width;
+	int32 goal = -1;
+	struct s_route_node {
+		int32 score;
+		int32 cost;
+		int32 index;
+		bool operator<(const s_route_node& other) const { return score > other.score; }
 	};
-	std::vector<s_candidate> candidates;
-	for (uint8 direction = DIR_NORTH; direction < DIR_MAX; ++direction) {
-		const int16 x = static_cast<int16>(sd.x + dirx[direction] * stride);
-		const int16 y = static_cast<int16>(sd.y + diry[direction] * stride);
-		const int64 remaining_x = destination_x - x;
-		const int64 remaining_y = destination_y - y;
-		candidates.push_back({ x, y, remaining_x * remaining_x + remaining_y * remaining_y });
+	std::vector<int32> costs(static_cast<size_t>(width) * height, INT_MAX);
+	std::vector<int32> parents(static_cast<size_t>(width) * height, -1);
+	std::priority_queue<s_route_node> pending;
+	auto heuristic = [&](int32 x, int32 y) {
+		const int32 dx = x < left ? left - x : x > right ? x - right : 0;
+		const int32 dy = y < bottom ? bottom - y : y > top ? y - top : 0;
+		return MOVE_DIAGONAL_COST * std::min(dx, dy) + MOVE_COST * (std::max(dx, dy) - std::min(dx, dy));
+	};
+	costs[start] = 0;
+	pending.push({ heuristic(sd.x, sd.y), 0, start });
+	while (!pending.empty()) {
+		const s_route_node current = pending.top();
+		pending.pop();
+		if (current.cost != costs[current.index])
+			continue;
+		const int32 x = current.index % width;
+		const int32 y = current.index / width;
+		if (x >= left && x <= right && y >= bottom && y <= top) {
+			goal = current.index;
+			break;
+		}
+		for (uint8 direction = DIR_NORTH; direction < DIR_MAX; ++direction) {
+			const int32 next_x = x + dirx[direction];
+			const int32 next_y = y + diry[direction];
+			if (next_x < 0 || next_y < 0 || next_x >= width || next_y >= height ||
+				map_getcell(sd.m, next_x, next_y, CELL_CHKNOPASS))
+				continue;
+			if (dirx[direction] != 0 && diry[direction] != 0 &&
+				(map_getcell(sd.m, x + dirx[direction], y, CELL_CHKNOPASS) || map_getcell(sd.m, x, y + diry[direction], CELL_CHKNOPASS)))
+				continue;
+			const int32 next = next_x + next_y * width;
+			const int32 next_cost = current.cost + (direction_diagonal(static_cast<directions>(direction)) ? MOVE_DIAGONAL_COST : MOVE_COST);
+			if (next_cost >= costs[next])
+				continue;
+			costs[next] = next_cost;
+			parents[next] = current.index;
+			pending.push({ next_cost + heuristic(next_x, next_y), next_cost, next });
+		}
 	}
-	std::sort(candidates.begin(), candidates.end(), [](const s_candidate& left, const s_candidate& right) {
-		return left.distance < right.distance;
-	});
-	for (const s_candidate& candidate : candidates)
-		if (unit_walktoxy(&sd, candidate.x, candidate.y, 0))
-			return true;
-	return false;
+	if (goal < 0)
+		return false;
+	std::vector<int32> reverse_path;
+	for (int32 current = goal; current != start; current = parents[current]) {
+		if (current < 0)
+			return false;
+		reverse_path.push_back(current);
+	}
+	const size_t steps = std::min<size_t>(reverse_path.size(), std::max(1, battle_config.max_walk_path - 1));
+	const int32 waypoint = reverse_path[reverse_path.size() - steps];
+	waypoint_x = static_cast<int16>(waypoint % width);
+	waypoint_y = static_cast<int16>(waypoint / width);
+	return true;
+}
+
+static bool autoplay_walk_toward(map_session_data& sd, int16 destination_x, int16 destination_y, int16 range_x = 0, int16 range_y = 0) {
+	if (range_x == 0 && range_y == 0 && unit_walktoxy(&sd, destination_x, destination_y, 0))
+		return true;
+	int16 waypoint_x = 0;
+	int16 waypoint_y = 0;
+	if (!autoplay_long_waypoint(sd, destination_x, destination_y, range_x, range_y, waypoint_x, waypoint_y))
+		return false;
+	return unit_walktoxy(&sd, waypoint_x, waypoint_y, 0);
 }
 
 bool autoplay_walk_to(map_session_data& sd, int16 x, int16 y) {
@@ -356,7 +402,7 @@ bool autoplay_walk_to(map_session_data& sd, int16 x, int16 y) {
 }
 
 void autoplay_walk_step(map_session_data& sd, int16 from_x, int16 from_y, int16 to_x, int16 to_y, uint16 duration) {
-	if (sd.autoplay && sd.autoplay->manual_walk_active)
+	if (sd.autoplay && (sd.autoplay->active || sd.autoplay->manual_walk_active))
 		clif_autoplay_walk_step(sd, from_x, from_y, to_x, to_y, duration);
 }
 
@@ -430,7 +476,9 @@ static bool autoplay_walk_transition(map_session_data& sd, s_autoplay_session& s
 		npc_event(&sd, "Warper::OnAutoplayWarp", 0);
 		return true;
 	}
-	if (!unit_is_walking(&sd) && !autoplay_walk_toward(sd, transition.source_x, transition.source_y)) {
+	if (!unit_is_walking(&sd) && !autoplay_walk_toward(sd, transition.source_x, transition.source_y,
+		transition.kind == AUTOPLAY_TRANSITION_WARP ? npc->u.warp.xs : 0,
+		transition.kind == AUTOPLAY_TRANSITION_WARP ? npc->u.warp.ys : 0)) {
 		session.state = AUTOPLAY_PAUSED;
 		session.stop_reason = AUTOPLAY_STOP_MAP;
 		++session.path_failures;
@@ -549,6 +597,12 @@ static bool autoplay_storage_item(const map_session_data& sd, const s_autoplay_s
 	return false;
 }
 
+static map_session_data* autoplay_storage_follow_target(map_session_data& sd, const s_autoplay_session& session) {
+	map_session_data* target = session.follow_char_id != 0 ? map_charid2sd(session.follow_char_id) : nullptr;
+	return target != nullptr && target != &sd && target->state.active && !status_isdead(*target) &&
+		sd.status.party_id != 0 && target->status.party_id == sd.status.party_id ? target : nullptr;
+}
+
 static bool autoplay_manage_storage(map_session_data& sd, s_autoplay_session& session) {
 	if (!session.storage_trip)
 		return false;
@@ -560,6 +614,7 @@ static bool autoplay_manage_storage(map_session_data& sd, s_autoplay_session& se
 		session.storage_route_map = -1;
 		return false;
 	}
+	const int16 storage_map = map_mapindex2mapid(mapindex_name2idx("prontera", nullptr));
 	unit_stop_attack(&sd);
 	session.target_id = 0;
 	if (sd.state.storage_flag == 1) {
@@ -585,12 +640,18 @@ static bool autoplay_manage_storage(map_session_data& sd, s_autoplay_session& se
 		return true;
 	}
 	if (session.storage_returning) {
-		if (sd.m != session.origin_map)
-			return autoplay_route_to_map(sd, session, session.origin_map, session.origin_x, session.origin_y,
-				session.storage_step, session.storage_route_map, &session.return_transition);
-		if (!check_distance_xy(sd.x, sd.y, session.origin_x, session.origin_y, session.config.search_range)) {
+		map_session_data* follow = autoplay_storage_follow_target(sd, session);
+		const int16 destination_map = follow != nullptr ? follow->m : session.origin_map;
+		const int16 destination_x = follow != nullptr ? follow->x : session.origin_x;
+		const int16 destination_y = follow != nullptr ? follow->y : session.origin_y;
+		const int32 destination_distance = follow != nullptr ? session.config.follow_distance : session.config.search_range;
+		if (sd.m != destination_map) {
+			return autoplay_route_to_map(sd, session, destination_map, destination_x, destination_y,
+				session.storage_step, session.storage_route_map, follow != nullptr ? nullptr : &session.return_transition);
+		}
+		if (!check_distance_xy(sd.x, sd.y, destination_x, destination_y, destination_distance)) {
 			session.state = AUTOPLAY_MOVING;
-			if (!unit_is_walking(&sd) && !autoplay_walk_toward(sd, session.origin_x, session.origin_y)) {
+			if (!unit_is_walking(&sd) && !autoplay_walk_toward(sd, destination_x, destination_y)) {
 				session.state = AUTOPLAY_PAUSED;
 				session.stop_reason = AUTOPLAY_STOP_MAP;
 			}
@@ -603,7 +664,6 @@ static bool autoplay_manage_storage(map_session_data& sd, s_autoplay_session& se
 		session.storage_route_map = -1;
 		return false;
 	}
-	const int16 storage_map = map_mapindex2mapid(mapindex_name2idx("prontera", nullptr));
 	if (sd.m != storage_map)
 		return autoplay_route_to_map(sd, session, storage_map, 165, 192, session.storage_step, session.storage_route_map);
 	npc_data* npc = autoplay_storage_npc(sd);
