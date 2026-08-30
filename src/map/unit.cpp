@@ -17,6 +17,7 @@
 #include <common/utils.hpp>
 
 #include "achievement.hpp"
+#include "autoplay.hpp"
 #include "battle.hpp"
 #include "battleground.hpp"
 #include "channel.hpp"
@@ -236,6 +237,11 @@ bool unit_walktoxy_nextcell(block_list& bl, bool sendMove, t_tick tick) {
 		ud->walktimer = INVALID_TIMER;
 	}
 	ud->walktimer = add_timer(tick + speed, unit_walktoxy_timer, bl.id, speed);
+	if (bl.type == BL_PC) {
+		auto& sd = reinterpret_cast<map_session_data&>(bl);
+		const enum directions direction = ud->walkpath.path[ud->walkpath.path_pos];
+		autoplay_walk_step(sd, sd.x, sd.y, sd.x + dirx[direction], sd.y + diry[direction], static_cast<uint16>(speed));
+	}
 
 	// Resend move packet when unit was damaged recently
 	if (sendMove || DIFF_TICK(tick, ud->dmg_tick) < MOVE_REFRESH_TIME) {

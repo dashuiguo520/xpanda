@@ -71,6 +71,10 @@ struct s_autoplay_session {
 	bool storage_moved = false;
 	bool storage_by_weight = false;
 	bool follow_offline_handled = false;
+	bool manual_walk_active = false;
+	int16 manual_walk_map = -1;
+	int16 manual_walk_x = 0;
+	int16 manual_walk_y = 0;
 };
 
 void do_init_autoplay();
@@ -86,5 +90,7 @@ void autoplay_config_saved(map_session_data& sd, bool success, uint32 revision);
 void autoplay_record_kill(map_session_data& sd);
 void autoplay_record_loot(map_session_data& sd, uint32 amount);
 void autoplay_record_attack_result(map_session_data& sd, bool missed);
+bool autoplay_walk_to(map_session_data& sd, int16 x, int16 y);
+void autoplay_walk_step(map_session_data& sd, int16 from_x, int16 from_y, int16 to_x, int16 to_y, uint16 duration);
 
 #endif

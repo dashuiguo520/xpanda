@@ -368,6 +368,10 @@ struct PACKET_ZC_AUTOPLAY_RESULT { uint16 packetType; uint8 operation; uint8 res
 DEFINE_PACKET_HEADER(ZC_AUTOPLAY_RESULT, 0x0c85);
 struct PACKET_ZC_AUTOPLAY_STATUS { uint16 packetType; uint8 state; uint8 stop_reason; uint32 target_id; uint32 kills; uint32 loot_count; } __attribute__((packed));
 DEFINE_PACKET_HEADER(ZC_AUTOPLAY_STATUS, 0x0c86);
+struct PACKET_CZ_AUTOPLAY_WALK_TO { uint16 packetType; uint16 x; uint16 y; } __attribute__((packed));
+DEFINE_PACKET_HEADER(CZ_AUTOPLAY_WALK_TO, 0x0c87);
+struct PACKET_ZC_AUTOPLAY_WALK_STEP { uint16 packetType; uint16 from_x; uint16 from_y; uint16 to_x; uint16 to_y; uint16 duration; } __attribute__((packed));
+DEFINE_PACKET_HEADER(ZC_AUTOPLAY_WALK_STEP, 0x0c88);
 #if !defined(sun) && (!defined(__NETBSD__) || __NetBSD_Version__ >= 600000000)
 #pragma pack(pop)
 #endif
@@ -378,6 +382,8 @@ static_assert(sizeof(PACKET_CZ_AUTOPLAY_STATUS_GET) == 2);
 static_assert(sizeof(PACKET_ZC_AUTOPLAY_CONFIG) == 495);
 static_assert(sizeof(PACKET_ZC_AUTOPLAY_RESULT) == 8);
 static_assert(sizeof(PACKET_ZC_AUTOPLAY_STATUS) == 16);
+static_assert(sizeof(PACKET_CZ_AUTOPLAY_WALK_TO) == 6);
+static_assert(sizeof(PACKET_ZC_AUTOPLAY_WALK_STEP) == 12);
 // ===== 挂机系统：结束 =====
 
 #if !defined(sun) && (!defined(__NETBSD__) || __NetBSD_Version__ >= 600000000) // NetBSD 5 and Solaris don't like pragma pack but accept the packed attribute

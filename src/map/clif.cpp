@@ -26106,6 +26106,23 @@ void clif_parse_autoplay_status_get(int32 fd, map_session_data* sd) {
 	if (sd && sd->autoplay) { packet.state = sd->autoplay->state; packet.stop_reason = sd->autoplay->stop_reason; packet.target_id = sd->autoplay->target_id; packet.kills = sd->autoplay->kills; packet.loot_count = sd->autoplay->loot_count; }
 	WFIFOHEAD(fd, sizeof(packet)); memcpy(WFIFOP(fd, 0), &packet, sizeof(packet)); WFIFOSET(fd, sizeof(packet));
 }
+
+void clif_parse_autoplay_walk_to(int32 fd, map_session_data* sd) {
+	if (!sd || pc_isdead(sd) || pc_cant_act(sd) || sd->progressbar.npc_id)
+		return;
+	autoplay_walk_to(*sd, static_cast<int16>(RFIFOW(fd, 2)), static_cast<int16>(RFIFOW(fd, 4)));
+}
+
+void clif_autoplay_walk_step(const map_session_data& sd, int16 from_x, int16 from_y, int16 to_x, int16 to_y, uint16 duration) {
+	PACKET_ZC_AUTOPLAY_WALK_STEP packet{};
+	packet.packetType = HEADER_ZC_AUTOPLAY_WALK_STEP;
+	packet.from_x = from_x;
+	packet.from_y = from_y;
+	packet.to_x = to_x;
+	packet.to_y = to_y;
+	packet.duration = duration;
+	clif_send(&packet, sizeof(packet), &sd, SELF);
+}
 // ===== 挂机系统：结束 =====
 
 void do_init_clif(void) {

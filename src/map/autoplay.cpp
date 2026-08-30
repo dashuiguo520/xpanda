@@ -332,6 +332,34 @@ static bool autoplay_walk_toward(map_session_data& sd, int16 destination_x, int1
 	return false;
 }
 
+bool autoplay_walk_to(map_session_data& sd, int16 x, int16 y) {
+	autoplay_attach(sd);
+	auto& session = *sd.autoplay;
+	if (session.active || sd.m < 0 || x < 0 || y < 0 || x >= map[sd.m].xs || y >= map[sd.m].ys ||
+		map_getcell(sd.m, x, y, CELL_CHKNOPASS))
+		return false;
+	session.manual_walk_map = sd.m;
+	session.manual_walk_x = x;
+	session.manual_walk_y = y;
+	session.manual_walk_active = x != sd.x || y != sd.y;
+	unit_stop_attack(&sd);
+	if (!session.manual_walk_active) {
+		unit_stop_walking(&sd, USW_FORCE_STOP | USW_RELEASE_TARGET);
+		return true;
+	}
+	if (unit_is_walking(&sd))
+		unit_stop_walking(&sd, USW_FORCE_STOP | USW_RELEASE_TARGET);
+	if (autoplay_walk_toward(sd, x, y))
+		return true;
+	session.manual_walk_active = false;
+	return false;
+}
+
+void autoplay_walk_step(map_session_data& sd, int16 from_x, int16 from_y, int16 to_x, int16 to_y, uint16 duration) {
+	if (sd.autoplay && sd.autoplay->manual_walk_active)
+		clif_autoplay_walk_step(sd, from_x, from_y, to_x, to_y, duration);
+}
+
 static bool autoplay_route_to_map(map_session_data& sd, s_autoplay_session& session, int16 destination_map,
 	int16 destination_x, int16 destination_y, s_autoplay_transition& step, int16& route_map,
 	const s_autoplay_transition* preferred = nullptr) {
@@ -1123,7 +1151,7 @@ static int32 autoplay_timer(int32 tid, t_tick tick, int32 id, intptr_t data) {
 	std::vector<map_session_data*> active_characters;
 	s_mapiterator* iter = mapit_getallusers();
 	for (auto* sd = static_cast<map_session_data*>(mapit_first(iter)); mapit_exists(iter); sd = static_cast<map_session_data*>(mapit_next(iter)))
-		if (sd->autoplay && sd->autoplay->active)
+		if (sd->autoplay && (sd->autoplay->active || sd->autoplay->manual_walk_active))
 			active_characters.push_back(sd);
 	mapit_free(iter);
 	if (active_characters.empty()) {
@@ -1134,7 +1162,18 @@ static int32 autoplay_timer(int32 tid, t_tick tick, int32 id, intptr_t data) {
 	for (size_t i = 0; i < count; ++i) {
 		if (autoplay_cursor >= active_characters.size())
 			autoplay_cursor = 0;
-		autoplay_tick_character(*active_characters[autoplay_cursor++], tick);
+		auto& sd = *active_characters[autoplay_cursor++];
+		auto& session = *sd.autoplay;
+		if (session.manual_walk_active) {
+			if (!sd.state.active || status_isdead(sd) || sd.m != session.manual_walk_map ||
+				(sd.x == session.manual_walk_x && sd.y == session.manual_walk_y)) {
+				session.manual_walk_active = false;
+			} else if (!unit_is_walking(&sd) && !autoplay_walk_toward(sd, session.manual_walk_x, session.manual_walk_y)) {
+				session.manual_walk_active = false;
+			}
+			continue;
+		}
+		autoplay_tick_character(sd, tick);
 	}
 	return 0;
 }
@@ -1158,6 +1197,7 @@ void autoplay_detach(map_session_data& sd) {
 		autoplay_restore_autoloot(sd, *sd.autoplay);
 		sd.autoplay->follow_char_id = 0;
 		sd.autoplay->active = false;
+		sd.autoplay->manual_walk_active = false;
 	}
 }
 
@@ -1261,6 +1301,7 @@ bool autoplay_control(map_session_data& sd, e_autoplay_control control) {
 		(!pc_has_permission(&sd, PC_PERM_AUTOPLAY) || status_isdead(sd) || autoplay_forbidden(sd)))
 		return false;
 	if (control == AUTOPLAY_CONTROL_START || control == AUTOPLAY_CONTROL_RESUME) {
+		session.manual_walk_active = false;
 		if (control == AUTOPLAY_CONTROL_START) {
 			session.kills = 0;
 			session.loot_count = 0;

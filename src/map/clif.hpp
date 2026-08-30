@@ -1558,6 +1558,8 @@ void clif_parse_autoplay_config_get(int32 fd, map_session_data* sd);
 void clif_parse_autoplay_config_save(int32 fd, map_session_data* sd);
 void clif_parse_autoplay_control(int32 fd, map_session_data* sd);
 void clif_parse_autoplay_status_get(int32 fd, map_session_data* sd);
+void clif_parse_autoplay_walk_to(int32 fd, map_session_data* sd);
+void clif_autoplay_walk_step(const map_session_data& sd, int16 from_x, int16 from_y, int16 to_x, int16 to_y, uint16 duration);
 // ===== 挂机系统：结束 =====
 // ===== rAthena 移植 Pandas GoldPC 客户端接口：结束 =====
 
