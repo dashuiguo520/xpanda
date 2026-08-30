@@ -381,7 +381,7 @@ static bool autoplay_walk_toward(map_session_data& sd, int16 destination_x, int1
 bool autoplay_walk_to(map_session_data& sd, int16 x, int16 y) {
 	autoplay_attach(sd);
 	auto& session = *sd.autoplay;
-	if (session.active || sd.m < 0 || x < 0 || y < 0 || x >= map[sd.m].xs || y >= map[sd.m].ys ||
+	if (sd.m < 0 || x < 0 || y < 0 || x >= map[sd.m].xs || y >= map[sd.m].ys ||
 		map_getcell(sd.m, x, y, CELL_CHKNOPASS))
 		return false;
 	session.manual_walk_map = sd.m;

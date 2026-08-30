@@ -59,6 +59,7 @@ add_library(minicore)
 
 target_sources(minicore PRIVATE
 	"${COMMON_SOURCE_DIR}/core.cpp"
+	"${COMMON_SOURCE_DIR}/encoding.cpp"
 	"${COMMON_SOURCE_DIR}/malloc.cpp"
 	"${COMMON_SOURCE_DIR}/showmsg.cpp"
 	"${COMMON_SOURCE_DIR}/strlib.cpp"

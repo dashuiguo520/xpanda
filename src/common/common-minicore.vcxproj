@@ -42,6 +42,7 @@
     <ClCompile Include="conf.cpp" />
     <ClCompile Include="core.cpp" />
     <ClCompile Include="des.cpp" />
+    <ClCompile Include="encoding.cpp" />
     <ClCompile Include="grfio.cpp" />
     <ClCompile Include="malloc.cpp" />
     <ClCompile Include="mapindex.cpp" />
