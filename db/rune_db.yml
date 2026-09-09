@@ -5628,7 +5628,7 @@ Body:
     Name: EPISODE19
     Set:
       - Id: 1260023
-        Name: Rp_Ep19_Armor_A
+        Name: Rt_Ep19_SnowFlower
         Books:
           - Slot: 2
             Name: Rp_Ep19_Armor_A
@@ -5789,8 +5789,6 @@ Body:
                 Amount: 2
               - Material: Ep19_Snow_Flower
                 Amount: 18
-
-# ===== rAthena 移植 Pandas 符文石板数据：结束 =====
       - Id: 1260024
         Name: Rt_Ep19_Glacier
         Books:
@@ -8735,3 +8733,3813 @@ Body:
                 Amount: 2
               - Material: Ep19_Snow_Flower
                 Amount: 18
+  - Id: 21
+    Name: EPISODE21
+    Set:
+      - Id: 1260048
+        Name: Rt_Ep21_Gaebolg
+        Books:
+          - Slot: 2
+            Name: Rp_Ep21_GaebolgA
+          - Slot: 3
+            Name: Rp_Ep21_GaebolgB
+        Activation:
+          - Material: Ep21_Wigner_Ticket
+            Amount: 250
+          - Material: Imperfect_Rune
+            Amount: 150
+          - Material: Perfect_Rune
+            Amount: 1
+        Reward:
+          - Slot: 1
+            Name: Rt_Ep21_Gaebolg_A
+          - Slot: 2
+            Name: Imperfect_Rune
+          - Slot: 7
+            Name: Rt_Ep21_Gaebolg_C
+        Scripts:
+          - Amount: 2
+            Script: |
+              .@val = 7 + (getupgrade_rune() / 3);
+              bonus2 bAddRace2,RC2_EPISODE21,.@val;
+              bonus2 bMagicAddRace2,RC2_EPISODE21,.@val;
+        Upgrades:
+          - Grade: 0
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 1
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 2
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 3
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 4
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 4
+          - Grade: 5
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 5
+          - Grade: 6
+            Chance: 10500
+            ChancePerFail: 6300
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 6
+          - Grade: 7
+            Chance: 9000
+            ChancePerFail: 5400
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 7
+          - Grade: 8
+            Chance: 7500
+            ChancePerFail: 4500
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ep21_Wigner_Ticket
+                Amount: 8
+          - Grade: 9
+            Chance: 6000
+            ChancePerFail: 3600
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ep21_Wigner_Ticket
+                Amount: 9
+          - Grade: 10
+            Chance: 4500
+            ChancePerFail: 2700
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 10
+          - Grade: 11
+            Chance: 3000
+            ChancePerFail: 1800
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 12
+          - Grade: 12
+            Chance: 1500
+            ChancePerFail: 900
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 14
+          - Grade: 13
+            Chance: 750
+            ChancePerFail: 450
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 19
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 16
+          - Grade: 14
+            Chance: 150
+            ChancePerFail: 90
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 18
+      - Id: 1260049
+        Name: Rt_Ep21_Icy
+        Books:
+          - Slot: 1
+            Name: Rp_Ep21_Soft
+          - Slot: 2
+            Name: Rp_Ep21_Shellfish
+          - Slot: 3
+            Name: Rp_Ep21_Beast
+        Activation:
+          - Material: Ep21_Wigner_Ticket
+            Amount: 450
+          - Material: Imperfect_Rune
+            Amount: 150
+          - Material: Perfect_Rune
+            Amount: 1
+        Reward:
+          - Slot: 1
+            Name: Rt_Ep21_Icy_A
+          - Slot: 2
+            Name: Rt_Ep21_Icy_2
+          - Slot: 3
+            Name: Imperfect_Rune
+          - Slot: 7
+            Name: Rt_Ep21_Icy_C
+        Scripts:
+          - Amount: 2
+            Script: |
+              bonus2 bAddRace,RC_Undead,10;
+              bonus2 bMagicAddRace,RC_Undead,10;
+              bonus2 bAddRace,RC_Insect,10;
+              bonus2 bMagicAddRace,RC_Insect,10;
+          - Amount: 3
+            Script: |
+              .@val = 3 + (getupgrade_rune() / 3);
+              bonus2 bAddSize,Size_Small,.@val;
+              bonus2 bMagicAddSize,Size_Small,.@val;
+        Upgrades:
+          - Grade: 0
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 1
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 2
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 3
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 4
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 4
+          - Grade: 5
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 5
+          - Grade: 6
+            Chance: 10500
+            ChancePerFail: 6300
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 6
+          - Grade: 7
+            Chance: 9000
+            ChancePerFail: 5400
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 7
+          - Grade: 8
+            Chance: 7500
+            ChancePerFail: 4500
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ep21_Wigner_Ticket
+                Amount: 8
+          - Grade: 9
+            Chance: 6000
+            ChancePerFail: 3600
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ep21_Wigner_Ticket
+                Amount: 9
+          - Grade: 10
+            Chance: 4500
+            ChancePerFail: 2700
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 10
+          - Grade: 11
+            Chance: 3000
+            ChancePerFail: 1800
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 12
+          - Grade: 12
+            Chance: 1500
+            ChancePerFail: 900
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 14
+          - Grade: 13
+            Chance: 750
+            ChancePerFail: 450
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 19
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 16
+          - Grade: 14
+            Chance: 150
+            ChancePerFail: 90
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 18
+      - Id: 1260050
+        Name: Rt_Ep21_Yorker
+        Books:
+          - Slot: 0
+            Name: Rp_Ep21_Yorker
+          - Slot: 3
+            Name: Rp_Ep21_Yoster
+        Activation:
+          - Material: Ep21_Wigner_Ticket
+            Amount: 450
+          - Material: Imperfect_Rune
+            Amount: 150
+          - Material: Perfect_Rune
+            Amount: 1
+        Reward:
+          - Slot: 1
+            Name: Rt_Ep21_Yorker_A
+          - Slot: 2
+            Name: Cubic_Dia
+          - Slot: 7
+            Name: Rt_Ep21_Yorker_C
+        Scripts:
+          - Amount: 2
+            Script: |
+              bonus bShortAtkRate,4 + (getupgrade_rune() / 3);
+        Upgrades:
+          - Grade: 0
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 1
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 2
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 3
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 4
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 4
+          - Grade: 5
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 5
+          - Grade: 6
+            Chance: 10500
+            ChancePerFail: 6300
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 6
+          - Grade: 7
+            Chance: 9000
+            ChancePerFail: 5400
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 7
+          - Grade: 8
+            Chance: 7500
+            ChancePerFail: 4500
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ep21_Wigner_Ticket
+                Amount: 8
+          - Grade: 9
+            Chance: 6000
+            ChancePerFail: 3600
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ep21_Wigner_Ticket
+                Amount: 9
+          - Grade: 10
+            Chance: 4500
+            ChancePerFail: 2700
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 10
+          - Grade: 11
+            Chance: 3000
+            ChancePerFail: 1800
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 12
+          - Grade: 12
+            Chance: 1500
+            ChancePerFail: 900
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 14
+          - Grade: 13
+            Chance: 750
+            ChancePerFail: 450
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 19
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 16
+          - Grade: 14
+            Chance: 150
+            ChancePerFail: 90
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 18
+      - Id: 1260051
+        Name: Rt_Ep21_Working
+        Books:
+          - Slot: 0
+            Name: Rp_Ep21_Yoster
+          - Slot: 1
+            Name: Rp_Ep21_Yormi
+        Activation:
+          - Material: Ep21_Wigner_Ticket
+            Amount: 450
+          - Material: Imperfect_Rune
+            Amount: 150
+          - Material: Perfect_Rune
+            Amount: 1
+        Reward:
+          - Slot: 1
+            Name: Rt_Ep21_Working_A
+          - Slot: 2
+            Name: Imperfect_Rune
+          - Slot: 7
+            Name: Rt_Ep21_Working_C
+        Scripts:
+          - Amount: 2
+            Script: |
+              bonus bMaxHPrate,3 + ((getupgrade_rune() / 5) * 3);
+        Upgrades:
+          - Grade: 0
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 1
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 2
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 3
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 4
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 4
+          - Grade: 5
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 5
+          - Grade: 6
+            Chance: 10500
+            ChancePerFail: 6300
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 6
+          - Grade: 7
+            Chance: 9000
+            ChancePerFail: 5400
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 7
+          - Grade: 8
+            Chance: 7500
+            ChancePerFail: 4500
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ep21_Wigner_Ticket
+                Amount: 8
+          - Grade: 9
+            Chance: 6000
+            ChancePerFail: 3600
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ep21_Wigner_Ticket
+                Amount: 9
+          - Grade: 10
+            Chance: 4500
+            ChancePerFail: 2700
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 10
+          - Grade: 11
+            Chance: 3000
+            ChancePerFail: 1800
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 12
+          - Grade: 12
+            Chance: 1500
+            ChancePerFail: 900
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 14
+          - Grade: 13
+            Chance: 750
+            ChancePerFail: 450
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 19
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 16
+          - Grade: 14
+            Chance: 150
+            ChancePerFail: 90
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 18
+      - Id: 1260052
+        Name: Rt_Ep21_Admin
+        Books:
+          - Slot: 0
+            Name: Rp_Ep21_Yoscopus
+          - Slot: 2
+            Name: Rp_Ep21_Yordos
+          - Slot: 3
+            Name: Rp_Ep21_Bishop
+        Activation:
+          - Material: Ep21_Wigner_Ticket
+            Amount: 450
+          - Material: Imperfect_Rune
+            Amount: 150
+          - Material: Perfect_Rune
+            Amount: 1
+        Reward:
+          - Slot: 1
+            Name: Rt_Ep21_Admin_A
+          - Slot: 2
+            Name: Rt_Ep21_Admin_2
+          - Slot: 3
+            Name: Cubic_Dia
+          - Slot: 7
+            Name: Rt_Ep21_Admin_C
+        Scripts:
+          - Amount: 2
+            Script: |
+              .@val = 2 + (getupgrade_rune() / 3);
+              bonus2 bMagicAddSize,Size_Medium,.@val;
+              bonus2 bMagicAddSize,Size_Large,.@val;
+          - Amount: 3
+            Script: |
+              bonus2 bMagicAddSize,Size_Medium,3;
+              bonus2 bMagicAddSize,Size_Large,3;
+        Upgrades:
+          - Grade: 0
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 1
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 2
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 3
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 4
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 4
+          - Grade: 5
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 5
+          - Grade: 6
+            Chance: 10500
+            ChancePerFail: 6300
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 6
+          - Grade: 7
+            Chance: 9000
+            ChancePerFail: 5400
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 7
+          - Grade: 8
+            Chance: 7500
+            ChancePerFail: 4500
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ep21_Wigner_Ticket
+                Amount: 8
+          - Grade: 9
+            Chance: 6000
+            ChancePerFail: 3600
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ep21_Wigner_Ticket
+                Amount: 9
+          - Grade: 10
+            Chance: 4500
+            ChancePerFail: 2700
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 10
+          - Grade: 11
+            Chance: 3000
+            ChancePerFail: 1800
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 12
+          - Grade: 12
+            Chance: 1500
+            ChancePerFail: 900
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 14
+          - Grade: 13
+            Chance: 750
+            ChancePerFail: 450
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 19
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 16
+          - Grade: 14
+            Chance: 150
+            ChancePerFail: 90
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 18
+      - Id: 1260053
+        Name: Rt_Ep21_Purify
+        Books:
+          - Slot: 0
+            Name: Rp_Ep21_Shellfish
+          - Slot: 1
+            Name: Rp_Ep21_Beast
+          - Slot: 2
+            Name: Rp_Ep21_Yoster
+          - Slot: 3
+            Name: Rp_Ep21_Yormi
+          - Slot: 4
+            Name: Rp_Ep21_Bishop
+        Activation:
+          - Material: Ep21_Wigner_Ticket
+            Amount: 450
+          - Material: Imperfect_Rune
+            Amount: 150
+          - Material: Perfect_Rune
+            Amount: 1
+        Reward:
+          - Slot: 1
+            Name: Rt_Ep21_Purify_A
+          - Slot: 2
+            Name: Imperfect_Rune
+          - Slot: 3
+            Name: Rt_Ep21_Purify_3
+          - Slot: 4
+            Name: Perfect_Rune
+          - Slot: 5
+            Name: Rt_Ep21_Purify_5
+          - Slot: 7
+            Name: Rt_Ep21_Purify_C
+        Scripts:
+          - Amount: 2
+            Script: |
+              bonus bLongAtkRate,4 + (getupgrade_rune() / 3);
+          - Amount: 3
+            Script: |
+              bonus bCrate,3;
+              bonus bCritAtkRate,12;
+          - Amount: 5
+            Script: |
+              bonus bVariableCastrate,-6 - (getupgrade_rune() / 3);
+        Upgrades:
+          - Grade: 0
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 1
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 2
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 3
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 4
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 4
+          - Grade: 5
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 5
+          - Grade: 6
+            Chance: 10500
+            ChancePerFail: 6300
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 6
+          - Grade: 7
+            Chance: 9000
+            ChancePerFail: 5400
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 7
+          - Grade: 8
+            Chance: 7500
+            ChancePerFail: 4500
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ep21_Wigner_Ticket
+                Amount: 8
+          - Grade: 9
+            Chance: 6000
+            ChancePerFail: 3600
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ep21_Wigner_Ticket
+                Amount: 9
+          - Grade: 10
+            Chance: 4500
+            ChancePerFail: 2700
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 10
+          - Grade: 11
+            Chance: 3000
+            ChancePerFail: 1800
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 12
+          - Grade: 12
+            Chance: 1500
+            ChancePerFail: 900
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 14
+          - Grade: 13
+            Chance: 750
+            ChancePerFail: 450
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 19
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 16
+          - Grade: 14
+            Chance: 150
+            ChancePerFail: 90
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 18
+      - Id: 1260054
+        Name: Rt_Ep21_Aid
+        Books:
+          - Slot: 0
+            Name: Rp_Ep21_Soft
+          - Slot: 1
+            Name: Rp_Ep21_Yorker
+          - Slot: 2
+            Name: Rp_Ep21_Yoster
+          - Slot: 3
+            Name: Rp_Ep21_Yordos
+        Activation:
+          - Material: Ep21_Wigner_Ticket
+            Amount: 450
+          - Material: Imperfect_Rune
+            Amount: 150
+          - Material: Perfect_Rune
+            Amount: 1
+        Reward:
+          - Slot: 1
+            Name: Rt_Ep21_Aid_A
+          - Slot: 2
+            Name: Rt_Ep21_Aid_2
+          - Slot: 3
+            Name: Cubic_Dia
+          - Slot: 4
+            Name: Rt_Ep21_Aid_4
+          - Slot: 7
+            Name: Rt_Ep21_Aid_C
+        Scripts:
+          - Amount: 2
+            Script: |
+              bonus bMaxSPrate,5 + ((getupgrade_rune() / 3) * 2);
+          - Amount: 4
+            Script: |
+              bonus bDelayrate,-5 - (getupgrade_rune() / 5);
+        Upgrades:
+          - Grade: 0
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 1
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 2
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 3
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 4
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 4
+          - Grade: 5
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 5
+          - Grade: 6
+            Chance: 10500
+            ChancePerFail: 6300
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 6
+          - Grade: 7
+            Chance: 9000
+            ChancePerFail: 5400
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 7
+          - Grade: 8
+            Chance: 7500
+            ChancePerFail: 4500
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ep21_Wigner_Ticket
+                Amount: 8
+          - Grade: 9
+            Chance: 6000
+            ChancePerFail: 3600
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ep21_Wigner_Ticket
+                Amount: 9
+          - Grade: 10
+            Chance: 4500
+            ChancePerFail: 2700
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 10
+          - Grade: 11
+            Chance: 3000
+            ChancePerFail: 1800
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 12
+          - Grade: 12
+            Chance: 1500
+            ChancePerFail: 900
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 14
+          - Grade: 13
+            Chance: 750
+            ChancePerFail: 450
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 19
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 16
+          - Grade: 14
+            Chance: 150
+            ChancePerFail: 90
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 18
+      - Id: 1260055
+        Name: Rt_Ep21_Company
+        Books:
+          - Slot: 0
+            Name: Rp_Ep21_Arbiter
+          - Slot: 1
+            Name: Rp_Ep21_Bishop
+          - Slot: 2
+            Name: Rp_Ep21_Yoscopus
+          - Slot: 3
+            Name: Rp_Ep21_Yordos
+          - Slot: 4
+            Name: Rp_Ep21_Yormi
+          - Slot: 5
+            Name: Rp_Ep21_Yoster
+        Activation:
+          - Material: Ep21_Wigner_Ticket
+            Amount: 750
+          - Material: Imperfect_Rune
+            Amount: 250
+          - Material: Perfect_Rune
+            Amount: 1
+        Reward:
+          - Slot: 1
+            Name: Rt_Ep21_Company_A
+          - Slot: 2
+            Name: Cubic_Dia
+          - Slot: 3
+            Name: Rt_Ep21_Company_3
+          - Slot: 4
+            Name: Perfect_Rune
+          - Slot: 5
+            Name: Rt_Ep21_Company_5
+          - Slot: 6
+            Name: Blacksmith_Blessing
+          - Slot: 7
+            Name: Rt_Ep21_Company_C
+        Scripts:
+          - Amount: 2
+            Script: |
+              .@val = 6 + (getupgrade_rune() / 3);
+              bonus bShortAtkRate,.@val;
+              bonus bLongAtkRate,.@val;
+          - Amount: 4
+            Script: |
+              bonus bPAtk,20;
+              bonus bShortAtkRate,4;
+              bonus bLongAtkRate,4;
+          - Amount: 6
+            Script: |
+              bonus bCritical,15;
+              bonus bCritAtkRate,35 + ((getupgrade_rune() / 3) * 5);
+        Upgrades:
+          - Grade: 0
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 1
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 2
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 3
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 4
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 4
+          - Grade: 5
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 5
+          - Grade: 6
+            Chance: 10500
+            ChancePerFail: 6300
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 6
+          - Grade: 7
+            Chance: 9000
+            ChancePerFail: 5400
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 7
+          - Grade: 8
+            Chance: 7500
+            ChancePerFail: 4500
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ep21_Wigner_Ticket
+                Amount: 8
+          - Grade: 9
+            Chance: 6000
+            ChancePerFail: 3600
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ep21_Wigner_Ticket
+                Amount: 9
+          - Grade: 10
+            Chance: 4500
+            ChancePerFail: 2700
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 10
+          - Grade: 11
+            Chance: 3000
+            ChancePerFail: 1800
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 12
+          - Grade: 12
+            Chance: 1500
+            ChancePerFail: 900
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 14
+          - Grade: 13
+            Chance: 750
+            ChancePerFail: 450
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 19
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 16
+          - Grade: 14
+            Chance: 150
+            ChancePerFail: 90
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 18
+      - Id: 1260056
+        Name: Rt_Ep21_Horn
+        Books:
+          - Slot: 0
+            Name: Rp_Ep21_Soft
+          - Slot: 1
+            Name: Rp_Ep21_Yorker
+          - Slot: 2
+            Name: Rp_Ep21_Horn
+          - Slot: 4
+            Name: Rp_Ep21_Shellfish
+          - Slot: 5
+            Name: Rp_Ep21_Beast
+        Activation:
+          - Material: Ep21_Wigner_Ticket
+            Amount: 750
+          - Material: Imperfect_Rune
+            Amount: 250
+          - Material: Perfect_Rune
+            Amount: 1
+        Reward:
+          - Slot: 1
+            Name: Rt_Ep21_Horn_A
+          - Slot: 2
+            Name: Cubic_Dia
+          - Slot: 3
+            Name: Rt_Ep21_Horn_3
+          - Slot: 4
+            Name: Perfect_Rune
+          - Slot: 5
+            Name: Rt_Ep21_Horn_5
+          - Slot: 7
+            Name: Rt_Ep21_Horn_C
+        Scripts:
+          - Amount: 2
+            Script: |
+              bonus bSMatk,20 + ((getupgrade_rune() / 3) * 4);
+          - Amount: 5
+            Script: |
+              .@val = 25 + ((getupgrade_rune() / 3) * 3);
+              bonus2 bMagicAtkEle,Ele_Poison,.@val;
+              bonus2 bMagicAtkEle,Ele_Earth,.@val;
+              bonus2 bMagicAtkEle,Ele_Wind,.@val;
+              bonus2 bMagicAtkEle,Ele_Water,.@val;
+        Upgrades:
+          - Grade: 0
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 1
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 2
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 3
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 3
+          - Grade: 4
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 4
+          - Grade: 5
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 5
+          - Grade: 6
+            Chance: 10500
+            ChancePerFail: 6300
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 6
+          - Grade: 7
+            Chance: 9000
+            ChancePerFail: 5400
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ep21_Wigner_Ticket
+                Amount: 7
+          - Grade: 8
+            Chance: 7500
+            ChancePerFail: 4500
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ep21_Wigner_Ticket
+                Amount: 8
+          - Grade: 9
+            Chance: 6000
+            ChancePerFail: 3600
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ep21_Wigner_Ticket
+                Amount: 9
+          - Grade: 10
+            Chance: 4500
+            ChancePerFail: 2700
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 10
+          - Grade: 11
+            Chance: 3000
+            ChancePerFail: 1800
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 12
+          - Grade: 12
+            Chance: 1500
+            ChancePerFail: 900
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 14
+          - Grade: 13
+            Chance: 750
+            ChancePerFail: 450
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 19
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 16
+          - Grade: 14
+            Chance: 150
+            ChancePerFail: 90
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 18
+      - Id: 1260057
+        Name: Rt_Ep21_Tan
+        Books:
+          - Slot: 2
+            Name: Rp_Ep21_Cap
+          - Slot: 3
+            Name: Rp_Ep21_Tan
+        Activation:
+          - Material: Ep21_Wigner_Ticket
+            Amount: 850
+          - Material: Imperfect_Rune
+            Amount: 300
+          - Material: Perfect_Rune
+            Amount: 1
+        Reward:
+          - Slot: 1
+            Name: Rt_Ep21_Tan_A
+          - Slot: 2
+            Name: Blacksmith_Blessing
+          - Slot: 7
+            Name: Rt_Ep21_Tan_C
+        Scripts:
+          - Amount: 2
+            Script: |
+              .@val = getupgrade_rune();
+              bonus2 bAddClass,Class_Boss,20 + .@val;
+              bonus2 bAddClass,Class_Normal,5 + .@val;
+        Upgrades:
+          - Grade: 0
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 7
+          - Grade: 1
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 7
+          - Grade: 2
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 7
+          - Grade: 3
+            Chance: 10500
+            ChancePerFail: 6300
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ep21_Wigner_Ticket
+                Amount: 7
+          - Grade: 4
+            Chance: 10500
+            ChancePerFail: 6300
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ep21_Wigner_Ticket
+                Amount: 8
+          - Grade: 5
+            Chance: 9000
+            ChancePerFail: 5400
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 19
+              - Material: Ep21_Wigner_Ticket
+                Amount: 9
+          - Grade: 6
+            Chance: 7500
+            ChancePerFail: 4500
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 21
+              - Material: Ep21_Wigner_Ticket
+                Amount: 10
+          - Grade: 7
+            Chance: 6000
+            ChancePerFail: 3600
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 23
+              - Material: Ep21_Wigner_Ticket
+                Amount: 11
+          - Grade: 8
+            Chance: 4500
+            ChancePerFail: 2700
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 25
+              - Material: Ep21_Wigner_Ticket
+                Amount: 12
+          - Grade: 9
+            Chance: 3000
+            ChancePerFail: 1800
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 27
+              - Material: Ep21_Wigner_Ticket
+                Amount: 13
+          - Grade: 10
+            Chance: 1500
+            ChancePerFail: 900
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 29
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 15
+          - Grade: 11
+            Chance: 750
+            ChancePerFail: 450
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 31
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 18
+          - Grade: 12
+            Chance: 750
+            ChancePerFail: 450
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 35
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 21
+          - Grade: 13
+            Chance: 370
+            ChancePerFail: 220
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 39
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep21_Wigner_Ticket
+                Amount: 24
+          - Grade: 14
+            Chance: 70
+            ChancePerFail: 40
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 45
+              - Material: Perfect_Rune
+                Amount: 2
+              - Material: Ep21_Wigner_Ticket
+                Amount: 27
+  - Id: 22
+    Name: CHAPTER01
+    Set:
+      - Id: 1260045
+        Name: Rt_Ch01_Armor
+        Books:
+          - Slot: 2
+            Name: Rp_Ch01_Armor_A
+          - Slot: 3
+            Name: Rp_Ch01_Armor_B
+        Activation:
+          - Material: Ch1_Root_Coin
+            Amount: 100
+          - Material: Ch1_Mana_Ring
+            Amount: 100
+          - Material: Imperfect_Rune
+            Amount: 150
+          - Material: Perfect_Rune
+            Amount: 1
+        Reward:
+          - Slot: 1
+            Name: Rt_Ch01_Armor_A
+          - Slot: 2
+            Name: Imperfect_Rune
+          - Slot: 7
+            Name: Rt_Ch01_Armor_C
+        Scripts:
+          - Amount: 2
+            Script: |
+              .@val = 2 + ((getupgrade_rune() / 3) * 3);
+              bonus2 bAddRace2,RC2_DESTROYED_VALKYRIE_REALM,.@val;
+              bonus2 bMagicAddRace2,RC2_DESTROYED_VALKYRIE_REALM,.@val;
+        Upgrades:
+          - Grade: 0
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+              - Material: Ch1_Root_Coin
+                Amount: 2
+          - Grade: 1
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+              - Material: Ch1_Root_Coin
+                Amount: 2
+          - Grade: 2
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+              - Material: Ch1_Root_Coin
+                Amount: 2
+          - Grade: 3
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+              - Material: Ch1_Root_Coin
+                Amount: 2
+          - Grade: 4
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+              - Material: Ch1_Root_Coin
+                Amount: 2
+          - Grade: 5
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+              - Material: Ch1_Root_Coin
+                Amount: 3
+          - Grade: 6
+            Chance: 10500
+            ChancePerFail: 6300
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+              - Material: Ch1_Root_Coin
+                Amount: 3
+          - Grade: 7
+            Chance: 9000
+            ChancePerFail: 5400
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+              - Material: Ch1_Root_Coin
+                Amount: 3
+          - Grade: 8
+            Chance: 7500
+            ChancePerFail: 4500
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+              - Material: Ch1_Root_Coin
+                Amount: 3
+          - Grade: 9
+            Chance: 6000
+            ChancePerFail: 3600
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+              - Material: Ch1_Root_Coin
+                Amount: 4
+          - Grade: 10
+            Chance: 4500
+            ChancePerFail: 2700
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+              - Material: Ch1_Root_Coin
+                Amount: 4
+          - Grade: 11
+            Chance: 3000
+            ChancePerFail: 1800
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+              - Material: Ch1_Root_Coin
+                Amount: 4
+          - Grade: 12
+            Chance: 1500
+            ChancePerFail: 900
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Mana_Ring
+                Amount: 5
+              - Material: Ch1_Root_Coin
+                Amount: 5
+          - Grade: 13
+            Chance: 750
+            ChancePerFail: 450
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 19
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Mana_Ring
+                Amount: 5
+              - Material: Ch1_Root_Coin
+                Amount: 5
+          - Grade: 14
+            Chance: 150
+            ChancePerFail: 90
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Mana_Ring
+                Amount: 6
+              - Material: Ch1_Root_Coin
+                Amount: 6
+      - Id: 1260046
+        Name: Rt_Ch01_Dimen
+        Books:
+          - Slot: 0
+            Name: Rp_Ch01_Foot_BG
+          - Slot: 1
+            Name: Rp_Ch01_Foot_HB
+          - Slot: 3
+            Name: Rp_Ch01_Foot_SS
+          - Slot: 4
+            Name: Rp_Ch01_Foot_MS
+          - Slot: 5
+            Name: Rp_Ch01_Foot_EB
+        Activation:
+          - Material: Ch1_Root_Coin
+            Amount: 100
+          - Material: Ch1_Mana_Ring
+            Amount: 100
+          - Material: Imperfect_Rune
+            Amount: 150
+          - Material: Perfect_Rune
+            Amount: 1
+          - Material: Frontier_Stone_BL
+            Amount: 15
+          - Material: Frontier_Stone_YL
+            Amount: 15
+          - Material: Frontier_Stone_GR
+            Amount: 15
+          - Material: Frontier_Stone_BK
+            Amount: 15
+        Reward:
+          - Slot: 1
+            Name: Rt_Ch01_Dimen_A
+          - Slot: 2
+            Name: Imperfect_Rune
+          - Slot: 3
+            Name: Rt_Ch01_Dimen_3
+          - Slot: 4
+            Name: Imperfect_Rune
+          - Slot: 5
+            Name: Imperfect_Rune
+          - Slot: 7
+            Name: Rt_Ch01_Dimen_C
+        Scripts:
+          - Amount: 2
+            Script: |
+              .@val = 10 + ((getupgrade_rune() / 3) * 3);
+              bonus2 bAddRace2,RC2_ENCROACHED_GEPHENIA,.@val;
+              bonus2 bMagicAddRace2,RC2_ENCROACHED_GEPHENIA,.@val;
+          - Amount: 3
+            Script: |
+              bonus bPow,10;
+              bonus bSpl,10;
+              bonus bCon,10;
+              bonus bCrt,10;
+              bonus bPAtk,15;
+              bonus bSMatk,15;
+          - Amount: 5
+            Script: |
+              bonus bMaxHPrate,5 + ((getupgrade_rune() / 3) * 3);
+        Upgrades:
+          - Grade: 0
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+              - Material: Ch1_Root_Coin
+                Amount: 2
+          - Grade: 1
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+              - Material: Ch1_Root_Coin
+                Amount: 2
+          - Grade: 2
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+              - Material: Ch1_Root_Coin
+                Amount: 2
+          - Grade: 3
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+              - Material: Ch1_Root_Coin
+                Amount: 2
+          - Grade: 4
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 21
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+              - Material: Ch1_Root_Coin
+                Amount: 3
+          - Grade: 5
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 21
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+              - Material: Ch1_Root_Coin
+                Amount: 3
+          - Grade: 6
+            Chance: 10500
+            ChancePerFail: 6300
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 21
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+              - Material: Ch1_Root_Coin
+                Amount: 3
+          - Grade: 7
+            Chance: 9000
+            ChancePerFail: 5400
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 21
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+              - Material: Ch1_Root_Coin
+                Amount: 3
+          - Grade: 8
+            Chance: 7500
+            ChancePerFail: 4500
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 22
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+              - Material: Ch1_Root_Coin
+                Amount: 4
+          - Grade: 9
+            Chance: 6000
+            ChancePerFail: 3600
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 22
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+              - Material: Ch1_Root_Coin
+                Amount: 4
+          - Grade: 10
+            Chance: 4500
+            ChancePerFail: 2700
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 22
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+              - Material: Ch1_Root_Coin
+                Amount: 4
+          - Grade: 11
+            Chance: 3000
+            ChancePerFail: 1800
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 23
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Mana_Ring
+                Amount: 5
+              - Material: Ch1_Root_Coin
+                Amount: 5
+          - Grade: 12
+            Chance: 1500
+            ChancePerFail: 900
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 23
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Mana_Ring
+                Amount: 5
+              - Material: Ch1_Root_Coin
+                Amount: 5
+          - Grade: 13
+            Chance: 750
+            ChancePerFail: 450
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 24
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Mana_Ring
+                Amount: 6
+              - Material: Ch1_Root_Coin
+                Amount: 6
+          - Grade: 14
+            Chance: 150
+            ChancePerFail: 90
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 25
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Mana_Ring
+                Amount: 7
+              - Material: Ch1_Root_Coin
+                Amount: 7
+      - Id: 1260047
+        Name: Rt_Ch01_Extra
+        Books:
+          - Slot: 0
+            Name: Rp_Ch01_Dimension_A
+          - Slot: 1
+            Name: Rp_Ch01_Chaos_A
+          - Slot: 2
+            Name: Rp_Ch01_Dimension_B
+          - Slot: 3
+            Name: Rp_Ch01_Chaos_B
+          - Slot: 4
+            Name: Rp_Ch01_Dimension_C
+          - Slot: 5
+            Name: Rp_Ch01_Chaos_C
+        Activation:
+          - Material: Ch1_Root_Coin
+            Amount: 1000
+          - Material: Ch1_Mana_Ring
+            Amount: 1000
+          - Material: Imperfect_Rune
+            Amount: 250
+          - Material: Perfect_Rune
+            Amount: 1
+          - Material: Frontier_Stone_BL
+            Amount: 30
+          - Material: Frontier_Stone_YL
+            Amount: 30
+          - Material: Frontier_Stone_GR
+            Amount: 30
+          - Material: Frontier_Stone_BK
+            Amount: 30
+        Reward:
+          - Slot: 1
+            Name: Rt_Ch01_Extra_A
+          - Slot: 2
+            Name: Rt_Ch01_Extra_2
+          - Slot: 3
+            Name: Perfect_Rune
+          - Slot: 4
+            Name: Rt_Ch01_Extra_4
+          - Slot: 5
+            Name: Rt_Ch01_Extra_5
+          - Slot: 6
+            Name: Perfect_Rune
+          - Slot: 7
+            Name: Rt_Ch01_Extra_C
+        Upgrades:
+          - Grade: 0
+            Chance: 0
+            ChancePerFail: 0
+            Materials:
+              - Material: Perfect_Rune
+                Amount: 1000
+          - Grade: 1
+            Chance: 0
+            ChancePerFail: 0
+            Materials:
+              - Material: Perfect_Rune
+                Amount: 1000
+          - Grade: 2
+            Chance: 0
+            ChancePerFail: 0
+            Materials:
+              - Material: Perfect_Rune
+                Amount: 1000
+          - Grade: 3
+            Chance: 0
+            ChancePerFail: 0
+            Materials:
+              - Material: Perfect_Rune
+                Amount: 1000
+          - Grade: 4
+            Chance: 0
+            ChancePerFail: 0
+            Materials:
+              - Material: Perfect_Rune
+                Amount: 1000
+          - Grade: 5
+            Chance: 0
+            ChancePerFail: 0
+            Materials:
+              - Material: Perfect_Rune
+                Amount: 1000
+          - Grade: 6
+            Chance: 0
+            ChancePerFail: 0
+            Materials:
+              - Material: Perfect_Rune
+                Amount: 1000
+          - Grade: 7
+            Chance: 0
+            ChancePerFail: 0
+            Materials:
+              - Material: Perfect_Rune
+                Amount: 1000
+          - Grade: 8
+            Chance: 0
+            ChancePerFail: 0
+            Materials:
+              - Material: Perfect_Rune
+                Amount: 1000
+          - Grade: 9
+            Chance: 0
+            ChancePerFail: 0
+            Materials:
+              - Material: Perfect_Rune
+                Amount: 1000
+          - Grade: 10
+            Chance: 0
+            ChancePerFail: 0
+            Materials:
+              - Material: Perfect_Rune
+                Amount: 1000
+          - Grade: 11
+            Chance: 0
+            ChancePerFail: 0
+            Materials:
+              - Material: Perfect_Rune
+                Amount: 1000
+          - Grade: 12
+            Chance: 0
+            ChancePerFail: 0
+            Materials:
+              - Material: Perfect_Rune
+                Amount: 1000
+          - Grade: 13
+            Chance: 0
+            ChancePerFail: 0
+            Materials:
+              - Material: Perfect_Rune
+                Amount: 1000
+          - Grade: 14
+            Chance: 0
+            ChancePerFail: 0
+            Materials:
+              - Material: Perfect_Rune
+                Amount: 1000
+      - Id: 1260059
+        Name: Rt_Ch01_Bulgasari
+        Books:
+          - Slot: 0
+            Name: Rp_Ch01_Rolling
+          - Slot: 2
+            Name: Rp_Ch01_Bulgasari
+          - Slot: 4
+            Name: Rp_Ch01_Volcano
+        Activation:
+          - Material: Ch1_Root_Coin
+            Amount: 450
+          - Material: Ch1_Mana_Ring
+            Amount: 450
+          - Material: Imperfect_Rune
+            Amount: 300
+          - Material: Perfect_Rune
+            Amount: 1
+        Reward:
+          - Slot: 1
+            Name: Rt_Ch01_Bulgasari_A
+          - Slot: 2
+            Name: Imperfect_Rune
+          - Slot: 3
+            Name: Perfect_Rune
+          - Slot: 7
+            Name: Rt_Ch01_Bulgasari_C
+        Scripts:
+          - Amount: 2
+            Script: |
+              .@val = 5 + (getupgrade_rune() / 3);
+              bonus2 bMagicAddClass,Class_All,.@val;
+          - Amount: 3
+            Script: |
+              bonus2 bMagicAddClass,Class_Boss,15;
+        Upgrades:
+          - Grade: 0
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 1
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 2
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 3
+            Chance: 10500
+            ChancePerFail: 6300
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 4
+            Chance: 10500
+            ChancePerFail: 6300
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 21
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 5
+            Chance: 9000
+            ChancePerFail: 5400
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 21
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 6
+            Chance: 7500
+            ChancePerFail: 4500
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 21
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 7
+            Chance: 6000
+            ChancePerFail: 3600
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 21
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 8
+            Chance: 4500
+            ChancePerFail: 2700
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 22
+              - Material: Ch1_Root_Coin
+                Amount: 4
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+          - Grade: 9
+            Chance: 3000
+            ChancePerFail: 1800
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 22
+              - Material: Ch1_Root_Coin
+                Amount: 4
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+          - Grade: 10
+            Chance: 1500
+            ChancePerFail: 900
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 22
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 4
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+          - Grade: 11
+            Chance: 750
+            ChancePerFail: 450
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 23
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 5
+              - Material: Ch1_Mana_Ring
+                Amount: 5
+          - Grade: 12
+            Chance: 750
+            ChancePerFail: 450
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 23
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 5
+              - Material: Ch1_Mana_Ring
+                Amount: 5
+          - Grade: 13
+            Chance: 370
+            ChancePerFail: 220
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 24
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 6
+              - Material: Ch1_Mana_Ring
+                Amount: 6
+          - Grade: 14
+            Chance: 70
+            ChancePerFail: 40
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 25
+              - Material: Perfect_Rune
+                Amount: 2
+              - Material: Ch1_Root_Coin
+                Amount: 7
+              - Material: Ch1_Mana_Ring
+                Amount: 7
+      - Id: 1260060
+        Name: Rt_Ch01_Glutto
+        Books:
+          - Slot: 0
+            Name: Rp_Ch01_Glutto
+          - Slot: 2
+            Name: Rp_Ch01_Cutter
+        Activation:
+          - Material: Ch1_Root_Coin
+            Amount: 450
+          - Material: Ch1_Mana_Ring
+            Amount: 450
+          - Material: Imperfect_Rune
+            Amount: 300
+          - Material: Perfect_Rune
+            Amount: 1
+        Reward:
+          - Slot: 1
+            Name: Rt_Ch01_Glutto_A
+          - Slot: 2
+            Name: Perfect_Rune
+          - Slot: 7
+            Name: Rt_Ch01_Glutto_C
+        Scripts:
+          - Amount: 2
+            Script: |
+              .@val = getupgrade_rune();
+              bonus bMagicHPGainValue,35 * .@val;
+              bonus bMagicSPGainValue,20 * .@val;
+              bonus2 bMagicAtkEle,Ele_Fire,5 * .@val;
+              bonus2 bMagicAtkEle,Ele_Ghost,5 * .@val;
+              bonus2 bMagicAtkEle,Ele_Holy,5 * .@val;
+              bonus2 bMagicAtkEle,Ele_Neutral,5 * .@val;
+        Upgrades:
+          - Grade: 0
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 1
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 2
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 3
+            Chance: 10500
+            ChancePerFail: 6300
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 4
+            Chance: 10500
+            ChancePerFail: 6300
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 21
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 5
+            Chance: 9000
+            ChancePerFail: 5400
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 21
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 6
+            Chance: 7500
+            ChancePerFail: 4500
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 21
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 7
+            Chance: 6000
+            ChancePerFail: 3600
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 21
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 8
+            Chance: 4500
+            ChancePerFail: 2700
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 22
+              - Material: Ch1_Root_Coin
+                Amount: 4
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+          - Grade: 9
+            Chance: 3000
+            ChancePerFail: 1800
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 22
+              - Material: Ch1_Root_Coin
+                Amount: 4
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+          - Grade: 10
+            Chance: 1500
+            ChancePerFail: 900
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 22
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 4
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+          - Grade: 11
+            Chance: 750
+            ChancePerFail: 450
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 23
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 5
+              - Material: Ch1_Mana_Ring
+                Amount: 5
+          - Grade: 12
+            Chance: 750
+            ChancePerFail: 450
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 23
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 5
+              - Material: Ch1_Mana_Ring
+                Amount: 5
+          - Grade: 13
+            Chance: 370
+            ChancePerFail: 220
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 24
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 6
+              - Material: Ch1_Mana_Ring
+                Amount: 6
+          - Grade: 14
+            Chance: 70
+            ChancePerFail: 40
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 25
+              - Material: Perfect_Rune
+                Amount: 2
+              - Material: Ch1_Root_Coin
+                Amount: 7
+              - Material: Ch1_Mana_Ring
+                Amount: 7
+      - Id: 1260061
+        Name: Rt_Ch01_Uncanny
+        Books:
+          - Slot: 0
+            Name: Rp_Ch01_Yggleaf
+          - Slot: 2
+            Name: Rp_Ch01_Peep
+          - Slot: 3
+            Name: Rp_Ch01_Uncanny
+        Activation:
+          - Material: Ch1_Root_Coin
+            Amount: 100
+          - Material: Ch1_Mana_Ring
+            Amount: 100
+          - Material: Imperfect_Rune
+            Amount: 150
+          - Material: Perfect_Rune
+            Amount: 1
+        Reward:
+          - Slot: 1
+            Name: Rt_Ch01_Uncanny_A
+          - Slot: 2
+            Name: Rt_Ch01_Uncanny_2
+          - Slot: 3
+            Name: Imperfect_Rune
+          - Slot: 7
+            Name: Rt_Ch01_Uncanny_C
+        Scripts:
+          - Amount: 2
+            Script: |
+              .@val = getupgrade_rune() / 3;
+              bonus bDef,150 + (15 * .@val);
+              bonus bMdef,15 + (2 * .@val);
+          - Amount: 3
+            Script: |
+              bonus2 bExpAddRace,RC_All,3;
+        Upgrades:
+          - Grade: 0
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 1
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 2
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 3
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 4
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 5
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 6
+            Chance: 10500
+            ChancePerFail: 6300
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 7
+            Chance: 9000
+            ChancePerFail: 5400
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 8
+            Chance: 7500
+            ChancePerFail: 4500
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 9
+            Chance: 6000
+            ChancePerFail: 3600
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ch1_Root_Coin
+                Amount: 4
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+          - Grade: 10
+            Chance: 4500
+            ChancePerFail: 2700
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 4
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+          - Grade: 11
+            Chance: 3000
+            ChancePerFail: 1800
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 4
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+          - Grade: 12
+            Chance: 1500
+            ChancePerFail: 900
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 5
+              - Material: Ch1_Mana_Ring
+                Amount: 5
+          - Grade: 13
+            Chance: 750
+            ChancePerFail: 450
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 19
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 5
+              - Material: Ch1_Mana_Ring
+                Amount: 5
+          - Grade: 14
+            Chance: 150
+            ChancePerFail: 90
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 6
+              - Material: Ch1_Mana_Ring
+                Amount: 6
+      - Id: 1260062
+        Name: Rt_Ch01_Chunk
+        Books:
+          - Slot: 1
+            Name: Rp_Ch01_Knight
+          - Slot: 2
+            Name: Rp_Ch01_Toxic
+          - Slot: 4
+            Name: Rp_Ch01_Chunk
+        Activation:
+          - Material: Ch1_Root_Coin
+            Amount: 100
+          - Material: Ch1_Mana_Ring
+            Amount: 100
+          - Material: Imperfect_Rune
+            Amount: 150
+          - Material: Perfect_Rune
+            Amount: 1
+        Reward:
+          - Slot: 1
+            Name: Rt_Ch01_Chunk_A
+          - Slot: 2
+            Name: Imperfect_Rune
+          - Slot: 3
+            Name: Imperfect_Rune
+          - Slot: 7
+            Name: Rt_Ch01_Chunk_C
+        Scripts:
+          - Amount: 2
+            Script: |
+              .@val = getupgrade_rune() / 3;
+              bonus bPow,.@val;
+              bonus bCon,.@val;
+              bonus bSpl,.@val;
+              bonus bCrt,.@val;
+              bonus bPAtk,3 * .@val;
+              bonus bSMatk,3 * .@val;
+          - Amount: 3
+            Script: |
+              bonus bDelayrate,-3 - (getupgrade_rune() / 3);
+        Upgrades:
+          - Grade: 0
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 1
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 2
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 3
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 4
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 5
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 6
+            Chance: 10500
+            ChancePerFail: 6300
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 7
+            Chance: 9000
+            ChancePerFail: 5400
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 8
+            Chance: 7500
+            ChancePerFail: 4500
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 9
+            Chance: 6000
+            ChancePerFail: 3600
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ch1_Root_Coin
+                Amount: 4
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+          - Grade: 10
+            Chance: 4500
+            ChancePerFail: 2700
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 4
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+          - Grade: 11
+            Chance: 3000
+            ChancePerFail: 1800
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 4
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+          - Grade: 12
+            Chance: 1500
+            ChancePerFail: 900
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 5
+              - Material: Ch1_Mana_Ring
+                Amount: 5
+          - Grade: 13
+            Chance: 750
+            ChancePerFail: 450
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 19
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 5
+              - Material: Ch1_Mana_Ring
+                Amount: 5
+          - Grade: 14
+            Chance: 150
+            ChancePerFail: 90
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 6
+              - Material: Ch1_Mana_Ring
+                Amount: 6
+      - Id: 1260063
+        Name: Rt_Ch01_Noise
+        Books:
+          - Slot: 0
+            Name: Rp_Ch01_Noise
+          - Slot: 1
+            Name: Rp_Ch01_Flowers
+          - Slot: 4
+            Name: Rp_Ch01_Volcano
+        Activation:
+          - Material: Ch1_Root_Coin
+            Amount: 100
+          - Material: Ch1_Mana_Ring
+            Amount: 100
+          - Material: Imperfect_Rune
+            Amount: 150
+          - Material: Perfect_Rune
+            Amount: 1
+        Reward:
+          - Slot: 1
+            Name: Rt_Ch01_Noise_A
+          - Slot: 2
+            Name: Rt_Ch01_Noise_2
+          - Slot: 3
+            Name: Imperfect_Rune
+          - Slot: 7
+            Name: Rt_Ch01_Noise_C
+        Scripts:
+          - Amount: 2
+            Script: |
+              .@val = getupgrade_rune() / 3;
+              bonus bPow,.@val;
+              bonus bCon,.@val;
+              bonus bSpl,.@val;
+              bonus bCrt,.@val;
+              bonus bPAtk,3 * .@val;
+              bonus bSMatk,3 * .@val;
+          - Amount: 3
+            Script: |
+              bonus bAspdRate,5 + (getupgrade_rune() / 3);
+        Upgrades:
+          - Grade: 0
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 1
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 2
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 3
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 4
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 5
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 6
+            Chance: 10500
+            ChancePerFail: 6300
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 7
+            Chance: 9000
+            ChancePerFail: 5400
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 8
+            Chance: 7500
+            ChancePerFail: 4500
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 9
+            Chance: 6000
+            ChancePerFail: 3600
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ch1_Root_Coin
+                Amount: 4
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+          - Grade: 10
+            Chance: 4500
+            ChancePerFail: 2700
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 4
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+          - Grade: 11
+            Chance: 3000
+            ChancePerFail: 1800
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 4
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+          - Grade: 12
+            Chance: 1500
+            ChancePerFail: 900
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 5
+              - Material: Ch1_Mana_Ring
+                Amount: 5
+          - Grade: 13
+            Chance: 750
+            ChancePerFail: 450
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 19
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 5
+              - Material: Ch1_Mana_Ring
+                Amount: 5
+          - Grade: 14
+            Chance: 150
+            ChancePerFail: 90
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 6
+              - Material: Ch1_Mana_Ring
+                Amount: 6
+      - Id: 1260064
+        Name: Rt_Ch01_Flowers
+        Books:
+          - Slot: 0
+            Name: Rp_Ch01_Flowers
+          - Slot: 1
+            Name: Rp_Ch01_Cutter
+          - Slot: 3
+            Name: Rp_Ch01_Noise
+        Activation:
+          - Material: Ch1_Root_Coin
+            Amount: 100
+          - Material: Ch1_Mana_Ring
+            Amount: 100
+          - Material: Imperfect_Rune
+            Amount: 150
+          - Material: Perfect_Rune
+            Amount: 1
+        Reward:
+          - Slot: 1
+            Name: Rt_Ch01_Flowers_A
+          - Slot: 2
+            Name: Imperfect_Rune
+          - Slot: 3
+            Name: Imperfect_Rune
+          - Slot: 7
+            Name: Rt_Ch01_Flowers_C
+        Scripts:
+          - Amount: 2
+            Script: |
+              bonus bHit,50 + ((getupgrade_rune() / 3) * 4);
+          - Amount: 3
+            Script: |
+              bonus bVariableCastrate,-4 - (getupgrade_rune() / 3);
+        Upgrades:
+          - Grade: 0
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 1
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 2
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 3
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 4
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 5
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 6
+            Chance: 10500
+            ChancePerFail: 6300
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 7
+            Chance: 9000
+            ChancePerFail: 5400
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 8
+            Chance: 7500
+            ChancePerFail: 4500
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 9
+            Chance: 6000
+            ChancePerFail: 3600
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ch1_Root_Coin
+                Amount: 4
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+          - Grade: 10
+            Chance: 4500
+            ChancePerFail: 2700
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 4
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+          - Grade: 11
+            Chance: 3000
+            ChancePerFail: 1800
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 4
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+          - Grade: 12
+            Chance: 1500
+            ChancePerFail: 900
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 5
+              - Material: Ch1_Mana_Ring
+                Amount: 5
+          - Grade: 13
+            Chance: 750
+            ChancePerFail: 450
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 19
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 5
+              - Material: Ch1_Mana_Ring
+                Amount: 5
+          - Grade: 14
+            Chance: 150
+            ChancePerFail: 90
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 6
+              - Material: Ch1_Mana_Ring
+                Amount: 6
+      - Id: 1260065
+        Name: Rt_Ch01_Toxic
+        Books:
+          - Slot: 0
+            Name: Rp_Ch01_Uncanny
+          - Slot: 2
+            Name: Rp_Ch01_Knight
+          - Slot: 3
+            Name: Rp_Ch01_Toxic
+          - Slot: 5
+            Name: Rp_Ch01_Chunk
+        Activation:
+          - Material: Ch1_Root_Coin
+            Amount: 150
+          - Material: Ch1_Mana_Ring
+            Amount: 150
+          - Material: Imperfect_Rune
+            Amount: 250
+          - Material: Perfect_Rune
+            Amount: 1
+        Reward:
+          - Slot: 1
+            Name: Rt_Ch01_Toxic_A
+          - Slot: 2
+            Name: Imperfect_Rune
+          - Slot: 3
+            Name: Rt_Ch01_Toxic_3
+          - Slot: 4
+            Name: Imperfect_Rune
+          - Slot: 7
+            Name: Rt_Ch01_Toxic_C
+        Scripts:
+          - Amount: 2
+            Script: |
+              bonus bShortAtkRate,5;
+              bonus bLongAtkRate,5;
+          - Amount: 3
+            Script: |
+              bonus2 bAddRace,RC_All,5 + (getupgrade_rune() / 3);
+        Upgrades:
+          - Grade: 0
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 1
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 2
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 3
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 4
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 5
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 6
+            Chance: 10500
+            ChancePerFail: 6300
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 7
+            Chance: 9000
+            ChancePerFail: 5400
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 8
+            Chance: 7500
+            ChancePerFail: 4500
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 9
+            Chance: 6000
+            ChancePerFail: 3600
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ch1_Root_Coin
+                Amount: 4
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+          - Grade: 10
+            Chance: 4500
+            ChancePerFail: 2700
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 4
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+          - Grade: 11
+            Chance: 3000
+            ChancePerFail: 1800
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 4
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+          - Grade: 12
+            Chance: 1500
+            ChancePerFail: 900
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 5
+              - Material: Ch1_Mana_Ring
+                Amount: 5
+          - Grade: 13
+            Chance: 750
+            ChancePerFail: 450
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 19
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 5
+              - Material: Ch1_Mana_Ring
+                Amount: 5
+          - Grade: 14
+            Chance: 150
+            ChancePerFail: 90
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 6
+              - Material: Ch1_Mana_Ring
+                Amount: 6
+      - Id: 1260066
+        Name: Rt_Ch01_Yggleaf
+        Books:
+          - Slot: 0
+            Name: Rp_Ch01_Rolling
+          - Slot: 1
+            Name: Rp_Ch01_Volcano
+          - Slot: 3
+            Name: Rp_Ch01_Yggleaf
+          - Slot: 5
+            Name: Rp_Ch01_Peep
+        Activation:
+          - Material: Ch1_Root_Coin
+            Amount: 150
+          - Material: Ch1_Mana_Ring
+            Amount: 150
+          - Material: Imperfect_Rune
+            Amount: 250
+          - Material: Perfect_Rune
+            Amount: 1
+        Reward:
+          - Slot: 1
+            Name: Rt_Ch01_Yggleaf_A
+          - Slot: 2
+            Name: Imperfect_Rune
+          - Slot: 3
+            Name: Rt_Ch01_Yggleaf_3
+          - Slot: 4
+            Name: Imperfect_Rune
+          - Slot: 7
+            Name: Rt_Ch01_Yggleaf_C
+        Scripts:
+          - Amount: 2
+            Script: |
+              bonus bVariableCastrate,-3;
+          - Amount: 3
+            Script: |
+              bonus2 bMagicAtkEle,Ele_Fire,3;
+              bonus2 bMagicAtkEle,Ele_Wind,3;
+              bonus2 bMagicAtkEle,Ele_Holy,3;
+          - Amount: 4
+            Script: |
+              bonus bVariableCastrate,-5;
+              bonus2 bMagicAtkEle,Ele_Fire,7;
+              bonus2 bMagicAtkEle,Ele_Wind,7;
+              bonus2 bMagicAtkEle,Ele_Holy,7;
+        Upgrades:
+          - Grade: 0
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 1
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 2
+            Chance: 15000
+            ChancePerFail: 9000
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 3
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 15
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 4
+            Chance: 13500
+            ChancePerFail: 8100
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Root_Coin
+                Amount: 2
+              - Material: Ch1_Mana_Ring
+                Amount: 2
+          - Grade: 5
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 6
+            Chance: 10500
+            ChancePerFail: 6300
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 7
+            Chance: 9000
+            ChancePerFail: 5400
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 16
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 8
+            Chance: 7500
+            ChancePerFail: 4500
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ch1_Root_Coin
+                Amount: 3
+              - Material: Ch1_Mana_Ring
+                Amount: 3
+          - Grade: 9
+            Chance: 6000
+            ChancePerFail: 3600
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Ch1_Root_Coin
+                Amount: 4
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+          - Grade: 10
+            Chance: 4500
+            ChancePerFail: 2700
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 17
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 4
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+          - Grade: 11
+            Chance: 3000
+            ChancePerFail: 1800
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 4
+              - Material: Ch1_Mana_Ring
+                Amount: 4
+          - Grade: 12
+            Chance: 1500
+            ChancePerFail: 900
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 18
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 5
+              - Material: Ch1_Mana_Ring
+                Amount: 5
+          - Grade: 13
+            Chance: 750
+            ChancePerFail: 450
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 19
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 5
+              - Material: Ch1_Mana_Ring
+                Amount: 5
+          - Grade: 14
+            Chance: 150
+            ChancePerFail: 90
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ch1_Root_Coin
+                Amount: 6
+              - Material: Ch1_Mana_Ring
+                Amount: 6
+
+# ===== rAthena 移植 Pandas 符文石板数据：结束 =====

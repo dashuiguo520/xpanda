@@ -119,6 +119,14 @@
     <OutDir>$(SolutionDir).vs\build\</OutDir>
     <IntDir>$(SolutionDir).vs\build\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
+  <!-- ===== rAthena 修复 common-minicore UTF-8 源码编译：开始 ===== -->
+  <!-- 修改原因：encoding.cpp 包含 UTF-8 中文标注，必须显式指定编译器源文件编码，避免按系统代码页误读并吞并后续代码。 -->
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <!-- ===== rAthena 修复 common-minicore UTF-8 源码编译：结束 ===== -->
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <PrecompiledHeader>

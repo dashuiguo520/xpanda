@@ -1626,10 +1626,17 @@ BUILDIN_FUNC(copynpc) {
 				script_isint(st, 4) && script_isint(st, 5) &&
 				script_isstring(st, 6) && script_isstring(st, 7) && script_isint(st, 8)) {
 
-				sprintf(w1buf, "%s,%d,%d,%d", script_getstr(st, 2), script_getnum(st, 3), script_getnum(st, 4), script_getnum(st, 5));
-				sprintf(w2buf, "%s", script_getstr(st, 6));
-				sprintf(w3buf, "%s", script_getstr(st, 7));
-				sprintf(w4buf, "%d", script_getnum(st, 8));
+				// ===== rAthena 修复 copynpc 参数缓冲区安全性：开始 =====
+				// 修改原因：脚本字符串长度不受 256 字节限制，sprintf 会越界写入栈缓冲区。
+				if (safesnprintf(w1buf, sizeof(w1buf), "%s,%d,%d,%d", script_getstr(st, 2), script_getnum(st, 3), script_getnum(st, 4), script_getnum(st, 5)) < 0 ||
+					safesnprintf(w2buf, sizeof(w2buf), "%s", script_getstr(st, 6)) < 0 ||
+					safesnprintf(w3buf, sizeof(w3buf), "%s", script_getstr(st, 7)) < 0 ||
+					safesnprintf(w4buf, sizeof(w4buf), "%d", script_getnum(st, 8)) < 0) {
+					ShowError("buildin_copynpc: A string parameter is too long.\n");
+					script_pushint(st, 0);
+					return SCRIPT_CMD_FAILURE;
+				}
+				// ===== rAthena 修复 copynpc 参数缓冲区安全性：结束 =====
 
 				w1 = w1buf;
 				w2 = w2buf;
@@ -1705,6 +1712,14 @@ BUILDIN_FUNC(copynpc) {
 	}
 
 	struct map_data *mapdata = map_getmapdata(m);
+	// ===== rAthena 修复 copynpc 无效地图处理：开始 =====
+	// 修改原因：只有显式使用 "-" 才允许创建浮空 NPC；拼错地图名不能按浮空 NPC 继续并在后续解引用空指针。
+	if (m == -1 && strcmp(w1, "-") != 0) {
+		ShowError("buildin_copynpc: Invalid map in placement '%s', in file '%s'.\n", w1, filepath);
+		script_pushint(st, 0);
+		return SCRIPT_CMD_FAILURE;
+	}
+	// ===== rAthena 修复 copynpc 无效地图处理：结束 =====
 
 	if (m != -1 && (x < 0 || x >= mapdata->xs || y < 0 || y >= mapdata->ys)) {
 		//ShowError("npc_parse_duplicate: coordinates %d/%d are out of bounds in map %s(%dx%d), in file '%s', line '%d'\n", x, y, mapdata->name, mapdata->xs, mapdata->ys, filepath, strline(buffer, start - buffer));
@@ -1755,7 +1770,10 @@ BUILDIN_FUNC(copynpc) {
 	case NPCTYPE_POINTSHOP:
 	case NPCTYPE_MARKETSHOP:
 		++(*npc_shop); // 与 npc_parse_duplicate 不同, 这里是个指针, 需要先解引用后再递增
-		safestrncpy(nd->u.shop.pointshop_str, dnd->u.shop.pointshop_str, strlen(dnd->u.shop.pointshop_str));
+		// ===== rAthena 修复 copynpc 商店字段复制：开始 =====
+		// 修改原因：长度参数必须是目标数组容量，确保空字符串及最大长度字符串都正确终止。
+		safestrncpy(nd->u.shop.pointshop_str, dnd->u.shop.pointshop_str, sizeof(nd->u.shop.pointshop_str));
+		// ===== rAthena 修复 copynpc 商店字段复制：结束 =====
 		nd->u.shop.itemshop_nameid = dnd->u.shop.itemshop_nameid;
 		// 为了避免被复制出来的[子商店]和[来源商店]使用相同的商品道具信息源,
 		// 而导致后面对[来源商店]或任意一个[子商店]的道具进行增删操作时影响到同一个[来源商店]的[子商店]
@@ -1826,9 +1844,12 @@ BUILDIN_FUNC(copynpc) {
 	//	nd->instance_id = mapdata->instance_id;
 
 	// 如果复制出来的 NPC 出现在一个副本地图中, 那么该 NPC 应隶属该副本
-	if (mapdata->instance_id) {
+	// ===== rAthena 修复 copynpc 浮空 NPC 空指针：开始 =====
+	// 修改原因：浮空 NPC 的地图编号为 -1，map_getmapdata 会返回空指针。
+	if (mapdata != nullptr && mapdata->instance_id) {
 		nd->instance_id = mapdata->instance_id;
 	}
+	// ===== rAthena 修复 copynpc 浮空 NPC 空指针：结束 =====
 
 	nd->u.scr.timerid = INVALID_TIMER;
 
@@ -1996,6 +2017,17 @@ BUILDIN_FUNC(selfdeletion) {
 	// SELFDEL_CANCEL = 取消与最后一个与玩家的交互结束后自毁
 
 	TBL_NPC* nd = map_id2nd(st->oid);
+	// ===== rAthena 修复 selfdeletion 调用上下文校验：开始 =====
+	// 修改原因：物品脚本等非 NPC 上下文没有有效 oid，原实现会直接解引用空指针；未知策略也不应被当成取消处理。
+	if (nd == nullptr) {
+		ShowError("buildin_selfdeletion: This command requires an NPC script context.\n");
+		return SCRIPT_CMD_FAILURE;
+	}
+	if (option < SELFDEL_CANCEL || option > SELFDEL_WAITFREE) {
+		ShowError("buildin_selfdeletion: Invalid destruction strategy %d.\n", option);
+		return SCRIPT_CMD_FAILURE;
+	}
+	// ===== rAthena 修复 selfdeletion 调用上下文校验：结束 =====
 	bool immediately = (option == SELFDEL_NOW);
 
 	if (sd && sd->state.using_fake_npc) {
@@ -2163,7 +2195,10 @@ BUILDIN_FUNC(npcexists) {
 BUILDIN_FUNC(storagegetitem) {
 	int get_count = 0, i = 0;
 	t_itemid nameid = 0;
-	unsigned short amount = 0;
+	// ===== rAthena 修复 storagegetitem 数量绕过：开始 =====
+	// 修改原因：先用有符号类型验证脚本参数，避免负数转换为 65535。
+	int32 amount = 0;
+	// ===== rAthena 修复 storagegetitem 数量绕过：结束 =====
 	struct item it = { 0 };
 	TBL_PC* sd = nullptr;
 	unsigned char flag = 0;
@@ -2194,10 +2229,13 @@ BUILDIN_FUNC(storagegetitem) {
 	}
 
 	// <amount>
-	if ((amount = script_getnum(st, 3)) <= 0) {
+	// ===== rAthena 修复 storagegetitem 数量上限：开始 =====
+	// 修改原因：拒绝非法数量和超过客户端单堆上限的请求，避免大量循环。
+	if ((amount = script_getnum(st, 3)) <= 0 || amount > MAX_AMOUNT) {
 		script_pushint(st, -2);
 		return SCRIPT_CMD_SUCCESS; //return if amount <=0, skip the useles iteration
 	}
+	// ===== rAthena 修复 storagegetitem 数量上限：结束 =====
 
 	memset(&it, 0, sizeof(it));
 	it.nameid = nameid;
@@ -2660,22 +2698,79 @@ BUILDIN_FUNC(getunittarget) {
  * 返回: 返回 -1 表示查无记录或发生错误, 含 0 正整数表示伤害值
  * 作者: Sola丶小克
  * -----------------------------------------------------------*/
+// ===== rAthena 修复 Pandas 战斗记录聚合与键语义：开始 =====
+// 修改原因：玩家必须按角色编号记录，并保留交互单位及其主人信息，才能正确支持 BRA_COMBINE/BRA_DISCRETE。
+struct s_pandas_batrec_item {
+	int32 block_id = 0;
+	int32 master_id = 0;
+	int64 damage = 0;
+};
+
+using pandas_batrec_map = std::unordered_map<int32, s_pandas_batrec_item>;
+
 struct s_pandas_batrec {
 	bool enabled = false;
-	std::unordered_map<int32, int64> receive;
-	std::unordered_map<int32, int64> cause;
+	pandas_batrec_map receive;
+	pandas_batrec_map cause;
 };
 static std::unordered_map<int32, s_pandas_batrec> pandas_batrec_db;
 
+static int32 pandas_batrec_key(const block_list* bl) {
+	const map_session_data* sd = BL_CAST(BL_PC, bl);
+	return sd != nullptr ? sd->status.char_id : (bl != nullptr ? bl->id : 0);
+}
+
+static int32 pandas_batrec_master_id(block_list* bl) {
+	if (bl == nullptr || bl->type == BL_PC)
+		return 0;
+	block_list* master = battle_get_master(bl);
+	return master != nullptr && master != bl ? master->id : 0;
+}
+
+static pandas_batrec_map pandas_batrec_aggregate(const pandas_batrec_map& source, int32 aggregation) {
+	if (aggregation == BRA_DISCRETE)
+		return source;
+
+	pandas_batrec_map result;
+	for (const auto& [key, record] : source) {
+		int32 aggregate_key = key;
+		int32 aggregate_block_id = record.block_id;
+		if (record.master_id != 0) {
+			block_list* master = map_id2bl(record.master_id);
+			if (master == nullptr)
+				continue;
+			aggregate_key = pandas_batrec_key(master);
+			aggregate_block_id = master->id;
+		}
+		auto& aggregate = result[aggregate_key];
+		aggregate.block_id = aggregate_block_id;
+		aggregate.damage = util::safe_addition_cap(aggregate.damage, record.damage, static_cast<int64>(INT64_MAX));
+	}
+	return result;
+}
+
 void pandas_batrec_record(block_list* src, block_list* target, int64 damage) {
-	if (src == nullptr || target == nullptr)
+	if (src == nullptr || target == nullptr || damage <= 0 || pandas_batrec_key(src) == pandas_batrec_key(target))
 		return;
 	auto src_it = pandas_batrec_db.find(src->id);
-	if (src_it != pandas_batrec_db.end() && src_it->second.enabled)
-		src_it->second.cause[target->id] += damage;
+	if (src_it != pandas_batrec_db.end() && src_it->second.enabled) {
+		auto& record = src_it->second.cause[pandas_batrec_key(target)];
+		record.block_id = target->id;
+		record.master_id = pandas_batrec_master_id(target);
+		record.damage = util::safe_addition_cap(record.damage, damage, static_cast<int64>(INT64_MAX));
+	}
 	auto target_it = pandas_batrec_db.find(target->id);
-	if (target_it != pandas_batrec_db.end() && target_it->second.enabled)
-		target_it->second.receive[src->id] += damage;
+	if (target_it != pandas_batrec_db.end() && target_it->second.enabled) {
+		auto& record = target_it->second.receive[pandas_batrec_key(src)];
+		record.block_id = src->id;
+		record.master_id = pandas_batrec_master_id(src);
+		record.damage = util::safe_addition_cap(record.damage, damage, static_cast<int64>(INT64_MAX));
+	}
+}
+
+void pandas_batrec_cleanup(block_list* bl) {
+	if (bl != nullptr)
+		pandas_batrec_db.erase(bl->id);
 }
 
 static void script_pandas_clear_array(script_state* st, script_data* data, map_session_data* sd) {
@@ -2697,14 +2792,16 @@ BUILDIN_FUNC(batrec_query) {
 	const int32 host_id = script_getnum(st, 2);
 	const int32 peer_id = script_getnum(st, 3);
 	const int32 type = script_getnum(st, 4);
+	const int32 aggregation = script_hasdata(st, 5) ? script_getnum(st, 5) : BRA_COMBINE;
 	auto host = pandas_batrec_db.find(host_id);
-	if (host == pandas_batrec_db.end() || (type != BRT_DMG_RECEIVE && type != BRT_DMG_CAUSE)) {
+	if (host == pandas_batrec_db.end() || (type != BRT_DMG_RECEIVE && type != BRT_DMG_CAUSE) || (aggregation != BRA_COMBINE && aggregation != BRA_DISCRETE)) {
 		script_pushint(st, -1);
-		return SCRIPT_CMD_SUCCESS;
+		return host == pandas_batrec_db.end() ? SCRIPT_CMD_SUCCESS : SCRIPT_CMD_FAILURE;
 	}
-	const auto& values = type == BRT_DMG_RECEIVE ? host->second.receive : host->second.cause;
-	auto value = values.find(peer_id);
-	script_pushint(st, value == values.end() ? -1 : value->second);
+	const pandas_batrec_map values = pandas_batrec_aggregate(type == BRT_DMG_RECEIVE ? host->second.receive : host->second.cause, aggregation);
+	block_list* peer = map_id2bl(peer_id);
+	auto value = values.find(peer != nullptr ? pandas_batrec_key(peer) : peer_id);
+	script_pushint(st, value == values.end() ? -1 : value->second.damage);
 	return SCRIPT_CMD_SUCCESS;
 }
 
@@ -2720,6 +2817,7 @@ BUILDIN_FUNC(batrec_rank) {
 	script_data* id_array = script_getdata(st, 3);
 	script_data* value_array = script_getdata(st, 4);
 	const int32 type = script_getnum(st, 5);
+	const int32 aggregation = script_hasdata(st, 6) ? script_getnum(st, 6) : BRA_COMBINE;
 	const int32 sort_type = script_hasdata(st, 7) ? script_getnum(st, 7) : BRS_DESC;
 	map_session_data* sd = map_id2sd(st->rid);
 	if (!data_isreference(id_array) || !data_isreference(value_array)) {
@@ -2729,18 +2827,20 @@ BUILDIN_FUNC(batrec_rank) {
 	script_pandas_clear_array(st, id_array, sd);
 	script_pandas_clear_array(st, value_array, sd);
 	auto host = pandas_batrec_db.find(host_id);
-	if (host == pandas_batrec_db.end() || (type != BRT_DMG_RECEIVE && type != BRT_DMG_CAUSE)) {
+	if (host == pandas_batrec_db.end() || (type != BRT_DMG_RECEIVE && type != BRT_DMG_CAUSE) || (aggregation != BRA_COMBINE && aggregation != BRA_DISCRETE) || (sort_type != BRS_DESC && sort_type != BRS_ASC)) {
 		script_pushint(st, -1);
-		return SCRIPT_CMD_SUCCESS;
+		return host == pandas_batrec_db.end() ? SCRIPT_CMD_SUCCESS : SCRIPT_CMD_FAILURE;
 	}
-	const auto& values = type == BRT_DMG_RECEIVE ? host->second.receive : host->second.cause;
-	std::vector<std::pair<int32, int64>> ranking(values.begin(), values.end());
+	const pandas_batrec_map values = pandas_batrec_aggregate(type == BRT_DMG_RECEIVE ? host->second.receive : host->second.cause, aggregation);
+	std::vector<std::pair<int32, s_pandas_batrec_item>> ranking(values.begin(), values.end());
 	std::sort(ranking.begin(), ranking.end(), [sort_type](const auto& left, const auto& right) {
-		return sort_type == BRS_ASC ? left.second < right.second : left.second > right.second;
+		if (left.second.damage != right.second.damage)
+			return sort_type == BRS_ASC ? left.second.damage < right.second.damage : left.second.damage > right.second.damage;
+		return sort_type == BRS_ASC ? left.first < right.first : left.first > right.first;
 	});
 	for (size_t i = 0; i < ranking.size(); ++i) {
 		set_reg_num(st, sd, reference_uid(reference_getid(id_array), i), reference_getname(id_array), ranking[i].first, reference_getref(id_array));
-		set_reg_num(st, sd, reference_uid(reference_getid(value_array), i), reference_getname(value_array), ranking[i].second, reference_getref(value_array));
+		set_reg_num(st, sd, reference_uid(reference_getid(value_array), i), reference_getname(value_array), ranking[i].second.damage, reference_getref(value_array));
 	}
 	script_pushint(st, ranking.size());
 	return SCRIPT_CMD_SUCCESS;
@@ -2759,14 +2859,17 @@ BUILDIN_FUNC(batrec_sortout) {
 		return SCRIPT_CMD_SUCCESS;
 	auto remove_missing = [](auto& values) {
 		for (auto it = values.begin(); it != values.end();)
-			it = map_id2bl(it->first) == nullptr ? values.erase(it) : std::next(it);
+			it = map_id2bl(it->second.block_id) == nullptr ? values.erase(it) : std::next(it);
 	};
+	if (script_hasdata(st, 3) && script_getnum(st, 3) != BRT_DMG_RECEIVE && script_getnum(st, 3) != BRT_DMG_CAUSE)
+		return SCRIPT_CMD_FAILURE;
 	if (!script_hasdata(st, 3) || script_getnum(st, 3) == BRT_DMG_RECEIVE)
 		remove_missing(host->second.receive);
 	if (!script_hasdata(st, 3) || script_getnum(st, 3) == BRT_DMG_CAUSE)
 		remove_missing(host->second.cause);
 	return SCRIPT_CMD_SUCCESS;
 }
+// ===== rAthena 修复 Pandas 战斗记录聚合与键语义：结束 =====
 
 /* ===========================================================
  * 指令: batrec_reset
@@ -2776,7 +2879,14 @@ BUILDIN_FUNC(batrec_sortout) {
  * 作者: Sola丶小克
  * -----------------------------------------------------------*/
 BUILDIN_FUNC(batrec_reset) {
-	pandas_batrec_db.erase(script_getnum(st, 2));
+	// ===== rAthena 修复 batrec_reset 状态保持：开始 =====
+	// 修改原因：Pandas 的 reset 只清空累计值，不会关闭该单位后续的战斗记录。
+	auto host = pandas_batrec_db.find(script_getnum(st, 2));
+	if (host != pandas_batrec_db.end()) {
+		host->second.receive.clear();
+		host->second.cause.clear();
+	}
+	// ===== rAthena 修复 batrec_reset 状态保持：结束 =====
 	return SCRIPT_CMD_SUCCESS;
 }
 
@@ -4066,15 +4176,19 @@ BUILDIN_FUNC(force_memo) {
 	const int16 map_id = map_mapname2mapid(map_name);
 	if (map_id < 0)
 		return SCRIPT_CMD_FAILURE;
+	// ===== rAthena 修复 force_memo 坐标校验：开始 =====
+	// 修改原因：记忆点必须落在目标地图范围内，避免把负数或越界坐标截断后写入角色数据。
+	const map_data* mapdata = map_getmapdata(map_id);
+	if (mapdata == nullptr || x < 0 || x >= mapdata->xs || y < 0 || y >= mapdata->ys)
+		return SCRIPT_CMD_FAILURE;
+	// ===== rAthena 修复 force_memo 坐标校验：结束 =====
 
-	for (int32 i = 0; i < MAX_MEMOPOINTS; ++i) {
-		if (sd->status.memo_point[i].map[0] == '\0' || i == slot) {
-			safestrncpy(sd->status.memo_point[i].map, map_mapid2mapname(map_id), sizeof(sd->status.memo_point[i].map));
-			sd->status.memo_point[i].x = x;
-			sd->status.memo_point[i].y = y;
-			break;
-		}
-	}
+	// ===== rAthena 修复 force_memo 指定槽位：开始 =====
+	// 修改原因：指令已明确传入 slot，不应被更靠前的空槽位抢占。
+	safestrncpy(sd->status.memo_point[slot].map, map_mapid2mapname(map_id), sizeof(sd->status.memo_point[slot].map));
+	sd->status.memo_point[slot].x = x;
+	sd->status.memo_point[slot].y = y;
+	// ===== rAthena 修复 force_memo 指定槽位：结束 =====
 	return SCRIPT_CMD_SUCCESS;
 }
 // ===== rAthena 移植 Pandas 单位与传送点脚本指令：结束 =====

@@ -14767,7 +14767,15 @@ uint64 EmotionDatabase::parseBodyNode(const ryml::NodeRef& Node)
 			return 0;
 		}
 
-		EmotionsInfo->SaleRentalPeriod = SaleRentalPeriod * 60 * 60 * 24;
+		// ===== rAthena 修复 Cash Emotion 租期换算溢出：开始 =====
+		// 修改原因：在乘法前使用 64 位计算并拒绝超过 uint32 秒数范围的配置。
+		const uint64 RentalSeconds = static_cast<uint64>(SaleRentalPeriod) * 60 * 60 * 24;
+		if (RentalSeconds > UINT32_MAX) {
+			this->invalidWarning(Node["SaleRentalPeriod"], "Emotion expantion \'%hu\' rental period is too long.\n", Id);
+			return 0;
+		}
+		EmotionsInfo->SaleRentalPeriod = static_cast<uint32>(RentalSeconds);
+		// ===== rAthena 修复 Cash Emotion 租期换算溢出：结束 =====
 	}
 	else
 	{

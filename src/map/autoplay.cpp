@@ -141,6 +141,11 @@ static bool autoplay_avoid(map_session_data& sd, s_autoplay_session& session) {
 	session.target_id = 0;
 	session.avoid_id = search.threat->id;
 	session.state = AUTOPLAY_MOVING;
+	// ===== rAthena 修复挂机不可移动状态处理：开始 =====
+	// 修改原因：定身等状态下不应反复提交必然失败的移动请求。
+	if (!unit_can_move(&sd))
+		return true;
+	// ===== rAthena 修复挂机不可移动状态处理：结束 =====
 	if (best_distance >= 0) {
 		unit_stop_walking(&sd, USW_FORCE_STOP | USW_RELEASE_TARGET);
 		if (unit_walktoxy(&sd, best_x, best_y, 0))
@@ -234,8 +239,11 @@ static npc_data* autoplay_next_warp(int16 source_map, int16 destination_map) {
 			if (warp == nullptr || warp->subtype != NPCTYPE_WARP || warp->is_invisible)
 				continue;
 			const int16 next_map = map_mapindex2mapid(warp->u.warp.mapindex);
+			// ===== rAthena 修复挂机跨域寻路：开始 =====
+			// 修改原因：普通地图、副本和不同副本实例之间不能共用传送路径。
 			if (!autoplay_map_allowed(next_map) || !autoplay_same_route_scope(source_map, next_map) || visited[next_map])
 				continue;
+			// ===== rAthena 修复挂机跨域寻路：结束 =====
 			visited[next_map] = true;
 			first_warp[next_map] = current_map == source_map ? warp->id : first_warp[current_map];
 			if (next_map == destination_map)
@@ -271,7 +279,7 @@ static npc_data* autoplay_next_warp_to_warper(int16 source_map) {
 			if (warp == nullptr || warp->subtype != NPCTYPE_WARP || warp->is_invisible)
 				continue;
 			const int16 next_map = map_mapindex2mapid(warp->u.warp.mapindex);
-			if (!autoplay_map_allowed(next_map) || visited[next_map])
+			if (!autoplay_map_allowed(next_map) || !autoplay_same_route_scope(source_map, next_map) || visited[next_map])
 				continue;
 			visited[next_map] = true;
 			first_warp[next_map] = current_map == source_map ? warp->id : first_warp[current_map];
@@ -355,6 +363,14 @@ static bool autoplay_long_waypoint(const map_session_data& sd, int16 destination
 	}
 	if (goal < 0)
 		return false;
+	// ===== rAthena 修复挂机原地路径：开始 =====
+	// 修改原因：起点已在目标区域时反向路径为空，应直接返回当前位置。
+	if (goal == start) {
+		waypoint_x = sd.x;
+		waypoint_y = sd.y;
+		return true;
+	}
+	// ===== rAthena 修复挂机原地路径：结束 =====
 	std::vector<int32> reverse_path;
 	for (int32 current = goal; current != start; current = parents[current]) {
 		if (current < 0)
@@ -369,6 +385,14 @@ static bool autoplay_long_waypoint(const map_session_data& sd, int16 destination
 }
 
 static bool autoplay_walk_toward(map_session_data& sd, int16 destination_x, int16 destination_y, int16 range_x = 0, int16 range_y = 0) {
+	// ===== rAthena 修复挂机范围移动：开始 =====
+	// 修改原因：已进入目标范围或当前无法移动时，应视为本轮已处理，避免重复寻路和失败刷屏。
+	if (sd.x >= destination_x - range_x && sd.x <= destination_x + range_x &&
+		sd.y >= destination_y - range_y && sd.y <= destination_y + range_y)
+		return true;
+	if (!unit_can_move(&sd))
+		return true;
+	// ===== rAthena 修复挂机范围移动：结束 =====
 	if (range_x == 0 && range_y == 0 && unit_walktoxy(&sd, destination_x, destination_y, 0))
 		return true;
 	int16 waypoint_x = 0;
@@ -496,6 +520,17 @@ static bool autoplay_stand(map_session_data& sd, s_autoplay_session& session) {
 	session.sitting_recovery = false;
 	return true;
 }
+
+// ===== rAthena 修复挂机停止动作一致性：开始 =====
+// 修改原因：暂停、停止、交互阻塞和队长离线时统一停止攻击与移动，并清理目标状态。
+static void autoplay_stop_actions(map_session_data& sd, s_autoplay_session& session) {
+	unit_stop_attack(&sd);
+	if (unit_is_walking(&sd))
+		unit_stop_walking(&sd, USW_FORCE_STOP | USW_RELEASE_TARGET);
+	session.target_id = 0;
+	session.avoid_id = 0;
+}
+// ===== rAthena 修复挂机停止动作一致性：结束 =====
 
 static bool autoplay_use_recovery(map_session_data& sd, s_autoplay_session& session) {
 	const auto& status = sd.battle_status;
@@ -945,6 +980,11 @@ static bool autoplay_move_to_range(map_session_data& sd, s_autoplay_session& ses
 	if (battle_check_range(&sd, &target, range))
 		return false;
 	session.state = AUTOPLAY_MOVING;
+	// ===== rAthena 修复挂机追敌不可移动状态：开始 =====
+	// 修改原因：不可移动时保留当前目标，等待控制状态结束而不是错误清除目标。
+	if (!unit_can_move(&sd))
+		return true;
+	// ===== rAthena 修复挂机追敌不可移动状态：结束 =====
 	unit_data* ud = unit_bl2ud(&sd);
 	if ((!unit_is_walking(&sd) || ud == nullptr || ud->target_to != target.id) && !unit_walktobl(&sd, &target, range, 0)) {
 		session.target_id = 0;
@@ -955,8 +995,11 @@ static bool autoplay_move_to_range(map_session_data& sd, s_autoplay_session& ses
 
 static void autoplay_roam(map_session_data& sd, s_autoplay_session& session) {
 	session.state = AUTOPLAY_MOVING;
-	if (unit_is_walking(&sd))
+	// ===== rAthena 修复挂机游走不可移动状态：开始 =====
+	// 修改原因：角色不能移动时不要反复生成随机游走路径。
+	if (unit_is_walking(&sd) || !unit_can_move(&sd))
 		return;
+	// ===== rAthena 修复挂机游走不可移动状态：结束 =====
 	const int32 radius = std::clamp<int32>(session.config.search_range, 3, 12);
 	for (int32 attempt = 0; attempt < 8; ++attempt) {
 		const int16 x = static_cast<int16>(std::clamp<int32>(sd.x + rnd_value(-radius, radius), 1, map[sd.m].xs - 2));
@@ -1043,6 +1086,7 @@ static void autoplay_tick_character(map_session_data& sd, t_tick tick) {
 		return;
 	if (autoplay_forbidden(sd)) {
 		autoplay_stand(sd, session);
+		autoplay_stop_actions(sd, session);
 		session.state = AUTOPLAY_PAUSED;
 		session.stop_reason = AUTOPLAY_STOP_INTERACTION;
 		return;
@@ -1089,8 +1133,7 @@ static void autoplay_tick_character(map_session_data& sd, t_tick tick) {
 				session.follow_offline_handled = false;
 			if (follow_offline && session.config.follow_offline_action == AUTOPLAY_FOLLOW_OFFLINE_RETURN) {
 				if (!session.follow_offline_handled) {
-					unit_stop_attack(&sd);
-					session.target_id = 0;
+					autoplay_stop_actions(sd, session);
 					if (session.instance_id == 0)
 						pc_setpos_savepoint(sd);
 					session.follow_offline_handled = true;
@@ -1101,11 +1144,11 @@ static void autoplay_tick_character(map_session_data& sd, t_tick tick) {
 			}
 			if (follow_offline && session.config.follow_offline_action == AUTOPLAY_FOLLOW_OFFLINE_LOGOUT) {
 				autoplay_stand(sd, session);
+				autoplay_stop_actions(sd, session);
 				autoplay_restore_autoloot(sd, session);
 				session.active = false;
 				session.state = AUTOPLAY_STOPPED;
 				session.stop_reason = AUTOPLAY_STOP_PARTY;
-				unit_stop_attack(&sd);
 				clif_authfail_fd(sd.fd, 15);
 				return;
 			}
@@ -1254,6 +1297,7 @@ void autoplay_attach(map_session_data& sd) {
 void autoplay_detach(map_session_data& sd) {
 	if (sd.autoplay != nullptr) {
 		autoplay_stand(sd, *sd.autoplay);
+		autoplay_stop_actions(sd, *sd.autoplay);
 		autoplay_restore_autoloot(sd, *sd.autoplay);
 		sd.autoplay->follow_char_id = 0;
 		sd.autoplay->active = false;
@@ -1360,12 +1404,20 @@ bool autoplay_control(map_session_data& sd, e_autoplay_control control) {
 	if ((control == AUTOPLAY_CONTROL_START || control == AUTOPLAY_CONTROL_RESUME) &&
 		(!pc_has_permission(&sd, PC_PERM_AUTOPLAY) || status_isdead(sd) || autoplay_forbidden(sd)))
 		return false;
-	if (control == AUTOPLAY_CONTROL_START || control == AUTOPLAY_CONTROL_RESUME) {
+	// ===== rAthena 修复挂机控制状态机：开始 =====
+	// 修改原因：区分首次启动与恢复，拒绝从非暂停状态恢复，并避免重复启动重置统计或污染会话状态。
+	if (control == AUTOPLAY_CONTROL_START && session.active)
+		return true;
+	if (control == AUTOPLAY_CONTROL_RESUME && session.active)
+		return true;
+	if (control == AUTOPLAY_CONTROL_RESUME && session.state != AUTOPLAY_PAUSED)
+		return false;
+	if (control == AUTOPLAY_CONTROL_PAUSE && !session.active)
+		return session.state == AUTOPLAY_PAUSED;
+	if (control == AUTOPLAY_CONTROL_START) {
 		session.manual_walk_active = false;
-		if (control == AUTOPLAY_CONTROL_START) {
-			session.kills = 0;
-			session.loot_count = 0;
-		}
+		session.kills = 0;
+		session.loot_count = 0;
 		session.follow_char_id = session.config.follow_char_id;
 		session.origin_map = sd.m;
 		session.instance_id = autoplay_map_instance(sd.m);
@@ -1387,7 +1439,11 @@ bool autoplay_control(map_session_data& sd, e_autoplay_control control) {
 		session.storage_by_weight = false;
 		session.follow_offline_handled = false;
 		autoplay_sync_party_follow(sd);
+	} else if (control == AUTOPLAY_CONTROL_RESUME) {
+		session.manual_walk_active = false;
+		autoplay_sync_party_follow(sd);
 	}
+	// ===== rAthena 修复挂机控制状态机：结束 =====
 	switch (control) {
 		case AUTOPLAY_CONTROL_START:
 		case AUTOPLAY_CONTROL_RESUME:
@@ -1408,17 +1464,15 @@ bool autoplay_control(map_session_data& sd, e_autoplay_control control) {
 			return true;
 		case AUTOPLAY_CONTROL_PAUSE:
 			autoplay_stand(sd, session);
+			autoplay_stop_actions(sd, session);
 			session.active = false;
 			session.state = AUTOPLAY_PAUSED;
-			unit_stop_attack(&sd);
 			return true;
 		case AUTOPLAY_CONTROL_STOP:
 			autoplay_detach(sd);
 			session.waiting_return = false;
 			session.state = AUTOPLAY_STOPPED;
 			session.stop_reason = AUTOPLAY_STOP_USER;
-			session.target_id = 0;
-			unit_stop_attack(&sd);
 			return true;
 	}
 	return false;

@@ -1452,7 +1452,10 @@ struct s_emotion_db {
 	uint16 Type;
 	uint32 SaleStart;
 	uint32 SaleEnd;
-	uint16 SaleRentalPeriod;
+	// ===== rAthena 修复 Cash Emotion 租期溢出：开始 =====
+	// 修改原因：该字段保存秒数，一天已超过 uint16 上限，需使用 uint32。
+	uint32 SaleRentalPeriod;
+	// ===== rAthena 修复 Cash Emotion 租期溢出：结束 =====
 	std::vector<emotion_type> Emotions;
 };
 

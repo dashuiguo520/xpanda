@@ -53,6 +53,10 @@
 #include "pc.hpp"
 #include "pet.hpp"
 #include "quest.hpp"
+// ===== rAthena 修复 Pandas 战斗记录生命周期依赖：开始 =====
+// 修改原因：地图对象注销入口需要通知战斗记录模块清理该单位的宿主记录。
+#include "script.hpp"
+// ===== rAthena 修复 Pandas 战斗记录生命周期依赖：结束 =====
 // ===== rAthena 移植 Pandas 符文石板依赖：开始 =====
 // 修改内容：地图服务启动和关闭时管理符文数据库。
 #include "rune.hpp"
@@ -2213,6 +2217,10 @@ void map_addiddb(block_list *bl)
 void map_deliddb(block_list *bl)
 {
 	nullpo_retv(bl);
+	// ===== rAthena 修复 Pandas 战斗记录生命周期：开始 =====
+	// 修改原因：在 GID 从全局数据库移除前清理宿主记录，防止内存增长及 GID 重用后的数据串用。
+	pandas_batrec_cleanup(bl);
+	// ===== rAthena 修复 Pandas 战斗记录生命周期：结束 =====
 
 	if( bl->type == BL_PC )
 	{

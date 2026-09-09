@@ -58,7 +58,10 @@ void clif_goldpc_info( map_session_data& sd ){
 #if PACKETVER_MAIN_NUM >= 20140508 || PACKETVER_RE_NUM >= 20140508 || defined(PACKETVER_ZERO)
 	if (!sd.vars_ok)
 		return;
-	const static int32 client_max_seconds = 3600;
+	// ===== rAthena 修复 GoldPC 客户端计时显示：开始 =====
+	// 修改原因：显示进度必须使用可配置周期，不能固定按 3600 秒计算。
+	const int32 client_max_seconds = battle_config.feature_goldpc_time;
+	// ===== rAthena 修复 GoldPC 客户端计时显示：结束 =====
 	if( battle_config.feature_goldpc_active ){
 		struct PACKET_ZC_GOLDPCCAFE_POINT p = {};
 		p.PacketType = HEADER_ZC_GOLDPCCAFE_POINT;
@@ -83,9 +86,11 @@ void clif_goldpc_info( map_session_data& sd ){
 		if( sd.goldpc_tid != INVALID_TIMER ){
 			const struct TimerData* td = get_timer( sd.goldpc_tid );
 			if( td != nullptr ){
-				t_tick remaining = td->tick - gettick();
-				remaining += ( remaining % 1000 );
-				p.playedTime = (int32)( client_max_seconds - ( remaining / 1000 ) );
+				// ===== rAthena 修复 GoldPC 剩余时间取整：开始 =====
+				// 修改原因：按秒向上取整并限制范围，避免旧公式的取余误差和负值。
+				const t_tick remaining = std::max<t_tick>(td->tick - gettick(), 0);
+				p.playedTime = cap_value(client_max_seconds - static_cast<int32>((remaining + 999) / 1000), 0, client_max_seconds);
+				// ===== rAthena 修复 GoldPC 剩余时间取整：结束 =====
 			}else{
 				p.playedTime = 0;
 			}
@@ -310,12 +315,17 @@ void clif_setinfo_rune( map_session_data* sd, uint16 tagID ){
 			setlist_rune->runesetid = static_cast<uint32>(set_data.setId);
 			setlist_rune->upgrade = set_data.upgrade;
 			setlist_rune->failcount = set_data.failcount;
+			// ===== rAthena 修复符文套装数量封包：开始 =====
+			// 修改原因：只有匹配当前 tagID 的套装被写入封包时才能增加数量。
+			p->set_amount++;
+			// ===== rAthena 修复符文套装数量封包：结束 =====
 		}
-
-		p->set_amount++;
 	}
 
-	p->packetLength = sizeof( struct PACKET_ZC_BOOK_INFO_RUNE ) + ( sizeof( struct PACKET_SET_LIST_RUNE_sub ) * p->set_amount );
+	// ===== rAthena 修复符文套装封包头类型：开始 =====
+	// 修改原因：计算 SET_INFO 封包长度时应使用自身结构，避免两种封包结构后续变化时长度错误。
+	p->packetLength = sizeof( struct PACKET_ZC_SET_INFO_RUNE ) + ( sizeof( struct PACKET_SET_LIST_RUNE_sub ) * p->set_amount );
+	// ===== rAthena 修复符文套装封包头类型：结束 =====
 	p->unknown = 0;
 	p->tagID = tagID;
 
@@ -498,6 +508,13 @@ void clif_parse_decompo_rune( int32 fd, map_session_data* sd ){
 	std::unordered_map<t_itemid, uint32> material_item_list;
 
 	struct PACKET_CZ_RUNE_DECOMPO* p = (struct PACKET_CZ_RUNE_DECOMPO*)RFIFOP( fd, 0 );
+	// ===== rAthena 修复符文分解类型校验：开始 =====
+	// 修改原因：type 来自客户端，非 1/2 值不能默认按30个物品处理。
+	if (p->type != 1 && p->type != 2) {
+		clif_runedecompowindow_result(sd, ZC_RUNEDECOMPO_INVALID, material_item_list);
+		return;
+	}
+	// ===== rAthena 修复符文分解类型校验：结束 =====
 
 	if( !sd->state.runeui_open ){
 		clif_runedecompowindow_result(sd, ZC_RUNEDECOMPO_UINOTOPENED, material_item_list);
@@ -531,13 +548,14 @@ void clif_parse_decompo_rune( int32 fd, map_session_data* sd ){
 		return;
 	}
 
-	uint32 amount;
-	if(p->type == 1)
-		amount = 1;
-	else
-		amount = 30;
+	const uint32 amount = p->type == 1 ? 1 : 30;
 
 	uint8 runeEntryit = 0;
+	// ===== rAthena 修复符文分解配方与产物校验：开始 =====
+	// 修改原因：未匹配配方时禁止消耗原料，并在扣除前校验产物重量、堆叠上限和背包槽位。
+	bool matched_recipe = false;
+	uint64 material_weight = 0;
+	uint16 required_slots = 0;
 	for (const auto& runeEntry : id->decompoRune) {
 		runeEntryit++;
 
@@ -545,6 +563,7 @@ void clif_parse_decompo_rune( int32 fd, map_session_data* sd ){
 
 		if(runeEntryit != p->type)
 			continue;
+		matched_recipe = true;
 
 		std::shared_ptr<s_runedecompo_db> runedecompo_data = runedecompo_db.find( runeEntry.second );
 		if(runedecompo_data == nullptr){
@@ -553,14 +572,10 @@ void clif_parse_decompo_rune( int32 fd, map_session_data* sd ){
 			return;
 		}
 
-		std::unordered_map<uint16, uint16> materials;
-
 		if( sd->inventory.u.items_inventory[index].amount < amount ){
 			clif_runedecompowindow_result(sd, ZC_RUNEDECOMPO_NOTENOUGHITEMS, material_item_list);
 			return;
 		}
-
-		uint32 material_weight = 0;
 
 		//ShowError("runedecompo_data size %d \n",runedecompo_data->materials.size());
 		for( const auto &materialEntry : runedecompo_data->materials ){
@@ -575,40 +590,52 @@ void clif_parse_decompo_rune( int32 fd, map_session_data* sd ){
 			if( chance < 100000 && rnd_value( 0, 100000 ) > chance )
 				continue;
 
-			std::shared_ptr<item_data> item = item_db.find(material_data.material);
-			material_weight += item->weight;
-
 			uint32 random_amount = rnd_value( material_data.amountmin, material_data.amountmax );
+			std::shared_ptr<item_data> item = item_db.find(material_data.material);
+			if (item == nullptr || pc_checkadditem(sd, material_data.material, random_amount) == CHKADDITEM_OVERAMOUNT) {
+				clif_runedecompowindow_result(sd, ZC_RUNEDECOMPO_INVALID, material_item_list);
+				return;
+			}
+			material_weight += static_cast<uint64>(item->weight) * random_amount;
+			if (pc_checkadditem(sd, material_data.material, random_amount) == CHKADDITEM_NEW)
+				required_slots++;
 			material_item_list[material_data.material] = random_amount;
 			//ShowError("random_amount %d \n", random_amount);
 		}
 
-		if(sd->weight + material_weight > sd->max_weight){
+		const uint64 consumed_weight = static_cast<uint64>(id->weight) * amount;
+		const uint64 final_weight = static_cast<uint64>(sd->weight) - std::min<uint64>(sd->weight, consumed_weight) + material_weight;
+		if(final_weight > static_cast<uint64>(sd->max_weight)){
 			clif_runedecompowindow_result(sd, ZC_RUNEDECOMPO_WEIGHT, material_item_list);
 			return;
 		}
-
-		for( const auto& materialEntry : materials ){
-			if( pc_delitem( sd, materialEntry.first, materialEntry.second, 0, 0, LOG_TYPE_OTHER )  != 0 ){
-				clif_runedecompowindow_result(sd, ZC_RUNEDECOMPO_UNKNOWN, material_item_list);
-				return;
-			}
-		}
-
-		for( const auto& materialEntry : material_item_list ){
-			struct item item_material = {};
-
-			item_material.nameid = materialEntry.first;
-			item_material.identify = 1;
-
-			pc_additem( sd, &item_material, materialEntry.second, LOG_TYPE_OTHER );
+		const uint16 available_slots = pc_inventoryblank(sd) + (selected_item.amount == amount ? 1 : 0);
+		if (required_slots > available_slots) {
+			clif_runedecompowindow_result(sd, ZC_RUNEDECOMPO_INVENTORYSPACE, material_item_list);
+			return;
 		}
 	}
 
+	if (!matched_recipe) {
+		clif_runedecompowindow_result(sd, ZC_RUNEDECOMPO_INVALID, material_item_list);
+		return;
+	}
+	// ===== rAthena 修复符文分解配方与产物校验：结束 =====
+
+	// ===== rAthena 修复符文分解原子性：开始 =====
+	// 修改原因：先确认并消耗原料，再发放已通过预检的产物，避免先发产物后扣除失败导致复制。
 	if (pc_delitem(sd, index, amount, 0, 0, LOG_TYPE_OTHER) != 0){
 		clif_runedecompowindow_result(sd, ZC_RUNEDECOMPO_INVALID, material_item_list);
 		return;
 	}
+	for (const auto& materialEntry : material_item_list) {
+		struct item item_material = {};
+		item_material.nameid = materialEntry.first;
+		item_material.identify = 1;
+		if (pc_additem(sd, &item_material, materialEntry.second, LOG_TYPE_OTHER) != ADDITEM_SUCCESS)
+			map_addflooritem(&item_material, materialEntry.second, sd->m, sd->x, sd->y, 0, 0, 0, 0, 0);
+	}
+	// ===== rAthena 修复符文分解原子性：结束 =====
 
 	clif_runedecompowindow_result( sd, ZC_RUNEDECOMPO_SUCCESS, material_item_list );
 #endif

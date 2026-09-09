@@ -6068,12 +6068,17 @@ static bool npc_event_rightnow(map_session_data& sd, const script_event_s& evt) 
 	if (!npc_event_is_realtime(type) || evt.event == nullptr || evt.event->nd == nullptr)
 		return false;
 
+	// ===== rAthena 修复嵌套 Filter/Express 事件上下文：开始 =====
+	// 修改原因：即时事件可以同步触发另一个即时事件，必须在返回时恢复外层事件保存的 NPC 编号。
+	const uint32 interrupt_npcid_uid = add_str("@interrupt_npcid");
+	const int64 previous_interrupt_npcid = pc_readreg(&sd, interrupt_npcid_uid);
 	const uint8 previous_event = sd.pandas_event_current;
 	sd.pandas_event_current = static_cast<uint8>(type);
-	pc_setreg(&sd, add_str("@interrupt_npcid"), sd.npc_id);
+	pc_setreg(&sd, interrupt_npcid_uid, sd.npc_id);
 	run_script(evt.event->nd->u.scr.script, evt.event->pos, sd.id, evt.event->nd->id);
-	pc_setreg(&sd, add_str("@interrupt_npcid"), 0);
+	pc_setreg(&sd, interrupt_npcid_uid, previous_interrupt_npcid);
 	sd.pandas_event_current = previous_event;
+	// ===== rAthena 修复嵌套 Filter/Express 事件上下文：结束 =====
 	return true;
 }
 
@@ -6081,16 +6086,27 @@ size_t npc_script_event( map_session_data& sd, enum npce_event type ){
 	if (type == NPCE_MAX)
 		return 0;
 
-	// 脚本可能执行 unloadnpc 并重建事件表，因此复制列表以避免迭代器失效。
-	std::vector<struct script_event_s> vector = script_event[type];
+	// ===== rAthena 修复 Filter/Express 事件卸载 NPC 安全性：开始 =====
+	// 修改原因：脚本可能执行 unloadnpc 并释放 event_data；只复制事件名，执行前重新查询有效指针。
+	std::vector<std::string> event_names;
+	event_names.reserve(script_event[type].size());
+	for (const script_event_s& evt : script_event[type]) {
+		if (evt.event_name != nullptr)
+			event_names.emplace_back(evt.event_name);
+	}
 
-	for( struct script_event_s& evt : vector ){
+	for( const std::string& event_name : event_names ){
+		event_data* event = static_cast<event_data*>(strdb_get(ev_db, event_name.c_str()));
+		if (event == nullptr)
+			continue;
+		const script_event_s evt = { event, event_name.c_str() };
 		if (npc_event_rightnow(sd, evt))
 			continue;
 		npc_event_sub( &sd, evt.event, evt.event_name );
 	}
 
-	return vector.size();
+	return event_names.size();
+	// ===== rAthena 修复 Filter/Express 事件卸载 NPC 安全性：结束 =====
 }
 
 bool npc_script_filter(map_session_data* sd, enum npce_event type) {

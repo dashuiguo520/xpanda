@@ -1373,5 +1373,564 @@ Body:
         Amount: 1
       - Material: Demigod_Lasgand_Card
         Amount: 1
+  - Id: 1263106
+    Name: Rp_Ep21_GaebolgA
+    Materials:
+      - Material: Ep21_Wigner_Ticket
+        Amount: 250
+      - Material: R_Gaebolg_Armor
+        Amount: 1
+      - Material: R_Gaebolg_Manteau
+        Amount: 1
+      - Material: R_Gaebolg_Boots
+        Amount: 1
+      - Material: R_Gaebolg_Ring
+        Amount: 1
+      - Material: R_Gaebolg_Glove
+        Amount: 1
+  - Id: 1263107
+    Name: Rp_Ep21_GaebolgB
+    Materials:
+      - Material: Ep21_Wigner_Ticket
+        Amount: 250
+      - Material: R_Gaebolg_Robe
+        Amount: 1
+      - Material: R_Gaebolg_Muffler
+        Amount: 1
+      - Material: R_Gaebolg_Shoes
+        Amount: 1
+      - Material: R_Gaebolg_Earring
+        Amount: 1
+      - Material: R_Gaebolg_Necklace
+        Amount: 1
+  - Id: 1263108
+    Name: Rp_Ep21_Shellfish
+    Materials:
+      - Material: Ep21_Wigner_Ticket
+        Amount: 350
+      - Material: Scalleg_Card
+        Amount: 3
+      - Material: Velelling_Card
+        Amount: 3
+      - Material: Letterster_Card
+        Amount: 3
+      - Material: aegis_1001641
+        Amount: 100
+      - Material: aegis_1001643
+        Amount: 100
+      - Material: aegis_1001640
+        Amount: 100
+      - Material: aegis_1001645
+        Amount: 100
+  - Id: 1263109
+    Name: Rp_Ep21_Beast
+    Materials:
+      - Material: Ep21_Wigner_Ticket
+        Amount: 350
+      - Material: Sea_Wind_Card
+        Amount: 3
+      - Material: Rock_Striker_Card
+        Amount: 3
+      - Material: aegis_1001642
+        Amount: 150
+      - Material: aegis_1001647
+        Amount: 150
+  - Id: 1263110
+    Name: Rp_Ep21_Soft
+    Materials:
+      - Material: Ep21_Wigner_Ticket
+        Amount: 350
+      - Material: Skipskipper_Card
+        Amount: 3
+      - Material: Cliolima_Card
+        Amount: 3
+      - Material: aegis_1001644
+        Amount: 150
+      - Material: aegis_1001646
+        Amount: 150
+  - Id: 1263111
+    Name: Rp_Ep21_Yorker
+    Materials:
+      - Material: Ep21_Wigner_Ticket
+        Amount: 350
+      - Material: Yorker_Worker_Card
+        Amount: 3
+      - Material: Yorker_R_Worker_Card
+        Amount: 3
+      - Material: aegis_1001632
+        Amount: 100
+      - Material: aegis_1001630
+        Amount: 100
+      - Material: aegis_1001631
+        Amount: 100
+  - Id: 1263112
+    Name: Rp_Ep21_Yoster
+    Materials:
+      - Material: Ep21_Wigner_Ticket
+        Amount: 450
+      - Material: Yoster_Cleaner_Card
+        Amount: 2
+      - Material: Yoster_Fixer_Card
+        Amount: 2
+      - Material: Yoster_Collect_Card
+        Amount: 2
+      - Material: Yoster_Nego_Card
+        Amount: 2
+      - Material: Yoster_Cooker_Card
+        Amount: 2
+      - Material: aegis_1001634
+        Amount: 150
+      - Material: aegis_1001633
+        Amount: 150
+  - Id: 1263113
+    Name: Rp_Ep21_Yormi
+    Materials:
+      - Material: Ep21_Wigner_Ticket
+        Amount: 400
+      - Material: Yormi_Card
+        Amount: 2
+      - Material: Yormi_M_Card
+        Amount: 2
+      - Material: aegis_1001628
+        Amount: 100
+      - Material: aegis_1001629
+        Amount: 100
+      - Material: aegis_1001634
+        Amount: 100
+      - Material: aegis_1001633
+        Amount: 100
+  - Id: 1263114
+    Name: Rp_Ep21_Yordos
+    Materials:
+      - Material: Ep21_Wigner_Ticket
+        Amount: 450
+      - Material: Yordos_Execute_Card
+        Amount: 2
+      - Material: Yordos_Judge_Card
+        Amount: 2
+      - Material: Yordos_Inve_Card
+        Amount: 2
+      - Material: aegis_1001629
+        Amount: 100
+      - Material: aegis_1001637
+        Amount: 100
+      - Material: aegis_1001635
+        Amount: 100
+  - Id: 1263115
+    Name: Rp_Ep21_Yoscopus
+    Materials:
+      - Material: Ep21_Wigner_Ticket
+        Amount: 400
+      - Material: Yoscopus_G_Cards
+        Amount: 2
+      - Material: Yoscopus_S_Card
+        Amount: 2
+      - Material: aegis_1001636
+        Amount: 200
+  - Id: 1263116
+    Name: Rp_Ep21_Bishop
+    Materials:
+      - Material: Ep21_Wigner_Ticket
+        Amount: 400
+      - Material: Yortus_Bishop_Card
+        Amount: 2
+      - Material: Yortus_Conjur_Card
+        Amount: 2
+      - Material: aegis_1001639
+        Amount: 100
+      - Material: aegis_1001638
+        Amount: 100
+  - Id: 1263117
+    Name: Rp_Ep21_Horn
+    Materials:
+      - Material: Ep21_Wigner_Ticket
+        Amount: 650
+      - Material: Ice_Horn_Card
+        Amount: 1
+      - Material: Ice_Seahorse_Card
+        Amount: 3
+      - Material: aegis_1001648
+        Amount: 300
+      - Material: aegis_1001649
+        Amount: 5
+  - Id: 1263118
+    Name: Rp_Ep21_Arbiter
+    Materials:
+      - Material: Ep21_Wigner_Ticket
+        Amount: 650
+      - Material: Yortus_Arbiter_Card
+        Amount: 1
+      - Material: Yortus_Bailiff_Card
+        Amount: 1
+      - Material: aegis_1001639
+        Amount: 200
+      - Material: aegis_1001638
+        Amount: 200
+  - Id: 1263119
+    Name: Rp_Ep21_Cap
+    Materials:
+      - Material: Ep21_Wigner_Ticket
+        Amount: 850
+      - Material: Cap_Of_G_Ship_Card
+        Amount: 1
+      - Material: Ep21_Armor_E_Stone3
+        Amount: 250
+      - Material: Ep21_Robe_E_Stone3
+        Amount: 250
+      - Material: Ep21_Shoes_E_Stone3
+        Amount: 250
+      - Material: Ep21_Acc_E_Stone3
+        Amount: 250
+  - Id: 1263120
+    Name: Rp_Ep21_Tan
+    Materials:
+      - Material: Ep21_Wigner_Ticket
+        Amount: 850
+      - Material: Encroached_Tan_Card
+        Amount: 1
+      - Material: Ep21_Armor_E_Stone3
+        Amount: 250
+      - Material: Ep21_Robe_E_Stone3
+        Amount: 250
+      - Material: Ep21_Shoes_E_Stone3
+        Amount: 250
+      - Material: Ep21_Acc_E_Stone3
+        Amount: 250
+  - Id: 1263093
+    Name: Rp_Ch01_Armor_A
+    Materials:
+      - Material: Ch1_Root_Coin
+        Amount: 100
+      - Material: R_Entwined_Armor
+        Amount: 1
+      - Material: R_Entwined_Manteau
+        Amount: 1
+      - Material: R_Entwined_Boots
+        Amount: 1
+      - Material: Ch1_Warp_Leaf
+        Amount: 1
+  - Id: 1263094
+    Name: Rp_Ch01_Armor_B
+    Materials:
+      - Material: Ch1_Root_Coin
+        Amount: 100
+      - Material: R_Entwined_Robe
+        Amount: 1
+      - Material: R_Entwined_Muffler
+        Amount: 1
+      - Material: R_Entwined_Shoes
+        Amount: 1
+      - Material: Ch1_Warp_Leaf
+        Amount: 1
+  - Id: 1263095
+    Name: Rp_Ch01_Foot_BG
+    Materials:
+      - Material: Frontier_Magic_Dust
+        Amount: 100
+      - Material: R_Dimension_B_Greave
+        Amount: 1
+      - Material: Ch1_Mana_Ring
+        Amount: 50
+      - Material: Ch1_Warp_Leaf
+        Amount: 1
+  - Id: 1263096
+    Name: Rp_Ch01_Foot_HB
+    Materials:
+      - Material: Frontier_Magic_Dust
+        Amount: 100
+      - Material: R_Dimension_H_Boots
+        Amount: 1
+      - Material: Ch1_Mana_Ring
+        Amount: 50
+      - Material: Ch1_Warp_Leaf
+        Amount: 1
+  - Id: 1263097
+    Name: Rp_Ch01_Foot_SS
+    Materials:
+      - Material: Frontier_Magic_Dust
+        Amount: 100
+      - Material: R_Dimension_S_Shoes
+        Amount: 1
+      - Material: Ch1_Mana_Ring
+        Amount: 50
+      - Material: Ch1_Warp_Leaf
+        Amount: 1
+  - Id: 1263098
+    Name: Rp_Ch01_Foot_MS
+    Materials:
+      - Material: Frontier_Magic_Dust
+        Amount: 100
+      - Material: R_Dimension_M_Shoes
+        Amount: 1
+      - Material: Ch1_Mana_Ring
+        Amount: 50
+      - Material: Ch1_Warp_Leaf
+        Amount: 1
+  - Id: 1263099
+    Name: Rp_Ch01_Foot_EB
+    Materials:
+      - Material: Frontier_Magic_Dust
+        Amount: 100
+      - Material: R_Dimension_E_Boots
+        Amount: 1
+      - Material: Ch1_Mana_Ring
+        Amount: 50
+      - Material: Ch1_Warp_Leaf
+        Amount: 1
+  - Id: 1263100
+    Name: Rp_Ch01_Dimension_A
+    Materials:
+      - Material: Frontier_Magic_Dust
+        Amount: 1000
+      - Material: Frontier_M_Stone
+        Amount: 300
+      - Material: Frontier_Stone_BL
+        Amount: 100
+      - Material: Frontier_Stone_YL
+        Amount: 100
+      - Material: Frontier_Stone_GR
+        Amount: 100
+      - Material: Frontier_Stone_BK
+        Amount: 100
+  - Id: 1263101
+    Name: Rp_Ch01_Dimension_B
+    Materials:
+      - Material: Dimension_Energy_BL
+        Amount: 600
+      - Material: Dimension_Energy_YL
+        Amount: 600
+      - Material: Dimension_Energy_GR
+        Amount: 600
+      - Material: Dimension_Energy_BK
+        Amount: 600
+  - Id: 1263102
+    Name: Rp_Ch01_Dimension_C
+    Materials:
+      - Material: Dimension_Essence_BL
+        Amount: 50
+      - Material: Dimension_Essence_YL
+        Amount: 50
+      - Material: Dimension_Essence_GR
+        Amount: 50
+      - Material: Dimension_Essence_BK
+        Amount: 50
+  - Id: 1263103
+    Name: Rp_Ch01_Chaos_A
+    Materials:
+      - Material: Chaotic_Rune_Ore
+        Amount: 1000
+      - Material: Disparate_Rune_Ore
+        Amount: 1000
+  - Id: 1263104
+    Name: Rp_Ch01_Chaos_B
+    Materials:
+      - Material: Chaotic_Rune
+        Amount: 300
+      - Material: Disparate_Rune
+        Amount: 300
+  - Id: 1263105
+    Name: Rp_Ch01_Chaos_C
+    Materials:
+      - Material: Chaotic_Essence
+        Amount: 150
+      - Material: Disparate_Essence
+        Amount: 150
+  - Id: 1263126
+    Name: Rp_Ch01_Rolling
+    Materials:
+      - Material: aegis_300635
+        Amount: 3
+      - Material: aegis_300636
+        Amount: 3
+      - Material: aegis_300637
+        Amount: 3
+      - Material: aegis_1001989
+        Amount: 100
+      - Material: aegis_1001990
+        Amount: 100
+      - Material: aegis_1002048
+        Amount: 100
+  - Id: 1263127
+    Name: Rp_Ch01_Volcano
+    Materials:
+      - Material: aegis_300640
+        Amount: 3
+      - Material: aegis_300638
+        Amount: 3
+      - Material: aegis_300639
+        Amount: 3
+      - Material: aegis_1002048
+        Amount: 100
+      - Material: aegis_1001987
+        Amount: 100
+      - Material: aegis_1001990
+        Amount: 100
+  - Id: 1263128
+    Name: Rp_Ch01_Yggleaf
+    Materials:
+      - Material: aegis_300633
+        Amount: 3
+      - Material: aegis_300634
+        Amount: 3
+      - Material: aegis_1002021
+        Amount: 500
+  - Id: 1263129
+    Name: Rp_Ch01_Noise
+    Materials:
+      - Material: aegis_300647
+        Amount: 3
+      - Material: aegis_300648
+        Amount: 3
+      - Material: aegis_1001992
+        Amount: 150
+      - Material: aegis_1001975
+        Amount: 30
+  - Id: 1263130
+    Name: Rp_Ch01_Flowers
+    Materials:
+      - Material: aegis_300649
+        Amount: 3
+      - Material: aegis_300650
+        Amount: 3
+      - Material: aegis_300651
+        Amount: 3
+      - Material: aegis_1001994
+        Amount: 50
+      - Material: aegis_1001995
+        Amount: 50
+      - Material: aegis_1002017
+        Amount: 50
+      - Material: aegis_1001975
+        Amount: 50
+  - Id: 1263131
+    Name: Rp_Ch01_Chunk
+    Materials:
+      - Material: aegis_300644
+        Amount: 3
+      - Material: aegis_300645
+        Amount: 3
+      - Material: aegis_300646
+        Amount: 3
+      - Material: Iron
+        Amount: 50
+      - Material: Steel
+        Amount: 50
+      - Material: Mystery_Piece
+        Amount: 50
+      - Material: Screw
+        Amount: 50
+      - Material: Coal
+        Amount: 50
+  - Id: 1263132
+    Name: Rp_Ch01_Toxic
+    Materials:
+      - Material: aegis_300659
+        Amount: 3
+      - Material: aegis_300660
+        Amount: 3
+      - Material: aegis_300661
+        Amount: 3
+      - Material: aegis_300662
+        Amount: 3
+      - Material: Disparate_Rune_Ore
+        Amount: 50
+      - Material: Frontier_M_Stone
+        Amount: 50
+  - Id: 1263133
+    Name: Rp_Ch01_Knight
+    Materials:
+      - Material: aegis_300663
+        Amount: 3
+      - Material: aegis_300664
+        Amount: 3
+      - Material: aegis_300665
+        Amount: 2
+      - Material: Yggdrasilberry
+        Amount: 15
+      - Material: Illusion_Stone_GR
+        Amount: 30
+      - Material: Illusion_Stone_BK
+        Amount: 30
+      - Material: Blade_Lost_In_Darkness
+        Amount: 2
+  - Id: 1263134
+    Name: Rp_Ch01_Cutter
+    Materials:
+      - Material: aegis_300652
+        Amount: 3
+      - Material: aegis_300653
+        Amount: 3
+      - Material: aegis_300654
+        Amount: 3
+      - Material: aegis_1002019
+        Amount: 50
+      - Material: aegis_1002018
+        Amount: 50
+      - Material: aegis_1001993
+        Amount: 50
+      - Material: aegis_1001992
+        Amount: 150
+  - Id: 1263135
+    Name: Rp_Ch01_Peep
+    Materials:
+      - Material: aegis_300641
+        Amount: 3
+      - Material: aegis_300642
+        Amount: 3
+      - Material: aegis_300643
+        Amount: 3
+      - Material: aegis_1002020
+        Amount: 50
+      - Material: Sticky_Poison
+        Amount: 100
+      - Material: Sticky_Webfoot
+        Amount: 100
+      - Material: Spawn
+        Amount: 100
+      - Material: Snail's_Shell
+        Amount: 100
+  - Id: 1263136
+    Name: Rp_Ch01_Uncanny
+    Materials:
+      - Material: aegis_300655
+        Amount: 3
+      - Material: aegis_300656
+        Amount: 3
+      - Material: aegis_300657
+        Amount: 3
+      - Material: aegis_300658
+        Amount: 2
+      - Material: aegis_1001986
+        Amount: 100
+      - Material: aegis_1001988
+        Amount: 50
+      - Material: Chaotic_Rune_Ore
+        Amount: 30
+      - Material: Polluted_Spell
+        Amount: 10
+  - Id: 1263137
+    Name: Rp_Ch01_Bulgasari
+    Materials:
+      - Material: aegis_300666
+        Amount: 1
+      - Material: aegis_1001985
+        Amount: 100
+      - Material: aegis_1001977
+        Amount: 100
+      - Material: Yggdrasilberry
+        Amount: 15
+      - Material: Frontier_M_Stone
+        Amount: 50
+  - Id: 1263138
+    Name: Rp_Ch01_Glutto
+    Materials:
+      - Material: aegis_300667
+        Amount: 1
+      - Material: aegis_1001991
+        Amount: 100
+      - Material: Yggdrasilberry
+        Amount: 15
+      - Material: Frontier_M_Stone
+        Amount: 50
 
 # ===== rAthena 移植 Pandas 符文书数据：结束 =====

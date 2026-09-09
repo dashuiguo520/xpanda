@@ -86,9 +86,13 @@ bool stream_uses_utf8( FILE* stream ) {
 	}
 	const long file_size = ftell( stream );
 	const size_t inspect_size = file_size <= 0 ? 0 : static_cast<size_t>( std::min<long>( file_size, 5 * 1024 * 1024 ) );
-	std::string content( inspect_size, '\0' );
+	// ===== rAthena 修复 UTF-8 大文件探测边界：开始 =====
+	// 修改原因：5 MiB 截止位置可能落在多字节字符中间；最多多读 3 字节即可完成一个 UTF-8 字符。
+	const size_t probe_size = file_size > static_cast<long>( inspect_size ) ? inspect_size + 3 : inspect_size;
+	std::string content( probe_size, '\0' );
 	fseek( stream, 0, SEEK_SET );
-	const size_t read_size = inspect_size == 0 ? 0 : ::fread( content.data(), 1, inspect_size, stream );
+	const size_t read_size = probe_size == 0 ? 0 : ::fread( content.data(), 1, probe_size, stream );
+	// ===== rAthena 修复 UTF-8 大文件探测边界：结束 =====
 	fseek( stream, position, SEEK_SET );
 	const bool has_bom = read_size >= 3 && static_cast<unsigned char>( content[0] ) == 0xEF && static_cast<unsigned char>( content[1] ) == 0xBB && static_cast<unsigned char>( content[2] ) == 0xBF;
 	const bool result = has_bom || ( read_size > 0 && is_valid_utf8( content.data(), read_size ) );

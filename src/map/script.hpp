@@ -368,6 +368,10 @@ enum e_batrec_sort : uint8 { BRS_DESC = 0, BRS_ASC = 1 };
 void selfdeletion_exec_endtalk(struct script_state* st);
 struct block_list;
 void pandas_batrec_record(struct block_list* src, struct block_list* target, int64 damage);
+// ===== rAthena 修复 Pandas 战斗记录生命周期：开始 =====
+// 修改原因：单位从地图 ID 数据库移除时同步释放其战斗记录，避免旧 GID 记录污染后续单位。
+void pandas_batrec_cleanup(struct block_list* bl);
+// ===== rAthena 修复 Pandas 战斗记录生命周期：结束 =====
 // ===== rAthena 移植 Pandas selfdeletion 常量：结束 =====
 
 struct script_state {
