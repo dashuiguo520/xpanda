@@ -1351,9 +1351,11 @@ const char* parse_simpleexpr(const char *p)
 			{
 				char buf[8];
 				size_t len = skip_escaped_c(p) - p;
+				if( len == 1 )
+					disp_error_message("parse_simpleexpr: invalid or incomplete escape sequence in string", p);
 				size_t n = sv_unescape_c(buf, p, len);
 				if( n != 1 )
-					ShowDebug("parse_simpleexpr: unexpected length %d after unescape (\"%.*s\" -> %.*s)\n", (int32)n, (int32)len, p, (int32)n, buf);
+					disp_error_message("parse_simpleexpr: invalid escape sequence in string", p);
 				p += len;
 				add_scriptb(*buf);
 				continue;
