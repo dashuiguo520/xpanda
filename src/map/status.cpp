@@ -10196,8 +10196,10 @@ bool status_change_start(block_list* src, block_list* bl, sc_type type, int32 ra
 
 	// ===== rAthena 移植 OnPCBuffStartFilter：开始 =====
 	// 修改原因：玩家获得状态前允许脚本中断或调整成功率、时长及四个状态参数。
+	// [FIX 2026-09-26] 增加 npc_event_has_script 短路：无 OnPCBuffStartFilter 脚本时
+	// 整段跳过，避免每个状态 8 次寄存器读写的无谓开销。
 	map_session_data* filter_sd = BL_CAST(BL_PC, bl);
-	if (filter_sd != nullptr) {
+	if (filter_sd != nullptr && npc_event_has_script(NPCF_SC_START)) {
 		pc_setreg(filter_sd, add_str("@about2start_sc_id"), static_cast<int64>(type));
 		pc_setreg(filter_sd, add_str("@about2start_sc_rate"), rate);
 		pc_setreg(filter_sd, add_str("@about2start_sc_tick"), duration);
@@ -10213,8 +10215,13 @@ bool status_change_start(block_list* src, block_list* bl, sc_type type, int32 ra
 		val2 = static_cast<int32>(cap_value(pc_readreg(filter_sd, add_str("@about2start_sc_val2")), INT_MIN, INT_MAX));
 		val3 = static_cast<int32>(cap_value(pc_readreg(filter_sd, add_str("@about2start_sc_val3")), INT_MIN, INT_MAX));
 		val4 = static_cast<int32>(cap_value(pc_readreg(filter_sd, add_str("@about2start_sc_val4")), INT_MIN, INT_MAX));
-		if (rate == 0 || duration == 0)
-			return false;
+		// [FIX 2026-09-26] 移除 "rate==0 || duration==0 → return false" 早退。
+		// 新版 rAthena 基底中 duration=0 是"Permanent effects"（下方 switch 中
+		// SC_PUSH_CART / SC_WEIGHT50 / SC_WEIGHT90 / SC_NOCHAT → tick = INFINITE_TICK）
+		// 的合法传参，status_get_sc_def 尾部 i64max(tick, min_duration) 亦有官方兜底。
+		// 该早退曾导致：手推车无法显示（sc_start 从未生效、EFST 包从未发出）、
+		// 超重 50%/90% 惩罚失效、永久禁言失效。
+		// 脚本如需拦截状态请使用 processhalt（上方 npc_script_filter 已处理）。
 	}
 	// ===== rAthena 移植 OnPCBuffStartFilter：结束 =====
 
@@ -13410,7 +13417,8 @@ static bool status_change_start_post_delay(block_list* src, block_list* bl, sc_t
 
 	// ===== rAthena 移植 OnPCBuffStartExpress：开始 =====
 	// 修改原因：状态成功生效后同步通知脚本并提供最终参数。
-	if (sd != nullptr) {
+	// [FIX 2026-09-26] 增加 npc_event_has_script 短路：无 OnPCBuffStartExpress 脚本时跳过。
+	if (sd != nullptr && npc_event_has_script(NPCX_SC_START)) {
 		pc_setreg(sd, add_str("@startedsc"), static_cast<int64>(type));
 		pc_setreg(sd, add_str("@started_sc_id"), static_cast<int64>(type));
 		pc_setreg(sd, add_str("@started_sc_tick"), tick);
@@ -14191,7 +14199,8 @@ int32 status_change_end( block_list* bl, enum sc_type type, int32 tid ){
 
 	// ===== rAthena 移植 OnPCBuffEndExpress：开始 =====
 	// 修改原因：状态成功解除后同步通知玩家事件脚本。
-	if (sd != nullptr) {
+	// [FIX 2026-09-26] 增加 npc_event_has_script 短路：无 OnPCBuffEndExpress 脚本时跳过。
+	if (sd != nullptr && npc_event_has_script(NPCX_SC_END)) {
 		pc_setreg(sd, add_str("@endedsc"), static_cast<int64>(type));
 		pc_setreg(sd, add_str("@ended_sc_id"), static_cast<int64>(type));
 		npc_script_event(*sd, NPCX_SC_END);

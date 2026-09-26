@@ -7408,10 +7408,12 @@ enum damage_lv battle_weapon_attack(block_list* src, block_list* target, t_tick 
 
 	// ===== rAthena 移植普通攻击实时事件：开始 =====
 	// 修改原因：伤害结算前同步触发受击方/攻击方事件，并允许脚本改写左右手伤害。
+	// [FIX 2026-09-26] 增加 npc_event_has_script 短路：无对应脚本时跳过。
+	// 此处为全服最热路径（每次攻击命中双方各 10 次寄存器写入 + 事件查找）。
 	if (src != nullptr && target != nullptr && damage > 0) {
 		block_list* harmed_master = target->type == BL_PC ? target : battle_get_master(target);
 		map_session_data* harmed_sd = BL_CAST(BL_PC, harmed_master);
-		if (harmed_sd != nullptr) {
+		if (harmed_sd != nullptr && npc_event_has_script(NPCX_PCHARMED)) {
 			pc_setreg(harmed_sd, add_str("@harmed_target_type"), target->type);
 			pc_setreg(harmed_sd, add_str("@harmed_target_gid"), target->id);
 			pc_setreg(harmed_sd, add_str("@harmed_src_type"), src->type);
@@ -7429,7 +7431,7 @@ enum damage_lv battle_weapon_attack(block_list* src, block_list* target, t_tick 
 
 		block_list* attack_master = src->type == BL_PC ? src : battle_get_master(src);
 		map_session_data* attack_sd = BL_CAST(BL_PC, attack_master);
-		if (attack_sd != nullptr) {
+		if (attack_sd != nullptr && npc_event_has_script(NPCX_PCATTACK)) {
 			pc_setreg(attack_sd, add_str("@attack_src_type"), src->type);
 			pc_setreg(attack_sd, add_str("@attack_src_gid"), src->id);
 			pc_setreg(attack_sd, add_str("@attack_target_type"), target->type);

@@ -10629,14 +10629,18 @@ static bool clif_process_message(map_session_data* sd, bool whisperFormat, char*
 
 	// ===== rAthena 移植 OnPCTalkExpress：开始 =====
 	// 修改原因：玩家消息成功处理后同步公开发送者、位置和消息内容。
-	pc_setreg(sd, add_str("@talk_x"), sd->x);
-	pc_setreg(sd, add_str("@talk_y"), sd->y);
-	pc_setreg(sd, add_str("@talk_mapid"), sd->m);
-	pc_setregstr(sd, add_str("@talk_mapname$"), sd->m >= 0 ? map[sd->m].name : "");
-	pc_setreg(sd, add_str("@talk_gid"), sd->id);
-	pc_setregstr(sd, add_str("@talk_name$"), out_name);
-	pc_setregstr(sd, add_str("@talk_mes$"), out_message);
-	npc_script_event(*sd, NPCX_PC_TALK);
+	// [FIX 2026-09-26] 增加 npc_event_has_script 短路：无 OnPCTalkExpress 脚本时跳过
+	// （每次发言 7 次寄存器写入，含两次字符串拷贝）。
+	if (npc_event_has_script(NPCX_PC_TALK)) {
+		pc_setreg(sd, add_str("@talk_x"), sd->x);
+		pc_setreg(sd, add_str("@talk_y"), sd->y);
+		pc_setreg(sd, add_str("@talk_mapid"), sd->m);
+		pc_setregstr(sd, add_str("@talk_mapname$"), sd->m >= 0 ? map[sd->m].name : "");
+		pc_setreg(sd, add_str("@talk_gid"), sd->id);
+		pc_setregstr(sd, add_str("@talk_name$"), out_name);
+		pc_setregstr(sd, add_str("@talk_mes$"), out_message);
+		npc_script_event(*sd, NPCX_PC_TALK);
+	}
 	// ===== rAthena 移植 OnPCTalkExpress：结束 =====
 
 	return true;
