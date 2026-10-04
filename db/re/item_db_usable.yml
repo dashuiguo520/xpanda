@@ -83695,6 +83695,146 @@ Body:
       NoGuildStorage: true
       NoMail: true
       NoAuction: true
+  # Perfect_Rune x1, Imperfect_Rune x200
+  - Id: 106408
+    AegisName: Rt_Ch01_Bulgasari_A
+    Name: 火焰激活奖励
+    Type: Usable
+    Buy: 0
+    Sell: 0
+    Weight: 0
+    Flags:
+      Container: true
+    Trade:
+      NoDrop: true
+      NoTrade: true
+      NoSell: true
+      NoCart: true
+      NoGuildStorage: true
+      NoMail: true
+      NoAuction: true
+    Script: |
+      getgroupitem(IG_RT_CH01_BULGASARI_A);
+  # Perfect_Rune x3, Imperfect_Rune x500, Brown_Dia x3
+  - Id: 106409
+    AegisName: Rt_Ch01_Bulgasari_C
+    Name: 火焰完成奖励
+    Type: Usable
+    Buy: 0
+    Sell: 0
+    Weight: 0
+    Flags:
+      Container: true
+    Trade:
+      NoDrop: true
+      NoTrade: true
+      NoSell: true
+      NoCart: true
+      NoGuildStorage: true
+      NoMail: true
+      NoAuction: true
+    Script: |
+      getgroupitem(IG_RT_CH01_BULGASARI_C);
+  # Perfect_Rune x1, Imperfect_Rune x200
+  - Id: 106410
+    AegisName: Rt_Ch01_Glutto_A
+    Name: 捕食者激活奖励
+    Type: Usable
+    Buy: 0
+    Sell: 0
+    Weight: 0
+    Flags:
+      Container: true
+    Trade:
+      NoDrop: true
+      NoTrade: true
+      NoSell: true
+      NoCart: true
+      NoGuildStorage: true
+      NoMail: true
+      NoAuction: true
+    Script: |
+      getgroupitem(IG_RT_CH01_GLUTTO_A);
+  # Perfect_Rune x3, Imperfect_Rune x500, Brown_Dia x3
+  - Id: 106411
+    AegisName: Rt_Ch01_Glutto_C
+    Name: 捕食者完成奖励
+    Type: Usable
+    Buy: 0
+    Sell: 0
+    Weight: 0
+    Flags:
+      Container: true
+    Trade:
+      NoDrop: true
+      NoTrade: true
+      NoSell: true
+      NoCart: true
+      NoGuildStorage: true
+      NoMail: true
+      NoAuction: true
+    Script: |
+      getgroupitem(IG_RT_CH01_GLUTTO_C);
+  # Perfect_Rune x1, Imperfect_Rune x100
+  - Id: 106412
+    AegisName: Rt_Ch01_Uncanny_A
+    Name: 诡异果实激活奖励
+    Type: Usable
+    Buy: 0
+    Sell: 0
+    Weight: 0
+    Flags:
+      Container: true
+    Trade:
+      NoDrop: true
+      NoTrade: true
+      NoSell: true
+      NoCart: true
+      NoGuildStorage: true
+      NoMail: true
+      NoAuction: true
+    Script: |
+      getgroupitem(IG_RT_CH01_UNCANNY_A);
+  # Imperfect_Rune x150, Cubic_Dia x3 (no Perfect_Rune)
+  - Id: 106413
+    AegisName: Rt_Ch01_Uncanny_C
+    Name: 诡异果实完成奖励
+    Type: Usable
+    Buy: 0
+    Sell: 0
+    Weight: 0
+    Flags:
+      Container: true
+    Trade:
+      NoDrop: true
+      NoTrade: true
+      NoSell: true
+      NoCart: true
+      NoGuildStorage: true
+      NoMail: true
+      NoAuction: true
+    Script: |
+      getgroupitem(IG_RT_CH01_UNCANNY_C);
+  # Imperfect_Rune x80, Cubic_Dia x2 (no Perfect_Rune)
+  - Id: 106414
+    AegisName: Rt_Ch01_Uncanny_2
+    Name: 诡异果实2件套奖励
+    Type: Usable
+    Buy: 0
+    Sell: 0
+    Weight: 0
+    Flags:
+      Container: true
+    Trade:
+      NoDrop: true
+      NoTrade: true
+      NoSell: true
+      NoCart: true
+      NoGuildStorage: true
+      NoMail: true
+      NoAuction: true
+    Script: |
+      getgroupitem(IG_RT_CH01_UNCANNY_2);
   - Id: 106415
     AegisName: Rt_Ch01_Chunk_A
     Name: Junkyard Activation Reward

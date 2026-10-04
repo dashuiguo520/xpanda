@@ -84,6 +84,7 @@ Body:
           - Amount: 4
             Script: |
               bonus2 bAddSize,Size_All,1;
+              bonus2 bMagicAddSize,Size_All,1;
               bonus bBaseAtk,10;
               bonus bMatk,10;
         Upgrades:
@@ -142,11 +143,11 @@ Body:
               - Material: Imperfect_Rune
                 Amount: 37
               - Material: EP17_1_EVT01
-                Amount: 3
+                Amount: 5
               - Material: EP17_1_EVT02
-                Amount: 7
-              - Material: EP17_1_EVT39
                 Amount: 9
+              - Material: EP17_1_EVT39
+                Amount: 11
           - Grade: 5
             Chance: 8000
             ChancePerFail: 3200
@@ -371,11 +372,11 @@ Body:
               - Material: Imperfect_Rune
                 Amount: 37
               - Material: EP17_1_EVT01
-                Amount: 3
+                Amount: 5
               - Material: EP17_1_EVT02
-                Amount: 7
-              - Material: EP17_1_EVT39
                 Amount: 9
+              - Material: EP17_1_EVT39
+                Amount: 11
           - Grade: 5
             Chance: 8000
             ChancePerFail: 3200
@@ -546,15 +547,12 @@ Body:
         Scripts:
           - Amount: 2
             Script: |
-              bonus bMatkRate,2;
-              bonus bAtkRate,2;
               .@val = (getupgrade_rune() / 3) * 2;
-              if(.@val >0){
-                bonus2 bSubEle,Ele_Poison,.@val;
-              }
+              bonus2 bAddEle,Ele_Poison,.@val;
+              bonus2 bMagicAddEle,Ele_Poison,.@val;
           - Amount: 3
             Script: |
-              bonus bDelayrate,-4;
+              bonus bAspdRate,4;
         Upgrades:
           - Grade: 0
             Chance: 10000
@@ -611,11 +609,11 @@ Body:
               - Material: Imperfect_Rune
                 Amount: 37
               - Material: EP17_1_EVT01
-                Amount: 3
+                Amount: 5
               - Material: EP17_1_EVT02
-                Amount: 7
-              - Material: EP17_1_EVT39
                 Amount: 9
+              - Material: EP17_1_EVT39
+                Amount: 11
           - Grade: 5
             Chance: 8000
             ChancePerFail: 3200
@@ -792,7 +790,7 @@ Body:
               }
           - Amount: 3
             Script: |
-              bonus2 bAddEle,Ele_Neutral,3;
+              bonus2 bMagicAtkEle,Ele_Neutral,3;
         Upgrades:
           - Grade: 0
             Chance: 10000
@@ -849,11 +847,11 @@ Body:
               - Material: Imperfect_Rune
                 Amount: 37
               - Material: EP17_1_EVT01
-                Amount: 3
+                Amount: 5
               - Material: EP17_1_EVT02
-                Amount: 7
-              - Material: EP17_1_EVT39
                 Amount: 9
+              - Material: EP17_1_EVT39
+                Amount: 11
           - Grade: 5
             Chance: 8000
             ChancePerFail: 3200
@@ -1088,11 +1086,11 @@ Body:
               - Material: Imperfect_Rune
                 Amount: 37
               - Material: EP17_1_EVT01
-                Amount: 3
+                Amount: 5
               - Material: EP17_1_EVT02
-                Amount: 7
-              - Material: EP17_1_EVT39
                 Amount: 9
+              - Material: EP17_1_EVT39
+                Amount: 11
           - Grade: 5
             Chance: 6000
             ChancePerFail: 2000
@@ -1462,7 +1460,7 @@ Body:
           - Material: Imperfect_Rune
             Amount: 175
           - Material: Perfect_Rune
-            Amount: 3
+            Amount: 2
         Reward:
           - Slot: 1
             Name: Rt_Ep17_Bath_A
@@ -1476,14 +1474,16 @@ Body:
           - Amount: 2
             Script: |
               .@val = getupgrade_rune() / 5;
-              if(.@val >0){
-                bonus2 bAddRace,RC_Fish,.@val;
-                bonus2 bAddRace,RC_Brute,.@val;
-              }
+              bonus2 bAddRace,RC_Brute,.@val;
+              bonus2 bMagicAddRace,RC_Brute,.@val;
+              bonus2 bAddRace,RC_Fish,.@val;
+              bonus2 bMagicAddRace,RC_Fish,.@val;
           - Amount: 3
             Script: |
               bonus2 bAddRace,RC_Brute,2;
+              bonus2 bMagicAddRace,RC_Brute,2;
               bonus2 bAddRace,RC_Fish,2;
+              bonus2 bMagicAddRace,RC_Fish,2;
         Upgrades:
           - Grade: 0
             Chance: 10000
@@ -1691,19 +1691,21 @@ Body:
           - Slot: 6
             Name: Imperfect_Rune
           - Slot: 7
-            Name: Rt_Ep17_Bath_C
+            Name: Rt_Ep17_Garden_C
         Scripts:
           - Amount: 2
             Script: |
               .@val = getupgrade_rune() / 5;
-              if(.@val >0){
-                bonus2 bAddRace,RC_Fish,.@val;
-                bonus2 bAddRace,RC_Insect,.@val;
-              }
+              bonus2 bAddRace,RC_Plant,.@val;
+              bonus2 bMagicAddRace,RC_Plant,.@val;
+              bonus2 bAddRace,RC_Insect,.@val;
+              bonus2 bMagicAddRace,RC_Insect,.@val;
           - Amount: 4
             Script: |
-              bonus2 bAddRace,RC_Fish,2;
-              bonus2 bAddRace,RC_Insect,2;
+              bonus2 bAddRace,RC_Plant,2;
+              bonus2 bMagicAddRace,RC_Plant,2;
+              bonus2 bAddRace,RC_Insect,3;
+              bonus2 bMagicAddRace,RC_Insect,3;
           - Amount: 6
             Script: |
               bonus2 bSubEle,Ele_All,3;
@@ -1915,22 +1917,20 @@ Body:
           - Amount: 2
             Script: |
               .@val = getupgrade_rune() / 5;
-              if(.@val >0){
-                bonus2 bAddEle,Ele_Ghost,2;
-                bonus2 bMagicAtkEle,Ele_Ghost,2;
-                bonus2 bAddRace,RC_DemiHuman,.@val;
-                bonus2 bAddRace,RC_Player_Human,.@val;
-                bonus2 bMagicAddRace,RC_DemiHuman,.@val;
-                bonus2 bMagicAddRace,RC_Player_Human,.@val;
-              }
+              bonus2 bAddRace,RC_Formless,.@val;
+              bonus2 bMagicAddRace,RC_Formless,.@val;
+              bonus2 bAddRace,RC_DemiHuman,.@val;
+              bonus2 bMagicAddRace,RC_DemiHuman,.@val;
+              bonus2 bAddRace,RC_Player_Human,.@val;
+              bonus2 bMagicAddRace,RC_Player_Human,.@val;
           - Amount: 3
             Script: |
-              bonus2 bAddEle,Ele_Ghost,2;
-              bonus2 bMagicAtkEle,Ele_Ghost,2;
-              bonus2 bAddRace,RC_DemiHuman,2;
-              bonus2 bAddRace,RC_Player_Human,2;
-              bonus2 bMagicAddRace,RC_DemiHuman,2;
-              bonus2 bMagicAddRace,RC_Player_Human,2;
+              bonus2 bAddRace,RC_Formless,2;
+              bonus2 bMagicAddRace,RC_Formless,2;
+              bonus2 bAddRace,RC_DemiHuman,3;
+              bonus2 bMagicAddRace,RC_DemiHuman,3;
+              bonus2 bAddRace,RC_Player_Human,3;
+              bonus2 bMagicAddRace,RC_Player_Human,3;
           - Amount: 5
             Script: |
               bonus bAtkRate,7;
@@ -2357,7 +2357,7 @@ Body:
             Script: |
               .@upgrade = getupgrade_rune();
               .@val = (.@upgrade / 3) * 3;
-              .@val2 = .@upgrade / 5);
+              .@val2 = .@upgrade / 5;
               if(.@val >0){
                 bonus bBaseAtk,.@val;
                 bonus bMatk,.@val;
@@ -2602,7 +2602,8 @@ Body:
                 bonus2 bMagicAddEle,Ele_Dark,3;
           - Amount: 5
             Script: |
-              bonus2 bHPDrainRate,20,2;
+              if (getupgrade_rune() >= 15)
+                  bonus2 bHPDrainRate,20,2;
         Upgrades:
           - Grade: 0
             Chance: 10000
@@ -2830,9 +2831,13 @@ Body:
           - Amount: 4
             Script: |
               bonus2 bAddRace,RC_DemiHuman,2;
+              bonus2 bMagicAddRace,RC_DemiHuman,2;
+              bonus2 bAddRace,RC_Player_Human,2;
+              bonus2 bMagicAddRace,RC_Player_Human,2;
           - Amount: 6
             Script: |
-              bonus2 bSPDrainRate,10,1;
+              if (getupgrade_rune() >= 15)
+                  bonus2 bSPDrainRate,10,1;
         Upgrades:
           - Grade: 0
             Chance: 8000
@@ -3027,10 +3032,6 @@ Body:
                 bonus bBaseAtk,.@val;
                 bonus bMatk,.@val;
               }
-          - Amount: 3
-            Script: |
-              bonus2 bAddItemHealRate,1100011,100;
-              bonus2 bAddItemHealRate,1100010,100;
           - Amount: 4
             Script: |
               bonus bBaseAtk,10;
@@ -3038,7 +3039,7 @@ Body:
         Upgrades:
           - Grade: 0
             Chance: 100000
-            ChancePerFail: 1
+            ChancePerFail: 0
             Materials:
               - Material: Imperfect_Rune
                 Amount: 2
@@ -3052,7 +3053,7 @@ Body:
                 Amount: 1
           - Grade: 1
             Chance: 100000
-            ChancePerFail: 1
+            ChancePerFail: 0
             Materials:
               - Material: Imperfect_Rune
                 Amount: 2
@@ -3066,7 +3067,7 @@ Body:
                 Amount: 1
           - Grade: 2
             Chance: 100000
-            ChancePerFail: 1
+            ChancePerFail: 0
             Materials:
               - Material: Imperfect_Rune
                 Amount: 2
@@ -3267,45 +3268,27 @@ Body:
         Scripts:
           - Amount: 2
             Script: |
-              bonus2 bAddRace,RC_Plant,6;
-              bonus2 bMagicAddRace,RC_Plant,6;
-              .@val = (getupgrade_rune() / 5) * 3;
-              if (.@val > 0) {
-                bonus2 bAddRace,RC_Plant,.@val;
-                bonus2 bMagicAddRace,RC_Plant,.@val;
-              }
+              .@val = getupgrade_rune() / 3;
+              bonus bBaseAtk,.@val;
+              bonus bMatk,.@val;
           - Amount: 4
             Script: |
-              bonus2 bAddRace,RC_Fish,6;
-              bonus2 bMagicAddRace,RC_Fish,6;
-              .@val = (getupgrade_rune() / 5) * 3;
-              if (.@val > 0) {
-                bonus2 bAddRace,RC_Fish,.@val;
-                bonus2 bMagicAddRace,RC_Fish,.@val;
-              }
+              bonus bBaseAtk,10;
+              bonus bMatk,10;
           - Amount: 5
             Script: |
-              bonus2 bAddRace,RC_Fish,6;
-              bonus2 bMagicAddRace,RC_Fish,6;
-              .@val = (getupgrade_rune() / 5) * 3;
-              if (.@val > 0) {
-                bonus2 bAddRace,RC_Fish,.@val;
-                bonus2 bMagicAddRace,RC_Fish,.@val;
-              }
-
+              .@val = getupgrade_rune() / 5;
+              bonus bAspdRate,.@val;
+              bonus bVariableCastrate,-.@val;
           - Amount: 6
             Script: |
-              bonus2 bAddRace,RC_Insect,6;
-              bonus2 bMagicAddRace,RC_Insect,6;
-              .@val = (getupgrade_rune() / 5) * 3;
-              if (.@val > 0) {
-                bonus2 bAddRace,RC_Insect,.@val;
-                bonus2 bMagicAddRace,RC_Insect,.@val;
-              }
+              .@val = getupgrade_rune() / 3;
+              bonus bMaxHP,1000 + .@val * 100;
+              bonus bMaxSP,500 + .@val * 10;
         Upgrades:
           - Grade: 0
             Chance: 100000
-            ChancePerFail: 1
+            ChancePerFail: 0
             Materials:
               - Material: Imperfect_Rune
                 Amount: 2
@@ -3321,7 +3304,7 @@ Body:
                 Amount: 5
           - Grade: 1
             Chance: 100000
-            ChancePerFail: 1
+            ChancePerFail: 0
             Materials:
               - Material: Imperfect_Rune
                 Amount: 2
@@ -3337,7 +3320,7 @@ Body:
                 Amount: 5
           - Grade: 2
             Chance: 100000
-            ChancePerFail: 1
+            ChancePerFail: 0
             Materials:
               - Material: Imperfect_Rune
                 Amount: 2
@@ -3528,7 +3511,7 @@ Body:
               - Material: Sweet_Potato
                 Amount: 9
           - Grade: 14
-            Chance: 60000
+            Chance: 50000
             ChancePerFail: 2200
             Materials:
               - Material: Perfect_Rune
@@ -3564,23 +3547,20 @@ Body:
         Scripts:
           - Amount: 2
             Script: |
-              .@val = getupgrade_rune() / 3;
-              if(.@val > 0){
-                bonus bBaseAtk,.@val;
-                bonus bMatk,.@val;
-              }
+              bonus bBaseAtk,10 + (getupgrade_rune() / 3);
           - Amount: 3
             Script: |
-              bonus2 bAddItemHealRate,1100011,100;
-              bonus2 bAddItemHealRate,1100010,100;
+              bonus2 bExpAddRace,RC_All,3;
           - Amount: 4
             Script: |
-              bonus bBaseAtk,10;
-              bonus bMatk,10;
+              bonus bUseSPrate,-2;
+          - Amount: 6
+            Script: |
+              bonus bAllStats,2 + (getupgrade_rune() / 5);
         Upgrades:
           - Grade: 0
             Chance: 100000
-            ChancePerFail: 1
+            ChancePerFail: 0
             Materials:
               - Material: Imperfect_Rune
                 Amount: 1
@@ -3596,7 +3576,7 @@ Body:
                 Amount: 3
           - Grade: 1
             Chance: 100000
-            ChancePerFail: 1
+            ChancePerFail: 0
             Materials:
               - Material: Imperfect_Rune
                 Amount: 1
@@ -3612,7 +3592,7 @@ Body:
                 Amount: 3
           - Grade: 2
             Chance: 100000
-            ChancePerFail: 1
+            ChancePerFail: 0
             Materials:
               - Material: Imperfect_Rune
                 Amount: 1
@@ -3628,7 +3608,7 @@ Body:
                 Amount: 3
           - Grade: 3
             Chance: 90000
-            ChancePerFail: 2100
+            ChancePerFail: 2200
             Materials:
               - Material: Imperfect_Rune
                 Amount: 2
@@ -3644,7 +3624,7 @@ Body:
                 Amount: 6
           - Grade: 4
             Chance: 90000
-            ChancePerFail: 2100
+            ChancePerFail: 2200
             Materials:
               - Material: Imperfect_Rune
                 Amount: 2
@@ -3660,7 +3640,7 @@ Body:
                 Amount: 6
           - Grade: 5
             Chance: 90000
-            ChancePerFail: 2100
+            ChancePerFail: 2200
             Materials:
               - Material: Imperfect_Rune
                 Amount: 2
@@ -3676,7 +3656,7 @@ Body:
                 Amount: 6
           - Grade: 6
             Chance: 80000
-            ChancePerFail: 2100
+            ChancePerFail: 2200
             Materials:
               - Material: Imperfect_Rune
                 Amount: 3
@@ -3692,7 +3672,7 @@ Body:
                 Amount: 9
           - Grade: 7
             Chance: 80000
-            ChancePerFail: 2100
+            ChancePerFail: 2200
             Materials:
               - Material: Imperfect_Rune
                 Amount: 3
@@ -3708,7 +3688,7 @@ Body:
                 Amount: 9
           - Grade: 8
             Chance: 80000
-            ChancePerFail: 2100
+            ChancePerFail: 2200
             Materials:
               - Material: Imperfect_Rune
                 Amount: 3
@@ -3724,7 +3704,7 @@ Body:
                 Amount: 9
           - Grade: 9
             Chance: 70000
-            ChancePerFail: 2100
+            ChancePerFail: 2200
             Materials:
               - Material: Imperfect_Rune
                 Amount: 4
@@ -3740,7 +3720,7 @@ Body:
                 Amount: 12
           - Grade: 10
             Chance: 70000
-            ChancePerFail: 2100
+            ChancePerFail: 2200
             Materials:
               - Material: Imperfect_Rune
                 Amount: 4
@@ -3756,7 +3736,7 @@ Body:
                 Amount: 12
           - Grade: 11
             Chance: 70000
-            ChancePerFail: 2100
+            ChancePerFail: 2200
             Materials:
               - Material: Imperfect_Rune
                 Amount: 4
@@ -3772,7 +3752,7 @@ Body:
                 Amount: 12
           - Grade: 12
             Chance: 60000
-            ChancePerFail: 2100
+            ChancePerFail: 2200
             Materials:
               - Material: Imperfect_Rune
                 Amount: 5
@@ -3788,7 +3768,7 @@ Body:
                 Amount: 15
           - Grade: 13
             Chance: 60000
-            ChancePerFail: 2100
+            ChancePerFail: 2200
             Materials:
               - Material: Imperfect_Rune
                 Amount: 5
@@ -3804,7 +3784,7 @@ Body:
                 Amount: 15
           - Grade: 14
             Chance: 50000
-            ChancePerFail: 2100
+            ChancePerFail: 2200
             Materials:
               - Material: Perfect_Rune
                 Amount: 1
@@ -3839,23 +3819,20 @@ Body:
         Scripts:
           - Amount: 2
             Script: |
-              .@val = getupgrade_rune() / 3;
-              if(.@val > 0){
-                bonus bBaseAtk,.@val;
-                bonus bMatk,.@val;
-              }
+              bonus bMatk,10 + (getupgrade_rune() / 3);
           - Amount: 3
             Script: |
-              bonus2 bAddItemHealRate,1100011,100;
-              bonus2 bAddItemHealRate,1100010,100;
+              bonus2 bExpAddRace,RC_All,3;
           - Amount: 4
             Script: |
-              bonus bBaseAtk,10;
-              bonus bMatk,10;
+              bonus bUseSPrate,-2;
+          - Amount: 6
+            Script: |
+              bonus bAllStats,2 + (getupgrade_rune() / 5);
         Upgrades:
           - Grade: 0
             Chance: 100000
-            ChancePerFail: 1
+            ChancePerFail: 0
             Materials:
               - Material: Imperfect_Rune
                 Amount: 1
@@ -3871,7 +3848,7 @@ Body:
                 Amount: 3
           - Grade: 1
             Chance: 100000
-            ChancePerFail: 1
+            ChancePerFail: 0
             Materials:
               - Material: Imperfect_Rune
                 Amount: 1
@@ -3887,7 +3864,7 @@ Body:
                 Amount: 3
           - Grade: 2
             Chance: 100000
-            ChancePerFail: 1
+            ChancePerFail: 0
             Materials:
               - Material: Imperfect_Rune
                 Amount: 1
@@ -3903,7 +3880,7 @@ Body:
                 Amount: 3
           - Grade: 3
             Chance: 90000
-            ChancePerFail: 2100
+            ChancePerFail: 2200
             Materials:
               - Material: Imperfect_Rune
                 Amount: 2
@@ -3919,7 +3896,7 @@ Body:
                 Amount: 6
           - Grade: 4
             Chance: 90000
-            ChancePerFail: 2100
+            ChancePerFail: 2200
             Materials:
               - Material: Imperfect_Rune
                 Amount: 2
@@ -3935,7 +3912,7 @@ Body:
                 Amount: 6
           - Grade: 5
             Chance: 90000
-            ChancePerFail: 2100
+            ChancePerFail: 2200
             Materials:
               - Material: Imperfect_Rune
                 Amount: 2
@@ -3951,7 +3928,7 @@ Body:
                 Amount: 6
           - Grade: 6
             Chance: 80000
-            ChancePerFail: 2100
+            ChancePerFail: 2200
             Materials:
               - Material: Imperfect_Rune
                 Amount: 3
@@ -3967,7 +3944,7 @@ Body:
                 Amount: 9
           - Grade: 7
             Chance: 80000
-            ChancePerFail: 2100
+            ChancePerFail: 2200
             Materials:
               - Material: Imperfect_Rune
                 Amount: 3
@@ -3983,7 +3960,7 @@ Body:
                 Amount: 9
           - Grade: 8
             Chance: 80000
-            ChancePerFail: 2100
+            ChancePerFail: 2200
             Materials:
               - Material: Imperfect_Rune
                 Amount: 3
@@ -3999,7 +3976,7 @@ Body:
                 Amount: 9
           - Grade: 9
             Chance: 70000
-            ChancePerFail: 2100
+            ChancePerFail: 2200
             Materials:
               - Material: Imperfect_Rune
                 Amount: 4
@@ -4015,7 +3992,7 @@ Body:
                 Amount: 12
           - Grade: 10
             Chance: 70000
-            ChancePerFail: 2100
+            ChancePerFail: 2200
             Materials:
               - Material: Imperfect_Rune
                 Amount: 4
@@ -4031,7 +4008,7 @@ Body:
                 Amount: 12
           - Grade: 11
             Chance: 70000
-            ChancePerFail: 2100
+            ChancePerFail: 2200
             Materials:
               - Material: Imperfect_Rune
                 Amount: 4
@@ -4047,7 +4024,7 @@ Body:
                 Amount: 12
           - Grade: 12
             Chance: 60000
-            ChancePerFail: 2100
+            ChancePerFail: 2200
             Materials:
               - Material: Imperfect_Rune
                 Amount: 5
@@ -4063,7 +4040,7 @@ Body:
                 Amount: 15
           - Grade: 13
             Chance: 60000
-            ChancePerFail: 2100
+            ChancePerFail: 2200
             Materials:
               - Material: Imperfect_Rune
                 Amount: 5
@@ -4079,7 +4056,7 @@ Body:
                 Amount: 15
           - Grade: 14
             Chance: 50000
-            ChancePerFail: 2100
+            ChancePerFail: 2200
             Materials:
               - Material: Perfect_Rune
                 Amount: 1
@@ -4105,7 +4082,7 @@ Body:
             Name: Rp_Ep18_Armor_B
         Activation:
           - Material: Ep18_Amethyst_Fragment
-            Amount: 950
+            Amount: 650
           - Material: Imperfect_Rune
             Amount: 150
           - Material: Perfect_Rune
@@ -4120,13 +4097,9 @@ Body:
         Scripts:
           - Amount: 2
             Script: |
-              bonus2 bAddRace2,RC2_EPISODE18,10;
-              .@val = getupgrade_rune();
-              if(.@val >0){
-                .@additional_bonus = (.@val / 3);
-                bonus2 bAddRace2,RC2_EPISODE18,.@additional_bonus;
-                bonus bMatk,.@additional_bonus;
-              }
+              .@val = 10 + (getupgrade_rune() / 3);
+              bonus2 bAddRace2,RC2_EPISODE18,.@val;
+              bonus2 bMagicAddRace2,RC2_EPISODE18,.@val;
         Upgrades:
           - Grade: 0
             Chance: 15000
@@ -4263,9 +4236,9 @@ Body:
         Books:
           - Slot: 0
             Name: Rp_Ep18_Sword
-          - Slot: 1
-            Name: Rp_Ep18_Spear
           - Slot: 3
+            Name: Rp_Ep18_Spear
+          - Slot: 4
             Name: Rp_Ep18_Katar
         Activation:
           - Material: Ep18_Amethyst_Fragment
@@ -4427,11 +4400,11 @@ Body:
       - Id: 1260016
         Name: Rt_Ep18_Magic
         Books:
-          - Slot: 0
-            Name: Rp_Ep18_Book
           - Slot: 1
+            Name: Rp_Ep18_Book
+          - Slot: 2
             Name: Rp_Ep18_Magic
-          - Slot: 3
+          - Slot: 5
             Name: Rp_Ep18_Instrum
         Activation:
           - Material: Ep18_Amethyst_Fragment
@@ -4458,7 +4431,7 @@ Body:
               }
           - Amount: 3
             Script: |
-              bonus2 bMagicAtkEle,Ele_All,3;
+              bonus2 bMagicAtkEle,Ele_All,2;
         Upgrades:
           - Grade: 0
             Chance: 15000
@@ -4595,7 +4568,7 @@ Body:
         Books:
           - Slot: 0
             Name: Rp_Ep18_Range
-          - Slot: 1
+          - Slot: 3
             Name: Rp_Ep18_Gun
           - Slot: 4
             Name: Rp_Ep18_Fuuma
@@ -4759,7 +4732,7 @@ Body:
       - Id: 1260018
         Name: Rt_Ep18_Field
         Books:
-          - Slot: 0
+          - Slot: 2
             Name: Rp_Ep18_Greywolf
           - Slot: 3
             Name: Rp_Ep18_Phantom
@@ -4791,11 +4764,7 @@ Body:
               bonus bCritAtkRate,2;
           - Amount: 3
             Script: |
-              bonus bCritical,3;
-              .@val = getupgrade_rune() / 3;
-              if(.@val >0){
-                bonus bCritAtkRate,.@val;
-              }
+              bonus bCritical,3 + (getupgrade_rune() / 3);
           - Amount: 4
             Script: |
               bonus bCritAtkRate,3;
@@ -4933,11 +4902,11 @@ Body:
       - Id: 1260019
         Name: Rt_Ep18_Lava
         Books:
-          - Slot: 0
+          - Slot: 1
             Name: Rp_Ep18_Rakehand
-          - Slot: 3
-            Name: Rp_Ep18_Toad
           - Slot: 4
+            Name: Rp_Ep18_Toad
+          - Slot: 5
             Name: Rp_Ep18_Hot
         Activation:
           - Material: Ep18_Amethyst_Fragment
@@ -4961,11 +4930,8 @@ Body:
               bonus2 bMagicAtkEle,Ele_Dark,3;
           - Amount: 3
             Script: |
-              .@val = getupgrade_rune() / 3;
-              if(.@val >0){
-                bonus2 bMagicAtkEle,Ele_Earth,.@val*3;
-                bonus2 bMagicAtkEle,Ele_Fire,.@val*2;
-              }
+              bonus2 bMagicAtkEle,Ele_Earth,3;
+              bonus2 bMagicAtkEle,Ele_Fire,(getupgrade_rune() / 3) * 2;
         Upgrades:
           - Grade: 0
             Chance: 15000
@@ -5137,13 +5103,9 @@ Body:
         Scripts:
           - Amount: 2
             Script: |
-              bonus bBaseAtk,10;
-              bonus bMatk,10;
-              .@val = getupgrade_rune() / 3;
-              if(.@val >0){
-                bonus bBaseAtk,.@val;
-                bonus bMatk,.@val;
-              }
+              .@val = 10 + (getupgrade_rune() / 3) * 3;
+              bonus bBaseAtk,.@val;
+              bonus bMatk,.@val;
           - Amount: 4
             Script: |
               .@val = getupgrade_rune() / 3;
@@ -5294,11 +5256,11 @@ Body:
       - Id: 1260021
         Name: Rt_Ep18_Fang
         Books:
-          - Slot: 0
+          - Slot: 1
             Name: Rp_Ep18_Hot
-          - Slot: 3
+          - Slot: 2
             Name: Rp_Ep18_Burning
-          - Slot: 4
+          - Slot: 5
             Name: Rp_Ep18_Toad
         Activation:
           - Material: Ep18_Amethyst_Fragment
@@ -5319,7 +5281,7 @@ Body:
         Scripts:
           - Amount: 2
             Script: |
-              autobonus2 "{ bonus2 bSPRegenRate,200,1000; }",40,2000,BF_MAGIC|BF_WEAPON;
+              autobonus2 "{ bonus2 bSPRegenRate,200,1000; }",20,4000,BF_MAGIC|BF_WEAPON;
           - Amount: 3
             Script: |
               bonus bUseSPrate,-5;
@@ -5463,9 +5425,9 @@ Body:
         Books:
           - Slot: 0
             Name: Rp_Ep18_Demi
-          - Slot: 3
-            Name: Rp_Ep18_Phantom
           - Slot: 4
+            Name: Rp_Ep18_Phantom
+          - Slot: 5
             Name: Rp_Ep18_Greywolf
         Activation:
           - Material: Ep18_Amethyst_Fragment
@@ -5487,12 +5449,12 @@ Body:
           - Amount: 2
             Script: |
               bonus2 bAddClass,Class_Boss,10;
+              bonus2 bMagicAddClass,Class_Boss,10;
           - Amount: 3
             Script: |
-              .@val = 15 + ( getupgrade_rune() / 3 ) * 3;
-              if(.@val >0){
-                bonus2 bAddClass,Class_Boss,.@val;
-              }
+              .@val = 15 + (getupgrade_rune() / 3) * 3;
+              bonus2 bAddClass,Class_Boss,.@val;
+              bonus2 bMagicAddClass,Class_Boss,.@val;
         Upgrades:
           - Grade: 0
             Chance: 15000
@@ -5651,13 +5613,9 @@ Body:
         Scripts:
           - Amount: 2
             Script: |
-              bonus2 bAddRace2,RC2_EPISODE19,10;
-              .@val = getupgrade_rune();
-              if(.@val >0){
-                .@additional_bonus = (.@val / 3);
-                bonus2 bAddRace2,RC2_EPISODE19,.@additional_bonus;
-                bonus bMatk,.@additional_bonus;
-              }
+              .@val = 10 + (getupgrade_rune() / 3);
+              bonus2 bAddRace2,RC2_EPISODE19,.@val;
+              bonus2 bMagicAddRace2,RC2_EPISODE19,.@val;
         Upgrades:
           - Grade: 0
             Chance: 15000
@@ -5833,11 +5791,9 @@ Body:
               bonus bMatk,35;
           - Amount: 4
             Script: |
-              .@val = (getupgrade_rune() / 5) * 2;
-              if(.@val >0){
-                bonus bPAtk,.@val;
-                bonus bSmatk,.@val;
-              }
+              .@val = 2 + (getupgrade_rune() / 5);
+              bonus bPatk,.@val;
+              bonus bSmatk,.@val;
           - Amount: 6
             Script: |
               bonus bShortAtkRate,4;
@@ -5998,13 +5954,11 @@ Body:
         Scripts:
           - Amount: 2
             Script: |
-              bonus bRes,55;
-              bonus bMres,55;
-              .@val = (getupgrade_rune() / 3) * 5;
-              if(.@val >0){
-                bonus bRes,.@val;
-                bonus bRes,.@val;
-              }
+              .@val = getupgrade_rune() / 3;
+              bonus bRes,55 + .@val * 5;
+              bonus bMres,55 + .@val * 5;
+              bonus bWis,.@val * 2;
+              bonus bSta,.@val * 2;
         Upgrades:
           - Grade: 0
             Chance: 12000
@@ -6161,16 +6115,10 @@ Body:
           - Amount: 2
             Script: |
               bonus bSmatk,15;
-              bonus2 bSubEle,Ele_All,-15;
-              .@val = (getupgrade_rune() / 3) * 3;
-              .@val2 = (getupgrade_rune() / 3) * 4;
-              if (.@val > 0) {
-                bonus2 bSubEle,Ele_All,.@val;
-              }
-              if (.@val2 > 0) {
-                bonus2 bMagicAtkEle,Ele_Poison,.@val2;
-                bonus2 bMagicAtkEle,Ele_Ghost,.@val2;
-              }
+              .@val = getupgrade_rune() / 3;
+              bonus2 bSubEle,Ele_All,-15 + .@val * 3;
+              bonus2 bMagicAtkEle,Ele_Poison,.@val * 4;
+              bonus2 bMagicAtkEle,Ele_Fire,.@val * 4;
         Upgrades:
           - Grade: 0
             Chance: 12000
@@ -6500,14 +6448,12 @@ Body:
           - Amount: 2
             Script: |
               .@val = getupgrade_rune() / 5;
-              if(.@val >0){
-                bonus bMaxHPrate,.@val;
-                bonus bMaxSP,.@val;
-              }
+              bonus bMaxHPrate,.@val;
+              bonus bMaxSPrate,.@val;
           - Amount: 3
             Script: |
-              bonus bMaxSP,4;
-              bonus bMaxSP,4;
+              bonus bMaxHPrate,4;
+              bonus bMaxSPrate,4;
         Upgrades:
           - Grade: 0
             Chance: 15000
@@ -6644,7 +6590,7 @@ Body:
         Books:
           - Slot: 0
             Name: Rp_Ep19_Snow
-          - Slot: 2
+          - Slot: 1
             Name: Rp_Ep19_Frozen
           - Slot: 4
             Name: Rp_Ep19_Middle
@@ -6837,23 +6783,18 @@ Body:
           - Amount: 2
             Script: |
               bonus bSmatk,3;
-              .@val = (getupgrade_rune() / 5) * 5;
-              .@val2 = getupgrade_rune() / 5;
-              if (.@val > 0) {
-                bonus bUseSPrate,.@val;
-              }
-              if (.@val2 > 0) {
-                bonus2 bMagicAtkEle,Ele_Water,.@val2;
-                bonus2 bMagicAtkEle,Ele_Poison,.@val2;
-                bonus2 bMagicAtkEle,Ele_Dark,.@val2;
-                bonus2 bMagicAtkEle,Ele_Ghost,.@val2;
-              }
+              bonus bUseSPrate,5;
+              .@val = getupgrade_rune() / 5;
+              bonus2 bMagicAtkEle,Ele_Water,.@val;
+              bonus2 bMagicAtkEle,Ele_Poison,.@val;
+              bonus2 bMagicAtkEle,Ele_Dark,.@val;
+              bonus2 bMagicAtkEle,Ele_Fire,.@val;
           - Amount: 3
             Script: |
               bonus2 bMagicAtkEle,Ele_Water,5;
               bonus2 bMagicAtkEle,Ele_Poison,5;
               bonus2 bMagicAtkEle,Ele_Dark,5;
-              bonus2 bMagicAtkEle,Ele_Ghost,5;
+              bonus2 bMagicAtkEle,Ele_Fire,5;
               bonus bUseSPrate,-5;
         Upgrades:
           - Grade: 0
@@ -6999,7 +6940,7 @@ Body:
           - Material: Ep19_Snow_Flower
             Amount: 1050
           - Material: Imperfect_Rune
-            Amount: 700
+            Amount: 175
           - Material: Perfect_Rune
             Amount: 1
         Reward:
@@ -7374,14 +7315,13 @@ Body:
         Scripts:
           - Amount: 2
             Script: |
-              .@val = getupgrade_rune();
-              if(.@val >0){
-                .@additional_bonus = (.@val / 3);
-                bonus2 bAddRace2,RC2_EPISODE20,.@additional_bonus;
-              }
+              .@val = getupgrade_rune() / 3;
+              bonus2 bAddRace2,RC2_EPISODE20,.@val;
+              bonus2 bMagicAddRace2,RC2_EPISODE20,.@val;
           - Amount: 3
             Script: |
               bonus2 bAddRace2,RC2_EPISODE20,7;
+              bonus2 bMagicAddRace2,RC2_EPISODE20,7;
         Upgrades:
           - Grade: 0
             Chance: 15000
@@ -7547,7 +7487,7 @@ Body:
               .@val = getupgrade_rune() / 5;
               if(.@val >0){
                 bonus bMaxHPrate,.@val;
-                bonus bMaxSP,.@val;
+                bonus bMaxSPrate,.@val;
               }
           - Amount: 3
             Script: |
@@ -7686,11 +7626,11 @@ Body:
             ChancePerFail: 40
             Materials:
               - Material: Imperfect_Rune
-                Amount: 24
+                Amount: 25
               - Material: Perfect_Rune
                 Amount: 1
               - Material: Ep20_Cat_Whiskers
-                Amount: 8
+                Amount: 9
       - Id: 1260039
         Name: Rt_Ep20_Predator
         Books:
@@ -7728,135 +7668,135 @@ Body:
               }
         Upgrades:
           - Grade: 0
-            Chance: 15000
-            ChancePerFail: 9000
-            Materials:
-              - Material: Imperfect_Rune
-                Amount: 15
-              - Material: Ep19_Snow_Flower
-                Amount: 3
-          - Grade: 1
-            Chance: 15000
-            ChancePerFail: 9000
-            Materials:
-              - Material: Imperfect_Rune
-                Amount: 15
-              - Material: Ep19_Snow_Flower
-                Amount: 3
-          - Grade: 2
-            Chance: 15000
-            ChancePerFail: 9000
-            Materials:
-              - Material: Imperfect_Rune
-                Amount: 15
-              - Material: Ep19_Snow_Flower
-                Amount: 3
-          - Grade: 3
-            Chance: 13500
-            ChancePerFail: 8100
-            Materials:
-              - Material: Imperfect_Rune
-                Amount: 15
-              - Material: Ep19_Snow_Flower
-                Amount: 3
-          - Grade: 4
-            Chance: 13500
-            ChancePerFail: 8100
-            Materials:
-              - Material: Imperfect_Rune
-                Amount: 17
-              - Material: Ep19_Snow_Flower
-                Amount: 4
-          - Grade: 5
             Chance: 12000
             ChancePerFail: 7200
             Materials:
               - Material: Imperfect_Rune
-                Amount: 19
-              - Material: Ep19_Snow_Flower
-                Amount: 5
-          - Grade: 6
+                Amount: 20
+              - Material: Ep20_Cat_Whiskers
+                Amount: 3
+          - Grade: 1
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Ep20_Cat_Whiskers
+                Amount: 3
+          - Grade: 2
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Ep20_Cat_Whiskers
+                Amount: 3
+          - Grade: 3
+            Chance: 10500
+            ChancePerFail: 6300
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Ep20_Cat_Whiskers
+                Amount: 3
+          - Grade: 4
             Chance: 10500
             ChancePerFail: 6300
             Materials:
               - Material: Imperfect_Rune
                 Amount: 21
-              - Material: Ep19_Snow_Flower
-                Amount: 6
-          - Grade: 7
+              - Material: Ep20_Cat_Whiskers
+                Amount: 5
+          - Grade: 5
             Chance: 9000
             ChancePerFail: 5400
             Materials:
               - Material: Imperfect_Rune
-                Amount: 23
-              - Material: Ep19_Snow_Flower
-                Amount: 7
-          - Grade: 8
+                Amount: 21
+              - Material: Ep20_Cat_Whiskers
+                Amount: 5
+          - Grade: 6
             Chance: 7500
             ChancePerFail: 4500
             Materials:
               - Material: Imperfect_Rune
-                Amount: 25
-              - Material: Ep19_Snow_Flower
-                Amount: 8
-          - Grade: 9
+                Amount: 21
+              - Material: Ep20_Cat_Whiskers
+                Amount: 5
+          - Grade: 7
             Chance: 6000
             ChancePerFail: 3600
             Materials:
               - Material: Imperfect_Rune
-                Amount: 27
-              - Material: Ep19_Snow_Flower
-                Amount: 9
-          - Grade: 10
+                Amount: 21
+              - Material: Ep20_Cat_Whiskers
+                Amount: 5
+          - Grade: 8
             Chance: 4500
             ChancePerFail: 2700
             Materials:
               - Material: Imperfect_Rune
-                Amount: 30
-              - Material: Perfect_Rune
-                Amount: 1
-              - Material: Ep19_Snow_Flower
-                Amount: 10
-          - Grade: 11
+                Amount: 22
+              - Material: Ep20_Cat_Whiskers
+                Amount: 6
+          - Grade: 9
             Chance: 3000
             ChancePerFail: 1800
             Materials:
               - Material: Imperfect_Rune
-                Amount: 33
-              - Material: Perfect_Rune
-                Amount: 1
-              - Material: Ep19_Snow_Flower
-                Amount: 12
-          - Grade: 12
+                Amount: 22
+              - Material: Ep20_Cat_Whiskers
+                Amount: 6
+          - Grade: 10
             Chance: 1500
             ChancePerFail: 900
             Materials:
               - Material: Imperfect_Rune
-                Amount: 36
+                Amount: 22
               - Material: Perfect_Rune
                 Amount: 1
-              - Material: Ep19_Snow_Flower
-                Amount: 14
-          - Grade: 13
+              - Material: Ep20_Cat_Whiskers
+                Amount: 6
+          - Grade: 11
             Chance: 750
             ChancePerFail: 450
             Materials:
               - Material: Imperfect_Rune
-                Amount: 40
+                Amount: 23
               - Material: Perfect_Rune
                 Amount: 1
-              - Material: Ep19_Snow_Flower
-                Amount: 16
-          - Grade: 14
-            Chance: 150
-            ChancePerFail: 90
+              - Material: Ep20_Cat_Whiskers
+                Amount: 7
+          - Grade: 12
+            Chance: 750
+            ChancePerFail: 450
             Materials:
               - Material: Imperfect_Rune
-                Amount: 45
+                Amount: 23
               - Material: Perfect_Rune
-                Amount: 2
-              - Material: Ep19_Snow_Flower
-                Amount: 18
+                Amount: 1
+              - Material: Ep20_Cat_Whiskers
+                Amount: 7
+          - Grade: 13
+            Chance: 370
+            ChancePerFail: 220
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 24
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep20_Cat_Whiskers
+                Amount: 8
+          - Grade: 14
+            Chance: 70
+            ChancePerFail: 40
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 25
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep20_Cat_Whiskers
+                Amount: 9
       - Id: 1260040
         Name: Rt_Ep20_Guardian
         Books:
@@ -7867,7 +7807,7 @@ Body:
           - Slot: 3
             Name: Rp_Ep20_Heal
         Activation:
-          - Material: Ep19_Snow_Flower
+          - Material: Ep20_Cat_Whiskers
             Amount: 150
           - Material: Imperfect_Rune
             Amount: 100
@@ -7903,7 +7843,7 @@ Body:
             Materials:
               - Material: Imperfect_Rune
                 Amount: 15
-              - Material: Ep19_Snow_Flower
+              - Material: Ep20_Cat_Whiskers
                 Amount: 3
           - Grade: 1
             Chance: 15000
@@ -7911,7 +7851,7 @@ Body:
             Materials:
               - Material: Imperfect_Rune
                 Amount: 15
-              - Material: Ep19_Snow_Flower
+              - Material: Ep20_Cat_Whiskers
                 Amount: 3
           - Grade: 2
             Chance: 15000
@@ -7919,7 +7859,7 @@ Body:
             Materials:
               - Material: Imperfect_Rune
                 Amount: 15
-              - Material: Ep19_Snow_Flower
+              - Material: Ep20_Cat_Whiskers
                 Amount: 3
           - Grade: 3
             Chance: 13500
@@ -7927,106 +7867,106 @@ Body:
             Materials:
               - Material: Imperfect_Rune
                 Amount: 15
-              - Material: Ep19_Snow_Flower
+              - Material: Ep20_Cat_Whiskers
                 Amount: 3
           - Grade: 4
             Chance: 13500
             ChancePerFail: 8100
             Materials:
               - Material: Imperfect_Rune
-                Amount: 17
-              - Material: Ep19_Snow_Flower
-                Amount: 4
+                Amount: 16
+              - Material: Ep20_Cat_Whiskers
+                Amount: 3
           - Grade: 5
             Chance: 12000
             ChancePerFail: 7200
             Materials:
               - Material: Imperfect_Rune
-                Amount: 19
-              - Material: Ep19_Snow_Flower
+                Amount: 16
+              - Material: Ep20_Cat_Whiskers
                 Amount: 5
           - Grade: 6
             Chance: 10500
             ChancePerFail: 6300
             Materials:
               - Material: Imperfect_Rune
-                Amount: 21
-              - Material: Ep19_Snow_Flower
-                Amount: 6
+                Amount: 16
+              - Material: Ep20_Cat_Whiskers
+                Amount: 5
           - Grade: 7
             Chance: 9000
             ChancePerFail: 5400
             Materials:
               - Material: Imperfect_Rune
-                Amount: 23
-              - Material: Ep19_Snow_Flower
-                Amount: 7
+                Amount: 16
+              - Material: Ep20_Cat_Whiskers
+                Amount: 5
           - Grade: 8
             Chance: 7500
             ChancePerFail: 4500
             Materials:
               - Material: Imperfect_Rune
-                Amount: 25
-              - Material: Ep19_Snow_Flower
-                Amount: 8
+                Amount: 17
+              - Material: Ep20_Cat_Whiskers
+                Amount: 5
           - Grade: 9
             Chance: 6000
             ChancePerFail: 3600
             Materials:
               - Material: Imperfect_Rune
-                Amount: 27
-              - Material: Ep19_Snow_Flower
-                Amount: 9
+                Amount: 17
+              - Material: Ep20_Cat_Whiskers
+                Amount: 6
           - Grade: 10
             Chance: 4500
             ChancePerFail: 2700
             Materials:
               - Material: Imperfect_Rune
-                Amount: 30
+                Amount: 17
               - Material: Perfect_Rune
                 Amount: 1
-              - Material: Ep19_Snow_Flower
-                Amount: 10
+              - Material: Ep20_Cat_Whiskers
+                Amount: 6
           - Grade: 11
             Chance: 3000
             ChancePerFail: 1800
             Materials:
               - Material: Imperfect_Rune
-                Amount: 33
+                Amount: 18
               - Material: Perfect_Rune
                 Amount: 1
-              - Material: Ep19_Snow_Flower
-                Amount: 12
+              - Material: Ep20_Cat_Whiskers
+                Amount: 6
           - Grade: 12
             Chance: 1500
             ChancePerFail: 900
             Materials:
               - Material: Imperfect_Rune
-                Amount: 36
+                Amount: 18
               - Material: Perfect_Rune
                 Amount: 1
-              - Material: Ep19_Snow_Flower
-                Amount: 14
+              - Material: Ep20_Cat_Whiskers
+                Amount: 7
           - Grade: 13
             Chance: 750
             ChancePerFail: 450
             Materials:
               - Material: Imperfect_Rune
-                Amount: 40
+                Amount: 19
               - Material: Perfect_Rune
                 Amount: 1
-              - Material: Ep19_Snow_Flower
-                Amount: 16
+              - Material: Ep20_Cat_Whiskers
+                Amount: 7
           - Grade: 14
             Chance: 150
             ChancePerFail: 90
             Materials:
               - Material: Imperfect_Rune
-                Amount: 45
+                Amount: 20
               - Material: Perfect_Rune
-                Amount: 2
-              - Material: Ep19_Snow_Flower
-                Amount: 18
+                Amount: 1
+              - Material: Ep20_Cat_Whiskers
+                Amount: 8
       - Id: 1260041
         Name: Rt_Ep20_Sangel
         Books:
@@ -8076,135 +8016,135 @@ Body:
               }
         Upgrades:
           - Grade: 0
-            Chance: 15000
-            ChancePerFail: 9000
-            Materials:
-              - Material: Imperfect_Rune
-                Amount: 15
-              - Material: Ep19_Snow_Flower
-                Amount: 3
-          - Grade: 1
-            Chance: 15000
-            ChancePerFail: 9000
-            Materials:
-              - Material: Imperfect_Rune
-                Amount: 15
-              - Material: Ep19_Snow_Flower
-                Amount: 3
-          - Grade: 2
-            Chance: 15000
-            ChancePerFail: 9000
-            Materials:
-              - Material: Imperfect_Rune
-                Amount: 15
-              - Material: Ep19_Snow_Flower
-                Amount: 3
-          - Grade: 3
-            Chance: 13500
-            ChancePerFail: 8100
-            Materials:
-              - Material: Imperfect_Rune
-                Amount: 15
-              - Material: Ep19_Snow_Flower
-                Amount: 3
-          - Grade: 4
-            Chance: 13500
-            ChancePerFail: 8100
-            Materials:
-              - Material: Imperfect_Rune
-                Amount: 17
-              - Material: Ep19_Snow_Flower
-                Amount: 4
-          - Grade: 5
             Chance: 12000
             ChancePerFail: 7200
             Materials:
               - Material: Imperfect_Rune
-                Amount: 19
-              - Material: Ep19_Snow_Flower
-                Amount: 5
-          - Grade: 6
+                Amount: 20
+              - Material: Ep20_Cat_Whiskers
+                Amount: 3
+          - Grade: 1
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Ep20_Cat_Whiskers
+                Amount: 3
+          - Grade: 2
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Ep20_Cat_Whiskers
+                Amount: 3
+          - Grade: 3
+            Chance: 10500
+            ChancePerFail: 6300
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Ep20_Cat_Whiskers
+                Amount: 3
+          - Grade: 4
             Chance: 10500
             ChancePerFail: 6300
             Materials:
               - Material: Imperfect_Rune
                 Amount: 21
-              - Material: Ep19_Snow_Flower
-                Amount: 6
-          - Grade: 7
+              - Material: Ep20_Cat_Whiskers
+                Amount: 5
+          - Grade: 5
             Chance: 9000
             ChancePerFail: 5400
             Materials:
               - Material: Imperfect_Rune
-                Amount: 23
-              - Material: Ep19_Snow_Flower
-                Amount: 7
-          - Grade: 8
+                Amount: 21
+              - Material: Ep20_Cat_Whiskers
+                Amount: 5
+          - Grade: 6
             Chance: 7500
             ChancePerFail: 4500
             Materials:
               - Material: Imperfect_Rune
-                Amount: 25
-              - Material: Ep19_Snow_Flower
-                Amount: 8
-          - Grade: 9
+                Amount: 21
+              - Material: Ep20_Cat_Whiskers
+                Amount: 5
+          - Grade: 7
             Chance: 6000
             ChancePerFail: 3600
             Materials:
               - Material: Imperfect_Rune
-                Amount: 27
-              - Material: Ep19_Snow_Flower
-                Amount: 9
-          - Grade: 10
+                Amount: 21
+              - Material: Ep20_Cat_Whiskers
+                Amount: 5
+          - Grade: 8
             Chance: 4500
             ChancePerFail: 2700
             Materials:
               - Material: Imperfect_Rune
-                Amount: 30
-              - Material: Perfect_Rune
-                Amount: 1
-              - Material: Ep19_Snow_Flower
-                Amount: 10
-          - Grade: 11
+                Amount: 22
+              - Material: Ep20_Cat_Whiskers
+                Amount: 6
+          - Grade: 9
             Chance: 3000
             ChancePerFail: 1800
             Materials:
               - Material: Imperfect_Rune
-                Amount: 33
-              - Material: Perfect_Rune
-                Amount: 1
-              - Material: Ep19_Snow_Flower
-                Amount: 12
-          - Grade: 12
+                Amount: 22
+              - Material: Ep20_Cat_Whiskers
+                Amount: 6
+          - Grade: 10
             Chance: 1500
             ChancePerFail: 900
             Materials:
               - Material: Imperfect_Rune
-                Amount: 36
+                Amount: 22
               - Material: Perfect_Rune
                 Amount: 1
-              - Material: Ep19_Snow_Flower
-                Amount: 14
-          - Grade: 13
+              - Material: Ep20_Cat_Whiskers
+                Amount: 6
+          - Grade: 11
             Chance: 750
             ChancePerFail: 450
             Materials:
               - Material: Imperfect_Rune
-                Amount: 40
+                Amount: 23
               - Material: Perfect_Rune
                 Amount: 1
-              - Material: Ep19_Snow_Flower
-                Amount: 16
-          - Grade: 14
-            Chance: 150
-            ChancePerFail: 90
+              - Material: Ep20_Cat_Whiskers
+                Amount: 7
+          - Grade: 12
+            Chance: 750
+            ChancePerFail: 450
             Materials:
               - Material: Imperfect_Rune
-                Amount: 45
+                Amount: 23
               - Material: Perfect_Rune
-                Amount: 2
-              - Material: Ep19_Snow_Flower
-                Amount: 18
+                Amount: 1
+              - Material: Ep20_Cat_Whiskers
+                Amount: 7
+          - Grade: 13
+            Chance: 370
+            ChancePerFail: 220
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 24
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep20_Cat_Whiskers
+                Amount: 8
+          - Grade: 14
+            Chance: 70
+            ChancePerFail: 40
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 25
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep20_Cat_Whiskers
+                Amount: 9
       - Id: 1260042
         Name: Rt_Ep20_Day
         Books:
@@ -8253,7 +8193,7 @@ Body:
             Materials:
               - Material: Imperfect_Rune
                 Amount: 15
-              - Material: Ep19_Snow_Flower
+              - Material: Ep20_Cat_Whiskers
                 Amount: 3
           - Grade: 1
             Chance: 15000
@@ -8261,7 +8201,7 @@ Body:
             Materials:
               - Material: Imperfect_Rune
                 Amount: 15
-              - Material: Ep19_Snow_Flower
+              - Material: Ep20_Cat_Whiskers
                 Amount: 3
           - Grade: 2
             Chance: 15000
@@ -8269,7 +8209,7 @@ Body:
             Materials:
               - Material: Imperfect_Rune
                 Amount: 15
-              - Material: Ep19_Snow_Flower
+              - Material: Ep20_Cat_Whiskers
                 Amount: 3
           - Grade: 3
             Chance: 13500
@@ -8277,106 +8217,106 @@ Body:
             Materials:
               - Material: Imperfect_Rune
                 Amount: 15
-              - Material: Ep19_Snow_Flower
+              - Material: Ep20_Cat_Whiskers
                 Amount: 3
           - Grade: 4
             Chance: 13500
             ChancePerFail: 8100
             Materials:
               - Material: Imperfect_Rune
-                Amount: 17
-              - Material: Ep19_Snow_Flower
-                Amount: 4
+                Amount: 16
+              - Material: Ep20_Cat_Whiskers
+                Amount: 3
           - Grade: 5
             Chance: 12000
             ChancePerFail: 7200
             Materials:
               - Material: Imperfect_Rune
-                Amount: 19
-              - Material: Ep19_Snow_Flower
+                Amount: 16
+              - Material: Ep20_Cat_Whiskers
                 Amount: 5
           - Grade: 6
             Chance: 10500
             ChancePerFail: 6300
             Materials:
               - Material: Imperfect_Rune
-                Amount: 21
-              - Material: Ep19_Snow_Flower
-                Amount: 6
+                Amount: 16
+              - Material: Ep20_Cat_Whiskers
+                Amount: 5
           - Grade: 7
             Chance: 9000
             ChancePerFail: 5400
             Materials:
               - Material: Imperfect_Rune
-                Amount: 23
-              - Material: Ep19_Snow_Flower
-                Amount: 7
+                Amount: 16
+              - Material: Ep20_Cat_Whiskers
+                Amount: 5
           - Grade: 8
             Chance: 7500
             ChancePerFail: 4500
             Materials:
               - Material: Imperfect_Rune
-                Amount: 25
-              - Material: Ep19_Snow_Flower
-                Amount: 8
+                Amount: 17
+              - Material: Ep20_Cat_Whiskers
+                Amount: 5
           - Grade: 9
             Chance: 6000
             ChancePerFail: 3600
             Materials:
               - Material: Imperfect_Rune
-                Amount: 27
-              - Material: Ep19_Snow_Flower
-                Amount: 9
+                Amount: 17
+              - Material: Ep20_Cat_Whiskers
+                Amount: 6
           - Grade: 10
             Chance: 4500
             ChancePerFail: 2700
             Materials:
               - Material: Imperfect_Rune
-                Amount: 30
+                Amount: 17
               - Material: Perfect_Rune
                 Amount: 1
-              - Material: Ep19_Snow_Flower
-                Amount: 10
+              - Material: Ep20_Cat_Whiskers
+                Amount: 6
           - Grade: 11
             Chance: 3000
             ChancePerFail: 1800
             Materials:
               - Material: Imperfect_Rune
-                Amount: 33
+                Amount: 18
               - Material: Perfect_Rune
                 Amount: 1
-              - Material: Ep19_Snow_Flower
-                Amount: 12
+              - Material: Ep20_Cat_Whiskers
+                Amount: 6
           - Grade: 12
             Chance: 1500
             ChancePerFail: 900
             Materials:
               - Material: Imperfect_Rune
-                Amount: 36
+                Amount: 18
               - Material: Perfect_Rune
                 Amount: 1
-              - Material: Ep19_Snow_Flower
-                Amount: 14
+              - Material: Ep20_Cat_Whiskers
+                Amount: 7
           - Grade: 13
             Chance: 750
             ChancePerFail: 450
             Materials:
               - Material: Imperfect_Rune
-                Amount: 40
+                Amount: 19
               - Material: Perfect_Rune
                 Amount: 1
-              - Material: Ep19_Snow_Flower
-                Amount: 16
+              - Material: Ep20_Cat_Whiskers
+                Amount: 7
           - Grade: 14
             Chance: 150
             ChancePerFail: 90
             Materials:
               - Material: Imperfect_Rune
-                Amount: 45
+                Amount: 20
               - Material: Perfect_Rune
-                Amount: 2
-              - Material: Ep19_Snow_Flower
-                Amount: 18
+                Amount: 1
+              - Material: Ep20_Cat_Whiskers
+                Amount: 8
       - Id: 1260043
         Name: Rt_Ep20_Retire
         Books:
@@ -8411,7 +8351,7 @@ Body:
             Script: |
               bonus bCritical,3;
               bonus bCritAtkRate,3;
-          - Amount: 3
+          - Amount: 4
             Script: |
               bonus bCritical,5;
               bonus bCritAtkRate,10;
@@ -8423,7 +8363,7 @@ Body:
             Materials:
               - Material: Imperfect_Rune
                 Amount: 15
-              - Material: Ep19_Snow_Flower
+              - Material: Ep20_Cat_Whiskers
                 Amount: 3
           - Grade: 1
             Chance: 15000
@@ -8431,7 +8371,7 @@ Body:
             Materials:
               - Material: Imperfect_Rune
                 Amount: 15
-              - Material: Ep19_Snow_Flower
+              - Material: Ep20_Cat_Whiskers
                 Amount: 3
           - Grade: 2
             Chance: 15000
@@ -8439,7 +8379,7 @@ Body:
             Materials:
               - Material: Imperfect_Rune
                 Amount: 15
-              - Material: Ep19_Snow_Flower
+              - Material: Ep20_Cat_Whiskers
                 Amount: 3
           - Grade: 3
             Chance: 13500
@@ -8447,106 +8387,106 @@ Body:
             Materials:
               - Material: Imperfect_Rune
                 Amount: 15
-              - Material: Ep19_Snow_Flower
+              - Material: Ep20_Cat_Whiskers
                 Amount: 3
           - Grade: 4
             Chance: 13500
             ChancePerFail: 8100
             Materials:
               - Material: Imperfect_Rune
-                Amount: 17
-              - Material: Ep19_Snow_Flower
-                Amount: 4
+                Amount: 16
+              - Material: Ep20_Cat_Whiskers
+                Amount: 3
           - Grade: 5
             Chance: 12000
             ChancePerFail: 7200
             Materials:
               - Material: Imperfect_Rune
-                Amount: 19
-              - Material: Ep19_Snow_Flower
+                Amount: 16
+              - Material: Ep20_Cat_Whiskers
                 Amount: 5
           - Grade: 6
             Chance: 10500
             ChancePerFail: 6300
             Materials:
               - Material: Imperfect_Rune
-                Amount: 21
-              - Material: Ep19_Snow_Flower
-                Amount: 6
+                Amount: 16
+              - Material: Ep20_Cat_Whiskers
+                Amount: 5
           - Grade: 7
             Chance: 9000
             ChancePerFail: 5400
             Materials:
               - Material: Imperfect_Rune
-                Amount: 23
-              - Material: Ep19_Snow_Flower
-                Amount: 7
+                Amount: 16
+              - Material: Ep20_Cat_Whiskers
+                Amount: 5
           - Grade: 8
             Chance: 7500
             ChancePerFail: 4500
             Materials:
               - Material: Imperfect_Rune
-                Amount: 25
-              - Material: Ep19_Snow_Flower
-                Amount: 8
+                Amount: 17
+              - Material: Ep20_Cat_Whiskers
+                Amount: 5
           - Grade: 9
             Chance: 6000
             ChancePerFail: 3600
             Materials:
               - Material: Imperfect_Rune
-                Amount: 27
-              - Material: Ep19_Snow_Flower
-                Amount: 9
+                Amount: 17
+              - Material: Ep20_Cat_Whiskers
+                Amount: 6
           - Grade: 10
             Chance: 4500
             ChancePerFail: 2700
             Materials:
               - Material: Imperfect_Rune
-                Amount: 30
+                Amount: 17
               - Material: Perfect_Rune
                 Amount: 1
-              - Material: Ep19_Snow_Flower
-                Amount: 10
+              - Material: Ep20_Cat_Whiskers
+                Amount: 6
           - Grade: 11
             Chance: 3000
             ChancePerFail: 1800
             Materials:
               - Material: Imperfect_Rune
-                Amount: 33
+                Amount: 18
               - Material: Perfect_Rune
                 Amount: 1
-              - Material: Ep19_Snow_Flower
-                Amount: 12
+              - Material: Ep20_Cat_Whiskers
+                Amount: 6
           - Grade: 12
             Chance: 1500
             ChancePerFail: 900
             Materials:
               - Material: Imperfect_Rune
-                Amount: 36
+                Amount: 18
               - Material: Perfect_Rune
                 Amount: 1
-              - Material: Ep19_Snow_Flower
-                Amount: 14
+              - Material: Ep20_Cat_Whiskers
+                Amount: 7
           - Grade: 13
             Chance: 750
             ChancePerFail: 450
             Materials:
               - Material: Imperfect_Rune
-                Amount: 40
+                Amount: 19
               - Material: Perfect_Rune
                 Amount: 1
-              - Material: Ep19_Snow_Flower
-                Amount: 16
+              - Material: Ep20_Cat_Whiskers
+                Amount: 7
           - Grade: 14
             Chance: 150
             ChancePerFail: 90
             Materials:
               - Material: Imperfect_Rune
-                Amount: 45
+                Amount: 20
               - Material: Perfect_Rune
-                Amount: 2
-              - Material: Ep19_Snow_Flower
-                Amount: 18
+                Amount: 1
+              - Material: Ep20_Cat_Whiskers
+                Amount: 8
       - Id: 1260044
         Name: Rt_Ep20_Roots
         Books:
@@ -8604,135 +8544,135 @@ Body:
               }
         Upgrades:
           - Grade: 0
-            Chance: 15000
-            ChancePerFail: 9000
-            Materials:
-              - Material: Imperfect_Rune
-                Amount: 15
-              - Material: Ep19_Snow_Flower
-                Amount: 3
-          - Grade: 1
-            Chance: 15000
-            ChancePerFail: 9000
-            Materials:
-              - Material: Imperfect_Rune
-                Amount: 15
-              - Material: Ep19_Snow_Flower
-                Amount: 3
-          - Grade: 2
-            Chance: 15000
-            ChancePerFail: 9000
-            Materials:
-              - Material: Imperfect_Rune
-                Amount: 15
-              - Material: Ep19_Snow_Flower
-                Amount: 3
-          - Grade: 3
-            Chance: 13500
-            ChancePerFail: 8100
-            Materials:
-              - Material: Imperfect_Rune
-                Amount: 15
-              - Material: Ep19_Snow_Flower
-                Amount: 3
-          - Grade: 4
-            Chance: 13500
-            ChancePerFail: 8100
-            Materials:
-              - Material: Imperfect_Rune
-                Amount: 17
-              - Material: Ep19_Snow_Flower
-                Amount: 4
-          - Grade: 5
             Chance: 12000
             ChancePerFail: 7200
             Materials:
               - Material: Imperfect_Rune
-                Amount: 19
-              - Material: Ep19_Snow_Flower
-                Amount: 5
-          - Grade: 6
+                Amount: 20
+              - Material: Ep20_Cat_Whiskers
+                Amount: 3
+          - Grade: 1
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Ep20_Cat_Whiskers
+                Amount: 3
+          - Grade: 2
+            Chance: 12000
+            ChancePerFail: 7200
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Ep20_Cat_Whiskers
+                Amount: 3
+          - Grade: 3
+            Chance: 10500
+            ChancePerFail: 6300
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 20
+              - Material: Ep20_Cat_Whiskers
+                Amount: 3
+          - Grade: 4
             Chance: 10500
             ChancePerFail: 6300
             Materials:
               - Material: Imperfect_Rune
                 Amount: 21
-              - Material: Ep19_Snow_Flower
-                Amount: 6
-          - Grade: 7
+              - Material: Ep20_Cat_Whiskers
+                Amount: 5
+          - Grade: 5
             Chance: 9000
             ChancePerFail: 5400
             Materials:
               - Material: Imperfect_Rune
-                Amount: 23
-              - Material: Ep19_Snow_Flower
-                Amount: 7
-          - Grade: 8
+                Amount: 21
+              - Material: Ep20_Cat_Whiskers
+                Amount: 5
+          - Grade: 6
             Chance: 7500
             ChancePerFail: 4500
             Materials:
               - Material: Imperfect_Rune
-                Amount: 25
-              - Material: Ep19_Snow_Flower
-                Amount: 8
-          - Grade: 9
+                Amount: 21
+              - Material: Ep20_Cat_Whiskers
+                Amount: 5
+          - Grade: 7
             Chance: 6000
             ChancePerFail: 3600
             Materials:
               - Material: Imperfect_Rune
-                Amount: 27
-              - Material: Ep19_Snow_Flower
-                Amount: 9
-          - Grade: 10
+                Amount: 21
+              - Material: Ep20_Cat_Whiskers
+                Amount: 5
+          - Grade: 8
             Chance: 4500
             ChancePerFail: 2700
             Materials:
               - Material: Imperfect_Rune
-                Amount: 30
-              - Material: Perfect_Rune
-                Amount: 1
-              - Material: Ep19_Snow_Flower
-                Amount: 10
-          - Grade: 11
+                Amount: 22
+              - Material: Ep20_Cat_Whiskers
+                Amount: 6
+          - Grade: 9
             Chance: 3000
             ChancePerFail: 1800
             Materials:
               - Material: Imperfect_Rune
-                Amount: 33
-              - Material: Perfect_Rune
-                Amount: 1
-              - Material: Ep19_Snow_Flower
-                Amount: 12
-          - Grade: 12
+                Amount: 22
+              - Material: Ep20_Cat_Whiskers
+                Amount: 6
+          - Grade: 10
             Chance: 1500
             ChancePerFail: 900
             Materials:
               - Material: Imperfect_Rune
-                Amount: 36
+                Amount: 22
               - Material: Perfect_Rune
                 Amount: 1
-              - Material: Ep19_Snow_Flower
-                Amount: 14
-          - Grade: 13
+              - Material: Ep20_Cat_Whiskers
+                Amount: 6
+          - Grade: 11
             Chance: 750
             ChancePerFail: 450
             Materials:
               - Material: Imperfect_Rune
-                Amount: 40
+                Amount: 23
               - Material: Perfect_Rune
                 Amount: 1
-              - Material: Ep19_Snow_Flower
-                Amount: 16
-          - Grade: 14
-            Chance: 150
-            ChancePerFail: 90
+              - Material: Ep20_Cat_Whiskers
+                Amount: 7
+          - Grade: 12
+            Chance: 750
+            ChancePerFail: 450
             Materials:
               - Material: Imperfect_Rune
-                Amount: 45
+                Amount: 23
               - Material: Perfect_Rune
-                Amount: 2
-              - Material: Ep19_Snow_Flower
-                Amount: 18
+                Amount: 1
+              - Material: Ep20_Cat_Whiskers
+                Amount: 7
+          - Grade: 13
+            Chance: 370
+            ChancePerFail: 220
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 24
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep20_Cat_Whiskers
+                Amount: 8
+          - Grade: 14
+            Chance: 70
+            ChancePerFail: 40
+            Materials:
+              - Material: Imperfect_Rune
+                Amount: 25
+              - Material: Perfect_Rune
+                Amount: 1
+              - Material: Ep20_Cat_Whiskers
+                Amount: 9
   - Id: 21
     Name: EPISODE21
     Set:
@@ -12371,15 +12311,15 @@ Body:
               bonus bVariableCastrate,-3;
           - Amount: 3
             Script: |
-              bonus2 bMagicAtkEle,Ele_Fire,3;
+              bonus2 bMagicAtkEle,Ele_Water,3;
               bonus2 bMagicAtkEle,Ele_Wind,3;
-              bonus2 bMagicAtkEle,Ele_Holy,3;
+              bonus2 bMagicAtkEle,Ele_Earth,3;
           - Amount: 4
             Script: |
               bonus bVariableCastrate,-5;
-              bonus2 bMagicAtkEle,Ele_Fire,7;
+              bonus2 bMagicAtkEle,Ele_Water,7;
               bonus2 bMagicAtkEle,Ele_Wind,7;
-              bonus2 bMagicAtkEle,Ele_Holy,7;
+              bonus2 bMagicAtkEle,Ele_Earth,7;
         Upgrades:
           - Grade: 0
             Chance: 15000
