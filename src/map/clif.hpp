@@ -1555,6 +1555,11 @@ void clif_parse_dynamic_npc(int32 fd, map_session_data* sd);
 
 // ===== 挂机系统：开始 =====
 void clif_parse_autoplay_config_get(int32 fd, map_session_data* sd);
+// ===== 挂机配置最终回执：开始 =====
+// 修改原因：char-server异步加载和保存完成后通知客户端真实结果。
+void clif_autoplay_send_config(int32 fd, map_session_data& sd);
+void clif_autoplay_send_result(int32 fd, uint8 operation, bool result, uint32 revision);
+// ===== 挂机配置最终回执：结束 =====
 void clif_parse_autoplay_config_save(int32 fd, map_session_data* sd);
 void clif_parse_autoplay_control(int32 fd, map_session_data* sd);
 void clif_parse_autoplay_status_get(int32 fd, map_session_data* sd);

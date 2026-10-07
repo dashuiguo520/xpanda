@@ -1414,13 +1414,13 @@ Body:
         Amount: 3
       - Material: Letterster_Card
         Amount: 3
-      - Material: aegis_1001641
+      - Material: Ep21_Bright_Eye
         Amount: 100
-      - Material: aegis_1001643
+      - Material: Ep21_Vellelopy
         Amount: 100
-      - Material: aegis_1001640
+      - Material: Ep21_Daribitsal
         Amount: 100
-      - Material: aegis_1001645
+      - Material: Ep21_Stiff_Limb
         Amount: 100
   - Id: 1263109
     Name: Rp_Ep21_Beast
@@ -1431,9 +1431,9 @@ Body:
         Amount: 3
       - Material: Rock_Striker_Card
         Amount: 3
-      - Material: aegis_1001642
+      - Material: Ep21_Guano
         Amount: 150
-      - Material: aegis_1001647
+      - Material: Ep21_Thick_Flesh
         Amount: 150
   - Id: 1263110
     Name: Rp_Ep21_Soft
@@ -1444,9 +1444,9 @@ Body:
         Amount: 3
       - Material: Cliolima_Card
         Amount: 3
-      - Material: aegis_1001644
+      - Material: Ep21_Skipskip_Fin
         Amount: 150
-      - Material: aegis_1001646
+      - Material: Ep21_Fluffy_Core
         Amount: 150
   - Id: 1263111
     Name: Rp_Ep21_Yorker
@@ -1457,11 +1457,11 @@ Body:
         Amount: 3
       - Material: Yorker_R_Worker_Card
         Amount: 3
-      - Material: aegis_1001632
+      - Material: Ep21_Old_Homi
         Amount: 100
-      - Material: aegis_1001630
+      - Material: Ep21_Old_Bandana
         Amount: 100
-      - Material: aegis_1001631
+      - Material: Ep21_Old_Apron
         Amount: 100
   - Id: 1263112
     Name: Rp_Ep21_Yoster
@@ -1478,9 +1478,9 @@ Body:
         Amount: 2
       - Material: Yoster_Cooker_Card
         Amount: 2
-      - Material: aegis_1001634
+      - Material: Ep21_Fanatic_Cap
         Amount: 150
-      - Material: aegis_1001633
+      - Material: Ep21_Fanatic_Mask
         Amount: 150
   - Id: 1263113
     Name: Rp_Ep21_Yormi
@@ -1491,13 +1491,13 @@ Body:
         Amount: 2
       - Material: Yormi_M_Card
         Amount: 2
-      - Material: aegis_1001628
+      - Material: Ep21_Jor_Rosary
         Amount: 100
-      - Material: aegis_1001629
+      - Material: Ep21_Jor_Bible
         Amount: 100
-      - Material: aegis_1001634
+      - Material: Ep21_Fanatic_Cap
         Amount: 100
-      - Material: aegis_1001633
+      - Material: Ep21_Fanatic_Mask
         Amount: 100
   - Id: 1263114
     Name: Rp_Ep21_Yordos
@@ -1510,11 +1510,11 @@ Body:
         Amount: 2
       - Material: Yordos_Inve_Card
         Amount: 2
-      - Material: aegis_1001629
+      - Material: Ep21_Jor_Bible
         Amount: 100
-      - Material: aegis_1001637
+      - Material: Ep21_Jor_Dagger_Pcs
         Amount: 100
-      - Material: aegis_1001635
+      - Material: Ep21_Jor_Stick
         Amount: 100
   - Id: 1263115
     Name: Rp_Ep21_Yoscopus
@@ -1525,7 +1525,7 @@ Body:
         Amount: 2
       - Material: Yoscopus_S_Card
         Amount: 2
-      - Material: aegis_1001636
+      - Material: Ep21_Jor_Wand_Acc
         Amount: 200
   - Id: 1263116
     Name: Rp_Ep21_Bishop
@@ -1536,9 +1536,9 @@ Body:
         Amount: 2
       - Material: Yortus_Conjur_Card
         Amount: 2
-      - Material: aegis_1001639
+      - Material: Ep21_Jor_Accessary
         Amount: 100
-      - Material: aegis_1001638
+      - Material: Ep21_Jor_G_Rosary
         Amount: 100
   - Id: 1263117
     Name: Rp_Ep21_Horn
@@ -1549,9 +1549,9 @@ Body:
         Amount: 1
       - Material: Ice_Seahorse_Card
         Amount: 3
-      - Material: aegis_1001648
+      - Material: Ep21_Star_Candy
         Amount: 300
-      - Material: aegis_1001649
+      - Material: Ep21_G_Ice_Coral
         Amount: 5
   - Id: 1263118
     Name: Rp_Ep21_Arbiter
@@ -1562,16 +1562,16 @@ Body:
         Amount: 1
       - Material: Yortus_Bailiff_Card
         Amount: 1
-      - Material: aegis_1001639
+      - Material: Ep21_Jor_Accessary
         Amount: 200
-      - Material: aegis_1001638
+      - Material: Ep21_Jor_G_Rosary
         Amount: 200
   - Id: 1263119
     Name: Rp_Ep21_Cap
     Materials:
       - Material: Ep21_Wigner_Ticket
         Amount: 850
-      - Material: Cap_Of_G_Ship_Card
+      - Material: Ghost_Ship_Captain_Card
         Amount: 1
       - Material: Ep21_Armor_E_Stone3
         Amount: 250
@@ -1586,7 +1586,7 @@ Body:
     Materials:
       - Material: Ep21_Wigner_Ticket
         Amount: 850
-      - Material: Encroached_Tan_Card
+      - Material: Devouring_Tan_Card
         Amount: 1
       - Material: Ep21_Armor_E_Stone3
         Amount: 250

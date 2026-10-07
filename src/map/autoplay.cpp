@@ -1514,6 +1514,10 @@ void autoplay_config_saved(map_session_data& sd, bool success, uint32 revision) 
 		sd.autoplay->config = sd.autoplay->pending_config;
 		sd.autoplay->config.search_range = battle_config.autoplay_search_range;
 		sd.autoplay->config.revision = revision;
+		// ===== 挂机跟随配置生效修复：开始 =====
+		// 修改原因：保存新目标后同步运行会话并清空旧路线，无需重启挂机。
+		autoplay_set_follow(sd, sd.autoplay->config.follow_char_id);
+		// ===== 挂机跟随配置生效修复：结束 =====
 		if (sd.autoplay->active)
 			autoplay_apply_autoloot(sd, sd.autoplay->config);
 	}

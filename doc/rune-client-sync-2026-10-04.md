@@ -37,3 +37,5 @@
 同步前原文件备份：E:\RO\client-evaluation\_tmp\rune-server-before-sync。
 
 奖励组复查：用户提供的 item_group_db_106408_106414.yml 中 7 个奖励组均已存在于 re/item_group_db.yml，完整解析内容一致，每组仅出现一次。无需重复插入。奖励组常量已导出，奖励物品数量与用户说明一致。
+
+零概率兼容修复：运行目录 xra 与源码目录 rathena 的 rune_db.yml 均将客户端全零概率套装 1260047 的 Upgrades 配置为空，保持不可强化并防止现有实现先扣 1000 个 Perfect_Rune 再拒绝强化；另外省略 12 处 ChancePerFail: 0，使用结构默认值 0。服务端 rapidyaml 解析和有效字段对比通过，其他套装配置语义不变，无需替换二进制。修复后需重启 map-server 重新加载磁盘数据。

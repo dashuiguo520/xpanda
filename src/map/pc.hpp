@@ -1221,7 +1221,11 @@ static bool pc_cant_act2( map_session_data* sd ){
 		|| sd->state.barter_open || sd->state.barter_extended_open
 		|| sd->state.laphine_synthesis || sd->state.laphine_upgrade
 		|| sd->state.roulette_open || sd->state.enchantgrade_open
-		|| sd->state.item_reform || sd->state.item_enchant_index;
+		|| sd->state.item_reform || sd->state.item_enchant_index
+		// ===== rAthena 移植 Pandas 符文石板界面状态：开始 =====
+		// 修改内容：符文石板界面打开期间禁止移动与使用物品（同原版）。
+		|| sd->state.runeui_open; // 修复返回表达式缺少分号导致map-server无法编译。
+		// ===== rAthena 移植 Pandas 符文石板界面状态：结束 =====
 }
 // equals pc_cant_act2 and additionally checks for chat rooms and npcs
 static bool pc_cant_act( map_session_data* sd ){

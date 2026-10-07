@@ -1,4 +1,4 @@
-﻿// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
+// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
 // Copyright (c) Hercules Dev Team - Licensed under GNU GPL
 // For more information, see LICENCE in the main folder
 
@@ -26053,14 +26053,14 @@ void packetdb_readdb(){
  *
  *------------------------------------------*/
 // ===== 挂机系统：开始 =====
-static void clif_autoplay_send_config(int32 fd, map_session_data& sd) {
+void clif_autoplay_send_config(int32 fd, map_session_data& sd) {
 	PACKET_ZC_AUTOPLAY_CONFIG packet{}; packet.packetType = HEADER_ZC_AUTOPLAY_CONFIG;
 	packet.result = sd.autoplay && sd.autoplay->loaded;
 	if (sd.autoplay) packet.config = sd.autoplay->config;
 	WFIFOHEAD(fd, sizeof(packet)); memcpy(WFIFOP(fd, 0), &packet, sizeof(packet)); WFIFOSET(fd, sizeof(packet));
 }
 
-static void clif_autoplay_send_result(int32 fd, uint8 operation, bool result, uint32 revision) {
+void clif_autoplay_send_result(int32 fd, uint8 operation, bool result, uint32 revision) {
 	PACKET_ZC_AUTOPLAY_RESULT packet{}; packet.packetType = HEADER_ZC_AUTOPLAY_RESULT; packet.operation = operation; packet.result = result; packet.revision = revision;
 	WFIFOHEAD(fd, sizeof(packet)); memcpy(WFIFOP(fd, 0), &packet, sizeof(packet)); WFIFOSET(fd, sizeof(packet));
 }
@@ -26076,7 +26076,7 @@ void clif_parse_autoplay_config_get(int32 fd, map_session_data* sd) {
 }
 
 void clif_parse_autoplay_config_save(int32 fd, map_session_data* sd) {
-	if (!sd || !sd->autoplay || sd->autoplay->save_pending) { clif_autoplay_send_result(fd, 0, false, 0); return; }
+	if (!sd || !sd->autoplay || !sd->autoplay->loaded || sd->autoplay->save_pending) { clif_autoplay_send_result(fd, 0, false, 0); return; }
 	s_autoplay_config config{}; memcpy(&config, RFIFOP(fd, 2), sizeof(config));
 	config.search_range = battle_config.autoplay_search_range;
 	// ===== rAthena 修复挂机配置封包校验：开始 =====
@@ -26097,9 +26097,22 @@ void clif_parse_autoplay_config_save(int32 fd, map_session_data* sd) {
 	for (uint8 i = 0; valid && i < config.monster_count; ++i) valid = config.monster_rules[i].mob_id != 0 && config.monster_rules[i].action >= AUTOPLAY_MONSTER_PRIORITY && config.monster_rules[i].action <= AUTOPLAY_MONSTER_AVOID;
 	for (uint8 i = 0; valid && i < config.discard_count; ++i) valid = config.discard_items[i].item_id != 0;
 	for (uint8 i = 0; valid && i < config.autoloot_item_count; ++i) valid = config.autoloot_items[i] != 0;
-	if (valid && sd->autoplay->follow_char_id != 0) config.follow_char_id = sd->autoplay->follow_char_id;
+	// ===== 挂机跟随配置生效修复：开始 =====
+	// 修改原因：不能用旧运行目标覆盖用户新配置；跟随仅允许同队其他角色。
+	if (valid && config.follow_char_id != 0) {
+		party_data* party = party_search(sd->status.party_id);
+		valid = party != nullptr && config.follow_char_id != sd->status.char_id &&
+			std::any_of(std::begin(party->party.member), std::end(party->party.member), [&](const party_member& member) {
+				return member.char_id == config.follow_char_id;
+			});
+	}
+	// ===== 挂机跟随配置生效修复：结束 =====
 	if (valid) { sd->autoplay->pending_config = config; sd->autoplay->save_pending = intif_autoplay_save(sd->status.char_id, config); }
-	clif_autoplay_send_result(fd, 0, valid && sd->autoplay->save_pending, sd->autoplay->config.revision);
+	// ===== 挂机配置最终回执：开始 =====
+	// 修改原因：排队成功不代表SQL提交成功，成功回执由char-server完成保存后发送。
+	if (!valid || !sd->autoplay->save_pending)
+		clif_autoplay_send_result(fd, 0, false, sd->autoplay->config.revision);
+	// ===== 挂机配置最终回执：结束 =====
 }
 
 void clif_parse_autoplay_control(int32 fd, map_session_data* sd) {

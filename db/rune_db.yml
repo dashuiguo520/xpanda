@@ -3039,7 +3039,6 @@ Body:
         Upgrades:
           - Grade: 0
             Chance: 100000
-            ChancePerFail: 0
             Materials:
               - Material: Imperfect_Rune
                 Amount: 2
@@ -3053,7 +3052,6 @@ Body:
                 Amount: 1
           - Grade: 1
             Chance: 100000
-            ChancePerFail: 0
             Materials:
               - Material: Imperfect_Rune
                 Amount: 2
@@ -3067,7 +3065,6 @@ Body:
                 Amount: 1
           - Grade: 2
             Chance: 100000
-            ChancePerFail: 0
             Materials:
               - Material: Imperfect_Rune
                 Amount: 2
@@ -3288,7 +3285,6 @@ Body:
         Upgrades:
           - Grade: 0
             Chance: 100000
-            ChancePerFail: 0
             Materials:
               - Material: Imperfect_Rune
                 Amount: 2
@@ -3304,7 +3300,6 @@ Body:
                 Amount: 5
           - Grade: 1
             Chance: 100000
-            ChancePerFail: 0
             Materials:
               - Material: Imperfect_Rune
                 Amount: 2
@@ -3320,7 +3315,6 @@ Body:
                 Amount: 5
           - Grade: 2
             Chance: 100000
-            ChancePerFail: 0
             Materials:
               - Material: Imperfect_Rune
                 Amount: 2
@@ -3560,7 +3554,6 @@ Body:
         Upgrades:
           - Grade: 0
             Chance: 100000
-            ChancePerFail: 0
             Materials:
               - Material: Imperfect_Rune
                 Amount: 1
@@ -3576,7 +3569,6 @@ Body:
                 Amount: 3
           - Grade: 1
             Chance: 100000
-            ChancePerFail: 0
             Materials:
               - Material: Imperfect_Rune
                 Amount: 1
@@ -3592,7 +3584,6 @@ Body:
                 Amount: 3
           - Grade: 2
             Chance: 100000
-            ChancePerFail: 0
             Materials:
               - Material: Imperfect_Rune
                 Amount: 1
@@ -3832,7 +3823,6 @@ Body:
         Upgrades:
           - Grade: 0
             Chance: 100000
-            ChancePerFail: 0
             Materials:
               - Material: Imperfect_Rune
                 Amount: 1
@@ -3848,7 +3838,6 @@ Body:
                 Amount: 3
           - Grade: 1
             Chance: 100000
-            ChancePerFail: 0
             Materials:
               - Material: Imperfect_Rune
                 Amount: 1
@@ -3864,7 +3853,6 @@ Body:
                 Amount: 3
           - Grade: 2
             Chance: 100000
-            ChancePerFail: 0
             Materials:
               - Material: Imperfect_Rune
                 Amount: 1
@@ -10799,97 +10787,7 @@ Body:
             Name: Perfect_Rune
           - Slot: 7
             Name: Rt_Ch01_Extra_C
-        Upgrades:
-          - Grade: 0
-            Chance: 0
-            ChancePerFail: 0
-            Materials:
-              - Material: Perfect_Rune
-                Amount: 1000
-          - Grade: 1
-            Chance: 0
-            ChancePerFail: 0
-            Materials:
-              - Material: Perfect_Rune
-                Amount: 1000
-          - Grade: 2
-            Chance: 0
-            ChancePerFail: 0
-            Materials:
-              - Material: Perfect_Rune
-                Amount: 1000
-          - Grade: 3
-            Chance: 0
-            ChancePerFail: 0
-            Materials:
-              - Material: Perfect_Rune
-                Amount: 1000
-          - Grade: 4
-            Chance: 0
-            ChancePerFail: 0
-            Materials:
-              - Material: Perfect_Rune
-                Amount: 1000
-          - Grade: 5
-            Chance: 0
-            ChancePerFail: 0
-            Materials:
-              - Material: Perfect_Rune
-                Amount: 1000
-          - Grade: 6
-            Chance: 0
-            ChancePerFail: 0
-            Materials:
-              - Material: Perfect_Rune
-                Amount: 1000
-          - Grade: 7
-            Chance: 0
-            ChancePerFail: 0
-            Materials:
-              - Material: Perfect_Rune
-                Amount: 1000
-          - Grade: 8
-            Chance: 0
-            ChancePerFail: 0
-            Materials:
-              - Material: Perfect_Rune
-                Amount: 1000
-          - Grade: 9
-            Chance: 0
-            ChancePerFail: 0
-            Materials:
-              - Material: Perfect_Rune
-                Amount: 1000
-          - Grade: 10
-            Chance: 0
-            ChancePerFail: 0
-            Materials:
-              - Material: Perfect_Rune
-                Amount: 1000
-          - Grade: 11
-            Chance: 0
-            ChancePerFail: 0
-            Materials:
-              - Material: Perfect_Rune
-                Amount: 1000
-          - Grade: 12
-            Chance: 0
-            ChancePerFail: 0
-            Materials:
-              - Material: Perfect_Rune
-                Amount: 1000
-          - Grade: 13
-            Chance: 0
-            ChancePerFail: 0
-            Materials:
-              - Material: Perfect_Rune
-                Amount: 1000
-          - Grade: 14
-            Chance: 0
-            ChancePerFail: 0
-            Materials:
-              - Material: Perfect_Rune
-                Amount: 1000
+        Upgrades: []
       - Id: 1260059
         Name: Rt_Ch01_Bulgasari
         Books:

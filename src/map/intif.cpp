@@ -3784,11 +3784,30 @@ bool intif_autoplay_save(uint32 char_id, const s_autoplay_config& config) {
 }
 
 static void intif_parse_autoplay_load(int32 fd) {
-	if (auto* sd = map_charid2sd(RFIFOL(fd, 2))) { s_autoplay_config config{}; memcpy(&config, RFIFOP(fd, 7), sizeof(config)); if (RFIFOB(fd, 6)) autoplay_config_loaded(*sd, config); }
+	// ===== 挂机配置最终回执：开始 =====
+	// 修改原因：首次CONFIG_GET可能先返回未加载，数据库加载完成必须主动同步。
+	if (auto* sd = map_charid2sd(RFIFOL(fd, 2))) {
+		s_autoplay_config config{};
+		memcpy(&config, RFIFOP(fd, 7), sizeof(config));
+		if (RFIFOB(fd, 6) && (!sd->autoplay || !sd->autoplay->loaded))
+			autoplay_config_loaded(*sd, config);
+		clif_autoplay_send_config(sd->fd, *sd);
+	}
+	// ===== 挂机配置最终回执：结束 =====
 }
 
 static void intif_parse_autoplay_save(int32 fd) {
-	if (auto* sd = map_charid2sd(RFIFOL(fd, 2))) autoplay_config_saved(*sd, RFIFOB(fd, 6) != 0, RFIFOL(fd, 7));
+	// ===== 挂机配置最终回执：开始 =====
+	// 修改原因：向客户端回报最终SQL结果，并同步服务端规范化后的配置与修订号。
+	if (auto* sd = map_charid2sd(RFIFOL(fd, 2))) {
+		const bool success = RFIFOB(fd, 6) != 0;
+		const uint32 revision = RFIFOL(fd, 7);
+		autoplay_config_saved(*sd, success, revision);
+		clif_autoplay_send_result(sd->fd, 0, success, revision);
+		if (success)
+			clif_autoplay_send_config(sd->fd, *sd);
+	}
+	// ===== 挂机配置最终回执：结束 =====
 }
 // ===== 挂机系统：结束 =====
 
