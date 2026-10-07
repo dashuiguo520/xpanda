@@ -386,6 +386,13 @@ const char* job_name(int32 class_) {
 		case JOB_SKY_EMPEROR2:
 			return msg_txt( 135 );
 
+		case JOB_DRUID:
+		case JOB_BABY_DRUID:
+		case JOB_KARNOS:
+		case JOB_BABY_KARNOS:
+		case JOB_ALITEA:
+			return msg_txt(142 - JOB_DRUID + class_);
+
 		default:
 			return msg_txt(199);
 	}
@@ -1478,5 +1485,4 @@ int32 inter_parse_frommap(int32 fd)
 	RFIFOSKIP(fd, len);
 	return 1;
 }
-
 
