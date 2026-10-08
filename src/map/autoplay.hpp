@@ -60,6 +60,8 @@ struct s_autoplay_session {
 	s_autoplay_transition storage_step{};
 	int16 storage_route_map = -1;
 	bool loaded = false;
+	// CONFIG_GET explicitly opts this connection into the custom client protocol.
+	bool client_supported = false;
 	bool active = false;
 	bool save_pending = false;
 	bool autoloot_overridden = false;

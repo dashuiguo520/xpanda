@@ -3803,7 +3803,7 @@ static void intif_parse_autoplay_save(int32 fd) {
 		const bool success = RFIFOB(fd, 6) != 0;
 		const uint32 revision = RFIFOL(fd, 7);
 		autoplay_config_saved(*sd, success, revision);
-		clif_autoplay_send_result(sd->fd, 0, success, revision);
+		clif_autoplay_send_result(*sd, 0, success, revision);
 		if (success)
 			clif_autoplay_send_config(sd->fd, *sd);
 	}

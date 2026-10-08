@@ -26068,13 +26068,18 @@ void packetdb_readdb(){
  *------------------------------------------*/
 // ===== 挂机系统：开始 =====
 void clif_autoplay_send_config(int32 fd, map_session_data& sd) {
+	if (!sd.autoplay || !sd.autoplay->client_supported)
+		return;
 	PACKET_ZC_AUTOPLAY_CONFIG packet{}; packet.packetType = HEADER_ZC_AUTOPLAY_CONFIG;
 	packet.result = sd.autoplay && sd.autoplay->loaded;
 	if (sd.autoplay) packet.config = sd.autoplay->config;
 	WFIFOHEAD(fd, sizeof(packet)); memcpy(WFIFOP(fd, 0), &packet, sizeof(packet)); WFIFOSET(fd, sizeof(packet));
 }
 
-void clif_autoplay_send_result(int32 fd, uint8 operation, bool result, uint32 revision) {
+void clif_autoplay_send_result(map_session_data& sd, uint8 operation, bool result, uint32 revision) {
+	if (!sd.autoplay || !sd.autoplay->client_supported)
+		return;
+	const int32 fd = sd.fd;
 	PACKET_ZC_AUTOPLAY_RESULT packet{}; packet.packetType = HEADER_ZC_AUTOPLAY_RESULT; packet.operation = operation; packet.result = result; packet.revision = revision;
 	WFIFOHEAD(fd, sizeof(packet)); memcpy(WFIFOP(fd, 0), &packet, sizeof(packet)); WFIFOSET(fd, sizeof(packet));
 }
@@ -26082,6 +26087,12 @@ void clif_autoplay_send_result(int32 fd, uint8 operation, bool result, uint32 re
 void clif_parse_autoplay_config_get(int32 fd, map_session_data* sd) {
 	if (!sd)
 		return;
+	autoplay_attach(*sd);
+	if (RFIFOL(fd, 2) != AUTOPLAY_PROTOCOL_MAGIC || RFIFOW(fd, 6) != AUTOPLAY_PROTOCOL_VERSION) {
+		sd->autoplay->client_supported = false;
+		return;
+	}
+	sd->autoplay->client_supported = true;
 	if (!sd->autoplay || !sd->autoplay->loaded) {
 		autoplay_attach(*sd);
 		intif_autoplay_request(sd->status.char_id);
@@ -26090,7 +26101,9 @@ void clif_parse_autoplay_config_get(int32 fd, map_session_data* sd) {
 }
 
 void clif_parse_autoplay_config_save(int32 fd, map_session_data* sd) {
-	if (!sd || !sd->autoplay || !sd->autoplay->loaded || sd->autoplay->save_pending) { clif_autoplay_send_result(fd, 0, false, 0); return; }
+	if (!sd || !sd->autoplay || !sd->autoplay->client_supported)
+		return;
+	if (!sd->autoplay->loaded || sd->autoplay->save_pending) { clif_autoplay_send_result(*sd, 0, false, 0); return; }
 	s_autoplay_config config{}; memcpy(&config, RFIFOP(fd, 2), sizeof(config));
 	config.search_range = battle_config.autoplay_search_range;
 	// ===== rAthena 修复挂机配置封包校验：开始 =====
@@ -26125,33 +26138,41 @@ void clif_parse_autoplay_config_save(int32 fd, map_session_data* sd) {
 	// ===== 挂机配置最终回执：开始 =====
 	// 修改原因：排队成功不代表SQL提交成功，成功回执由char-server完成保存后发送。
 	if (!valid || !sd->autoplay->save_pending)
-		clif_autoplay_send_result(fd, 0, false, sd->autoplay->config.revision);
+		clif_autoplay_send_result(*sd, 0, false, sd->autoplay->config.revision);
 	// ===== 挂机配置最终回执：结束 =====
 }
 
 void clif_parse_autoplay_control(int32 fd, map_session_data* sd) {
+	if (!sd || !sd->autoplay || !sd->autoplay->client_supported)
+		return;
 	const uint8 control = RFIFOB(fd, 2); const bool valid = sd && control >= AUTOPLAY_CONTROL_START && control <= AUTOPLAY_CONTROL_STOP;
 	const bool result = valid && autoplay_control(*sd, static_cast<e_autoplay_control>(control));
 	if (sd) {
 		static constexpr const char* operations[] = { "invalid", "start", "pause", "resume", "stop" };
 		ShowInfo("Autoplay control: account_id=%d char_id=%d operation=%s result=%s map=%s (%d,%d)\n", sd->status.account_id, sd->status.char_id, control < ARRAYLENGTH(operations) ? operations[control] : operations[0], result ? "success" : "denied", mapindex_id2name(sd->mapindex), sd->x, sd->y);
 	}
-	clif_autoplay_send_result(fd, control, result, sd && sd->autoplay ? sd->autoplay->config.revision : 0);
+	clif_autoplay_send_result(*sd, control, result, sd->autoplay->config.revision);
 }
 
 void clif_parse_autoplay_status_get(int32 fd, map_session_data* sd) {
+	if (!sd || !sd->autoplay || !sd->autoplay->client_supported)
+		return;
 	PACKET_ZC_AUTOPLAY_STATUS packet{}; packet.packetType = HEADER_ZC_AUTOPLAY_STATUS;
 	if (sd && sd->autoplay) { packet.state = sd->autoplay->state; packet.stop_reason = sd->autoplay->stop_reason; packet.target_id = sd->autoplay->target_id; packet.kills = sd->autoplay->kills; packet.loot_count = sd->autoplay->loot_count; }
 	WFIFOHEAD(fd, sizeof(packet)); memcpy(WFIFOP(fd, 0), &packet, sizeof(packet)); WFIFOSET(fd, sizeof(packet));
 }
 
 void clif_parse_autoplay_walk_to(int32 fd, map_session_data* sd) {
+	if (!sd || !sd->autoplay || !sd->autoplay->client_supported)
+		return;
 	if (!sd || pc_isdead(sd) || pc_cant_act(sd) || sd->progressbar.npc_id)
 		return;
 	autoplay_walk_to(*sd, static_cast<int16>(RFIFOW(fd, 2)), static_cast<int16>(RFIFOW(fd, 4)));
 }
 
 void clif_autoplay_walk_step(const map_session_data& sd, int16 from_x, int16 from_y, int16 to_x, int16 to_y, uint16 duration) {
+	if (!sd.autoplay || !sd.autoplay->client_supported)
+		return;
 	PACKET_ZC_AUTOPLAY_WALK_STEP packet{};
 	packet.packetType = HEADER_ZC_AUTOPLAY_WALK_STEP;
 	packet.from_x = from_x;

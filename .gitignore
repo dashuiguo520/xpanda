@@ -88,7 +88,9 @@ Thumbs.db
 /src/common/version.hpp
 
 # /src/custom/
-/src/custom
+/src/custom/*
+!/src/custom/autoplay_packets.hpp
+!/src/custom/autoplay_packetdb.inc
 
 # /src/login/
 /src/login/Makefile
