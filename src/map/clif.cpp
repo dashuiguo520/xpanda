@@ -37,6 +37,7 @@
 #include "chat.hpp"
 #include "chrif.hpp"
 #include "clan.hpp"
+#include "date.hpp" // date_get()
 #include "clif.hpp"
 #include "elemental.hpp"
 #include "guild.hpp"
@@ -9468,13 +9469,21 @@ void clif_guild_position_selected( const map_session_data& sd )
 
 /// Displays emotion on an object.
 /// 00c0 <id>.L <type>.B (ZC_EMOTION)
+/// 0bea <id>.L <group>.W <emote>.W (ZC_EMOTION_EXPANSION)
 /// type:
 ///     enum emotion_type
-void clif_emotion( const block_list& bl, emotion_type type ){
-	// ===== rAthena 移植 Pandas Cash Emotion 广播兼容：开始 =====
-	// 修改内容：新版主线客户端统一使用 ZC_EMOTION2，旧客户端保留原包。
-#if PACKETVER_MAIN_NUM >= 20230925
-	clif_emotion2(const_cast<block_list*>(&bl), 0, type);
+void clif_emotion( const block_list& bl, emotion_type type, int16 group_id ){
+	// ===== rAthena 移植 rathena PR #10105 Cash Emotion 广播：开始 =====
+	// 修改内容：2023-07-05+ 客户端走 ZC_EMOTION_EXPANSION，旧客户端保留 ZC_EMOTION。
+#if PACKETVER_MAIN_NUM >= 20230705 || PACKETVER_RE_NUM >= 20230705
+	PACKET_ZC_EMOTION_EXPANSION p{};
+
+	p.packetType = HEADER_ZC_EMOTION_EXPANSION;
+	p.GID = bl.id;
+	p.group_id = group_id;
+	p.emotion_id = static_cast<int16>( type );
+
+	clif_send( &p, sizeof(p), &bl, AREA );
 #else
 	PACKET_ZC_EMOTION p{};
 
@@ -9484,7 +9493,7 @@ void clif_emotion( const block_list& bl, emotion_type type ){
 
 	clif_send( &p, sizeof(p), &bl, AREA );
 #endif
-	// ===== rAthena 移植 Pandas Cash Emotion 广播兼容：结束 =====
+	// ===== rAthena 移植 rathena PR #10105 Cash Emotion 广播：结束 =====
 }
 
 
@@ -11020,10 +11029,10 @@ void clif_parse_LoadEndAck(int32 fd,map_session_data *sd)
 				sc_start(sd,sd, SC_KNOWLEDGE, 100, lv, skill_get_time(SG_KNOWLEDGE, lv));
 		}
 
-		// ===== rAthena 移植 Pandas Cash Emotion 登录同步：开始 =====
-		// 修改内容：向新版客户端发送账号已购或租赁中的表情扩展。
-		pc_load_emotion_expantion_list(sd);
-		// ===== rAthena 移植 Pandas Cash Emotion 登录同步：结束 =====
+		// ===== rAthena 移植 rathena PR #10105 Cash Emotion 登录同步：开始 =====
+		// 修改内容：向客户端发送账号已解锁的表情包列表（0xbf6）。
+		clif_emotion_expansion_list(sd);
+		// ===== rAthena 移植 rathena PR #10105 Cash Emotion 登录同步：结束 =====
 
 		if(sd->pd && sd->pd->pet.intimate > 900)
 			clif_pet_emotion( *sd->pd, (sd->pd->pet.class_ - 100)*100 + 50 + pet_hungry_val(sd->pd) );
@@ -11734,29 +11743,21 @@ void clif_parse_ChangeDir(int32 fd, map_session_data *sd)
 }
 
 
-/// Request to show an emotion 
-/// 00bf <type>.B (CZ_REQ_EMOTION).
-void clif_parse_Emotion(int32 fd, map_session_data *sd){
-	// ===== rAthena 移植 Pandas Cash Emotion 请求兼容：开始 =====
-	// 修改原因：2023-09-25 之后客户端改由 CZ_REQ_EMOTION2 处理表情。
-#if PACKETVER_MAIN_NUM < 20230925
-	if( sd == nullptr ){
+/// Shared emotion use logic for CZ_REQ_EMOTION (00bf) and
+/// CZ_REQ_EMOTION_EXPANSION (0be9).
+static void clif_process_emotion(map_session_data *sd, int16 group_id, int16 emotion_id) {
+	if (sd == nullptr || emotion_id < 0 || emotion_id >= ET_MAX) {
 		return;
 	}
 
-	const PACKET_CZ_REQ_EMOTION* p = reinterpret_cast<PACKET_CZ_REQ_EMOTION*>( RFIFOP( fd, 0 ) );
-
-	if( p->emotion_type >= ET_MAX ){
-		return;
-	}
-	
-	emotion_type emoticon = static_cast<emotion_type>( p->emotion_type );
+	emotion_type emoticon = static_cast<emotion_type>( emotion_id );
 
 	if (battle_config.basic_skill_check == 0 || pc_checkskill(sd, NV_BASIC) >= 2 || pc_checkskill(sd, SU_BASIC_SKILL) >= 1) {
-		if (emoticon == ET_CHAT_PROHIBIT) {// prevent use of the mute emote [Valaris]
+		if (group_id == 0 && emoticon == ET_CHAT_PROHIBIT) { // prevent use of the mute emote [Valaris]
 			clif_skill_fail( *sd, 1, USESKILL_FAIL_LEVEL, 1 );
 			return;
 		}
+
 		// fix flood of emotion icon (ro-proxy): flood only the hacker player
 		if (sd->emotionlasttime + 1 >= time(nullptr)) { // not more than 1 per second
 			sd->emotionlasttime = time(nullptr);
@@ -11765,11 +11766,11 @@ void clif_parse_Emotion(int32 fd, map_session_data *sd){
 		}
 		sd->emotionlasttime = time(nullptr);
 
-		if (battle_config.idletime_option&IDLE_EMOTION)
+		if (battle_config.idletime_option & IDLE_EMOTION)
 			sd->idletime = last_tick;
-		if (battle_config.hom_idle_no_share && sd->hd && battle_config.idletime_hom_option&IDLE_EMOTION)
+		if (battle_config.hom_idle_no_share && sd->hd && battle_config.idletime_hom_option & IDLE_EMOTION)
 			sd->idletime_hom = last_tick;
-		if (battle_config.mer_idle_no_share && sd->md && battle_config.idletime_mer_option&IDLE_EMOTION)
+		if (battle_config.mer_idle_no_share && sd->md && battle_config.idletime_mer_option & IDLE_EMOTION)
 			sd->idletime_mer = last_tick;
 
 		if (sd->state.block_action & PCBLOCK_EMOTION) {
@@ -11777,15 +11778,350 @@ void clif_parse_Emotion(int32 fd, map_session_data *sd){
 			return;
 		}
 
-		if(battle_config.client_reshuffle_dice && emoticon>=ET_DICE1 && emoticon<=ET_DICE6) {// re-roll dice
-			emoticon = static_cast<emotion_type>( rnd()%6+ET_DICE1 );
+		if (battle_config.client_reshuffle_dice && emoticon >= ET_DICE1 && emoticon <= ET_DICE6) { // re-roll dice
+			emoticon = static_cast<emotion_type>( rnd() % 6 + ET_DICE1 );
 		}
 
-		clif_emotion( *sd, emoticon );
-	} else
+		// Cash emotion pack permission check (group_id > 0)
+		if (group_id > 0 && battle_config.emotion_cash_check) {
+			if (!sd->vars_ok) {
+				clif_skill_fail( *sd, 1, USESKILL_FAIL_LEVEL, 1 );
+				return;
+			}
+			char varname[32];
+			snprintf(varname, sizeof(varname), "#EMOTION_PACK_%d", group_id);
+			int64 reg_val = pc_readaccountreg2(sd, add_str(varname));
+			if (reg_val == 0 && !pc_has_permission(sd, PC_PERM_ALL_SKILL)) {
+				clif_skill_fail( *sd, 1, USESKILL_FAIL_LEVEL, 1 );
+				clif_messagecolor(sd, color_table[COLOR_RED], "You have not unlocked this Cash Emoticon pack.", false, SELF);
+				return;
+			}
+			// Check expiration if time-limited
+			std::shared_ptr<s_emotion_pack> pack = emotion_pack_db.find(group_id);
+			if (pack && pack->is_expire && reg_val > 1 && static_cast<uint32>(reg_val) < static_cast<uint32>(time(nullptr))) {
+				clif_skill_fail( *sd, 1, USESKILL_FAIL_LEVEL, 1 );
+				clif_messagecolor(sd, color_table[COLOR_RED], "This Cash Emoticon pack has expired.", false, SELF);
+				return;
+			}
+		}
+
+		clif_emotion( *sd, emoticon, group_id );
+	} else {
 		clif_skill_fail( *sd, 1, USESKILL_FAIL_LEVEL, 1 );
+	}
+}
+
+// ===== rAthena 移植 rathena PR #10105 Cash Emotion 数据库与购买：开始 =====
+// 修改内容：表情包 YAML 数据库、登录列表下发与购买流程（替代旧 EMOTION2 半成品）。
+const std::string EmotionPackDatabase::getDefaultLocation() {
+	return std::string(db_path) + "/emotion_pack.yml";
+}
+
+uint64 EmotionPackDatabase::parseBodyNode(const ryml::NodeRef& node) {
+	int16 id;
+
+	if (!this->asInt16(node, "Id", id)) {
+		return 0;
+	}
+
+	std::shared_ptr<s_emotion_pack> pack = this->find(id);
+	bool exists = (pack != nullptr);
+
+	if (!exists) {
+		pack = std::make_shared<s_emotion_pack>();
+		pack->id = id;
+		pack->price = 0;
+		pack->item_id = 0;
+		pack->start_date = 0;
+		pack->end_date = 0;
+		pack->is_expire = 0;
+		pack->duration = 0;
+	}
+
+	if (this->nodeExists(node, "AegisName")) {
+		std::string aegis_name;
+		if (this->asString(node, "AegisName", aegis_name)) {
+			pack->aegis_name = aegis_name;
+		}
+	}
+
+	if (this->nodeExists(node, "Name")) {
+		std::string name;
+		if (this->asString(node, "Name", name)) {
+			pack->name = name;
+		}
+	}
+
+	if (this->nodeExists(node, "Price")) {
+		uint32 price;
+		if (this->asUInt32(node, "Price", price)) {
+			pack->price = price;
+		}
+	}
+
+	if (this->nodeExists(node, "Item")) {
+		std::string item_name;
+		if (this->asString(node, "Item", item_name)) {
+			t_itemid item_id = 0;
+			bool numeric = !item_name.empty();
+			for (char digit : item_name) {
+				if (!isdigit(static_cast<unsigned char>(digit))) {
+					numeric = false;
+					break;
+				}
+			}
+			if (numeric) {
+				item_id = static_cast<t_itemid>(std::stoul(item_name));
+			} else {
+				std::shared_ptr<item_data> item = item_db.search_aegisname(item_name.c_str());
+				if (item) {
+					item_id = item->nameid;
+				} else {
+					this->invalidWarning(node["Item"], "Item %s does not exist in item database.\n", item_name.c_str());
+				}
+			}
+			pack->item_id = item_id;
+		}
+	}
+
+	if (this->nodeExists(node, "StartDate")) {
+		uint32 start_date;
+		if (this->asUInt32(node, "StartDate", start_date)) {
+			pack->start_date = start_date;
+		}
+	}
+
+	if (this->nodeExists(node, "EndDate")) {
+		uint32 end_date;
+		if (this->asUInt32(node, "EndDate", end_date)) {
+			pack->end_date = end_date;
+		}
+	}
+
+	if (this->nodeExists(node, "Duration")) {
+		uint32 duration;
+		if (this->asUInt32(node, "Duration", duration)) {
+			pack->duration = duration;
+			pack->is_expire = (duration > 0) ? 1 : 0;
+		}
+	}
+
+	if (this->nodeExists(node, "IsExpire")) {
+		bool is_expire;
+		if (this->asBool(node, "IsExpire", is_expire)) {
+			pack->is_expire = is_expire ? 1 : 0;
+		}
+	}
+
+	if (!exists) {
+		this->put(id, pack);
+	}
+
+	return 1;
+}
+
+EmotionPackDatabase emotion_pack_db;
+
+void do_init_emotion_pack(void) {
+	emotion_pack_db.load();
+}
+
+void do_final_emotion_pack(void) {
+	emotion_pack_db.clear();
+}
+
+/// Send list of unlocked Cash Emotion packs to client
+/// 0bf6 <len>.W <server_time>.L <count>.W { <pack_id>.W <type>.B <expire_time>.L }* (ZC_EMOTION_EXPANSION_LIST)
+void clif_emotion_expansion_list( map_session_data* sd ){
+#if PACKETVER_MAIN_NUM >= 20230705 || PACKETVER_RE_NUM >= 20230705
+	nullpo_retv( sd );
+
+	if (!sd->vars_ok) {
+		return;
+	}
+
+	std::vector<PACKET_ZC_EMOTION_EXPANSION_LIST_SUB> owned;
+
+	for (const auto& pair : emotion_pack_db) {
+		int16 pack_id = pair.first;
+		const std::shared_ptr<s_emotion_pack>& pack = pair.second;
+
+		char varname[32];
+		snprintf(varname, sizeof(varname), "#EMOTION_PACK_%d", pack_id);
+		int64 reg_val = pc_readaccountreg2(sd, add_str(varname));
+
+		if (reg_val > 0 || (pc_has_permission(sd, PC_PERM_ALL_SKILL) && battle_config.emotion_cash_check)) {
+			PACKET_ZC_EMOTION_EXPANSION_LIST_SUB sub{};
+			sub.pack_id = pack_id;
+			sub.type = pack->is_expire;
+			sub.expire_time = (pack->is_expire && reg_val > 1) ? static_cast<uint32>(reg_val) : 0;
+			owned.push_back(sub);
+		}
+	}
+
+	uint16 packet_len = sizeof(PACKET_ZC_EMOTION_EXPANSION_LIST) + static_cast<uint16>(owned.size() * sizeof(PACKET_ZC_EMOTION_EXPANSION_LIST_SUB));
+	std::vector<uint8> buf(packet_len);
+	auto* p = reinterpret_cast<PACKET_ZC_EMOTION_EXPANSION_LIST*>(buf.data());
+
+	p->packetType = HEADER_ZC_EMOTION_EXPANSION_LIST;
+	p->packetLength = packet_len;
+	p->server_time = static_cast<uint32>(time(nullptr));
+	p->count = static_cast<int16>(owned.size());
+
+	if (!owned.empty()) {
+		memcpy(p->packs, owned.data(), owned.size() * sizeof(PACKET_ZC_EMOTION_EXPANSION_LIST_SUB));
+	}
+
+	clif_send(buf.data(), packet_len, sd, SELF);
 #endif
-	// ===== rAthena 移植 Pandas Cash Emotion 请求兼容：结束 =====
+}
+
+/// Notify client that cash emotion pack was successfully bought
+/// 0bed <pack_id>.W <type>.B <expire_time>.L (ZC_ACK_BUY_EMOTION_EXPANSION)
+void clif_emotion_expansion_buy_ack( map_session_data* sd, int16 pack_id, uint8 type, uint32 expire_time ){
+#if PACKETVER_MAIN_NUM >= 20230705 || PACKETVER_RE_NUM >= 20230705
+	nullpo_retv( sd );
+
+	PACKET_ZC_ACK_BUY_EMOTION_EXPANSION p{};
+	p.packetType = HEADER_ZC_ACK_BUY_EMOTION_EXPANSION;
+	p.pack_id = pack_id;
+	p.type = type;
+	p.expire_time = expire_time;
+
+	clif_send( &p, sizeof(p), sd, SELF );
+#endif
+}
+
+/// Notify client that cash emotion pack purchase failed
+/// 0bee <pack_id>.W <result>.B (ZC_FAILED_BUY_EMOTION_EXPANSION)
+void clif_emotion_expansion_buy_fail( map_session_data* sd, int16 pack_id, uint8 result ){
+#if PACKETVER_MAIN_NUM >= 20230705 || PACKETVER_RE_NUM >= 20230705
+	nullpo_retv( sd );
+
+	PACKET_ZC_FAILED_BUY_EMOTION_EXPANSION p{};
+	p.packetType = HEADER_ZC_FAILED_BUY_EMOTION_EXPANSION;
+	p.pack_id = pack_id;
+	p.result = result;
+
+	clif_send( &p, sizeof(p), sd, SELF );
+#endif
+}
+
+/// Client request to purchase cash emotion pack through UI
+/// 0bec <pack_id>.W <count>.W <type>.B (CZ_REQ_BUY_EMOTION_EXPANSION)
+void clif_parse_BuyEmotionExpansion( int32 fd, map_session_data* sd ){
+#if PACKETVER_MAIN_NUM >= 20230705 || PACKETVER_RE_NUM >= 20230705
+	if (sd == nullptr || !sd->vars_ok) {
+		return;
+	}
+
+	const PACKET_CZ_REQ_BUY_EMOTION_EXPANSION* p = reinterpret_cast<PACKET_CZ_REQ_BUY_EMOTION_EXPANSION*>( RFIFOP( fd, 0 ) );
+
+	int16 pack_id = p->pack_id;
+	std::shared_ptr<s_emotion_pack> pack = emotion_pack_db.find(pack_id);
+	if (!pack) {
+		clif_emotion_expansion_buy_fail(sd, pack_id, 6); // Unknown error
+		return;
+	}
+
+	// Sale Date Check
+	uint32 current_date = date_get(DT_YYYYMMDD);
+	if (pack->start_date > 0 && current_date < pack->start_date) {
+		clif_emotion_expansion_buy_fail(sd, pack_id, 5); // Not yet started
+		return;
+	}
+	if (pack->end_date > 0 && current_date > pack->end_date) {
+		clif_emotion_expansion_buy_fail(sd, pack_id, 1); // Sale expired
+		return;
+	}
+
+	char varname[32];
+	snprintf(varname, sizeof(varname), "#EMOTION_PACK_%d", pack_id);
+	int64 current_reg = pc_readaccountreg2(sd, add_str(varname));
+	if (current_reg > 0) {
+		if (!pack->is_expire || current_reg == 1 || static_cast<uint32>(current_reg) > static_cast<uint32>(time(nullptr))) {
+			clif_emotion_expansion_buy_fail(sd, pack_id, 2); // Already bought
+			return;
+		}
+	}
+
+	// Basic Skill Check
+	if (battle_config.basic_skill_check != 0 && pc_checkskill(sd, NV_BASIC) < 2 && pc_checkskill(sd, SU_BASIC_SKILL) < 1) {
+		clif_emotion_expansion_buy_fail(sd, pack_id, 4); // Not enough basic skill
+		return;
+	}
+
+	// Price / Item Check
+	if (pack->price > 0) {
+		int32 index = -1;
+		if (pack->item_id != 0) {
+			index = pc_search_inventory(sd, pack->item_id);
+			if ((index < 0 || sd->inventory.u.items_inventory[index].amount < pack->price) && pack->item_id == 6909) {
+				index = pc_search_inventory(sd, 6417);
+			} else if ((index < 0 || sd->inventory.u.items_inventory[index].amount < pack->price) && pack->item_id == 6417) {
+				index = pc_search_inventory(sd, 6909);
+			}
+		} else {
+			index = pc_search_inventory(sd, 6909);
+			if (index < 0 || sd->inventory.u.items_inventory[index].amount < pack->price) {
+				index = pc_search_inventory(sd, 6417);
+			}
+		}
+
+		if (index < 0 || sd->inventory.u.items_inventory[index].amount < pack->price) {
+			clif_emotion_expansion_buy_fail(sd, pack_id, 0); // Not enough Nyangvine
+			return;
+		}
+
+		pc_delitem(sd, index, pack->price, 0, 0, LOG_TYPE_CONSUME);
+	}
+
+	// Expiration calculation
+	uint32 expire_time = 0;
+	if (pack->is_expire && pack->duration > 0) {
+		expire_time = static_cast<uint32>(time(nullptr)) + pack->duration;
+		pc_setaccountreg2(sd, add_str(varname), expire_time);
+	} else {
+		pc_setaccountreg2(sd, add_str(varname), 1);
+	}
+
+	// Notify success to UI
+	clif_emotion_expansion_buy_ack(sd, pack_id, pack->is_expire, expire_time);
+
+	// Refresh UI list
+	clif_emotion_expansion_list(sd);
+#endif
+}
+// ===== rAthena 移植 rathena PR #10105 Cash Emotion 数据库与购买：结束 =====
+
+/// Request to show an emotion
+/// 00bf <type>.B (CZ_REQ_EMOTION).
+void clif_parse_Emotion(int32 fd, map_session_data *sd){
+	if (sd == nullptr) {
+		return;
+	}
+
+	const PACKET_CZ_REQ_EMOTION* p = reinterpret_cast<PACKET_CZ_REQ_EMOTION*>( RFIFOP( fd, 0 ) );
+
+	if (p->emotion_type >= ET_MAX) {
+		return;
+	}
+
+	clif_process_emotion(sd, 0, p->emotion_type);
+}
+
+/// Request to show an expanded/cash emotion (Client >= 2023-07-05)
+/// 0be9 <group>.W <emote>.W (CZ_REQ_EMOTION_EXPANSION).
+void clif_parse_EmotionExpansion(int32 fd, map_session_data *sd){
+#if PACKETVER_MAIN_NUM >= 20230705 || PACKETVER_RE_NUM >= 20230705
+	if (sd == nullptr) {
+		return;
+	}
+
+	const PACKET_CZ_REQ_EMOTION_EXPANSION* p = reinterpret_cast<PACKET_CZ_REQ_EMOTION_EXPANSION*>( RFIFOP( fd, 0 ) );
+
+	clif_process_emotion(sd, p->group_id, p->emotion_id);
+#endif
 }
 
 

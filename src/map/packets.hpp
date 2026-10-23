@@ -2030,75 +2030,63 @@ struct PACKET_ZC_SKILLMSG {
 } __attribute__((packed));
 DEFINE_PACKET_HEADER(ZC_SKILLMSG, 0x215);
 
+// ===== rAthena 移植 rathena PR #10105 Cash Emotion 协议：开始 =====
+// 修改内容：按上游 PR #10105 重建表情扩展协议，替换旧 Pandas EMOTION2 半成品。
+// 上行：0xbe9 使用表情（group_id=0 为普通表情）、0xbec 购买表情包。
 struct PACKET_CZ_REQ_EMOTION_EXPANSION{
 	int16 packetType;
-	uint8 unknown[4];
+	int16 group_id;
+	int16 emotion_id;
 } __attribute__((packed));
 DEFINE_PACKET_HEADER(CZ_REQ_EMOTION_EXPANSION, 0xbe9);
 
-// ===== rAthena 移植 Pandas Cash Emotion 协议：开始 =====
-// 修改内容：补充付费表情使用、购买、失败提示和已购列表数据包。
-struct PACKET_CZ_REQ_EMOTION2 {
-	uint16 PacketType;
-	uint16 ExpantionId;
-	uint16 EmotionId;
-} __attribute__((packed));
-DEFINE_PACKET_HEADER(CZ_REQ_EMOTION2, 0x0be9);
-
-struct PACKET_ZC_EMOTION2 {
-	uint16 PacketType;
+// 下行：0xbea 表情广播、0xbed 购买成功、0xbee 购买失败、0xbf6 已解锁列表。
+struct PACKET_ZC_EMOTION_EXPANSION{
+	int16 packetType;
 	uint32 GID;
-	uint16 ExpantionId;
-	uint16 EmotionId;
+	int16 group_id;
+	int16 emotion_id;
 } __attribute__((packed));
-DEFINE_PACKET_HEADER(ZC_EMOTION2, 0x0bea);
+DEFINE_PACKET_HEADER(ZC_EMOTION_EXPANSION, 0xbea);
 
-struct PACKET_ZC_EMOTION2_FAIL {
-	uint16 PacketType;
-	uint16 ExpantionId;
-	uint16 EmotionId;
-	uint8 Status;
+struct PACKET_CZ_REQ_BUY_EMOTION_EXPANSION{
+	int16 packetType;
+	int16 pack_id;
+	int16 count;
+	uint8 type;
 } __attribute__((packed));
-DEFINE_PACKET_HEADER(ZC_EMOTION2_FAIL, 0x0beb);
+DEFINE_PACKET_HEADER(CZ_REQ_BUY_EMOTION_EXPANSION, 0xbec);
 
-struct PACKET_CZ_REQ_EMOTION2_EXPANTION {
-	uint16 PacketType;
-	uint16 ExpantionId;
-	uint16 ItemId;
-	uint8 Amount;
+struct PACKET_ZC_ACK_BUY_EMOTION_EXPANSION{
+	int16 packetType;
+	int16 pack_id;
+	uint8 type;
+	uint32 expire_time;
 } __attribute__((packed));
-DEFINE_PACKET_HEADER(CZ_REQ_EMOTION2_EXPANTION, 0x0bec);
+DEFINE_PACKET_HEADER(ZC_ACK_BUY_EMOTION_EXPANSION, 0xbed);
 
-struct PACKET_ZC_EMOTION2_EXPANTION {
-	uint16 PacketType;
-	uint16 ExpantionId;
-	uint8 bRented;
-	uint32 Timestamp;
+struct PACKET_ZC_FAILED_BUY_EMOTION_EXPANSION{
+	int16 packetType;
+	int16 pack_id;
+	uint8 result;
 } __attribute__((packed));
-DEFINE_PACKET_HEADER(ZC_EMOTION2_EXPANTION, 0x0bed);
+DEFINE_PACKET_HEADER(ZC_FAILED_BUY_EMOTION_EXPANSION, 0xbee);
 
-struct PACKET_ZC_EMOTION2_EXPANTION_FAIL {
-	uint16 PacketType;
-	uint16 ExpantionId;
-	uint8 Status;
-} __attribute__((packed));
-DEFINE_PACKET_HEADER(ZC_EMOTION2_EXPANTION_FAIL, 0x0bee);
-
-struct PACKET_ZC_EMOTION2_EXPANTION_LIST_SUB {
-	uint16 ExpantionId;
-	uint8 Rented;
-	uint32 Timestamp;
+struct PACKET_ZC_EMOTION_EXPANSION_LIST_SUB{
+	int16 pack_id;
+	uint8 type;
+	uint32 expire_time;
 } __attribute__((packed));
 
-struct PACKET_ZC_EMOTION2_EXPANTION_LIST {
-	uint16 PacketType;
-	uint16 PacketLength;
-	uint32 Timestamp;
-	int16 Timezone;
-	struct PACKET_ZC_EMOTION2_EXPANTION_LIST_SUB List[];
+struct PACKET_ZC_EMOTION_EXPANSION_LIST{
+	int16 packetType;
+	int16 packetLength;
+	uint32 server_time;
+	int16 count;
+	struct PACKET_ZC_EMOTION_EXPANSION_LIST_SUB packs[];
 } __attribute__((packed));
-DEFINE_PACKET_HEADER(ZC_EMOTION2_EXPANTION_LIST, 0x0bf6);
-// ===== rAthena 移植 Pandas Cash Emotion 协议：结束 =====
+DEFINE_PACKET_HEADER(ZC_EMOTION_EXPANSION_LIST, 0xbf6);
+// ===== rAthena 移植 rathena PR #10105 Cash Emotion 协议：结束 =====
 
 struct PACKET_ZC_DISAPPEAR_ENTRY{
 	int16 packetType;

@@ -1,5 +1,6 @@
-﻿// ===== rAthena 移植 Pandas GoldPC、Cash Emotion 与符文石板客户端逻辑：开始 =====
-// 修改内容：集中实现三项功能的客户端数据包解析与响应，避免扩大 clif.cpp 主文件差异。
+// ===== rAthena 移植 Pandas GoldPC 与符文石板客户端逻辑：开始 =====
+// 修改内容：集中实现两项功能的客户端数据包解析与响应，避免扩大 clif.cpp 主文件差异。
+// （旧 Cash Emotion 段已按上游 rathena PR #10105 移植方案移除，见 clif.cpp。）
 void clif_parse_askreward_rune(int32 fd, map_session_data* sd) {
 #if PACKETVER >= 20241001
 	struct PACKET_CZ_RUNE_ASK_REWARD* p = (struct PACKET_CZ_RUNE_ASK_REWARD*)RFIFOP(fd, 0);
@@ -125,124 +126,6 @@ void clif_parse_dynamic_npc( int fd, map_session_data* sd ){
 	npc_script_event(*sd, NPCE_GOLDPC);
 	clif_dynamicnpc_result(*sd, DYNAMICNPC_RESULT_SUCCESS);
 	// ===== rAthena 修正 Pandas GoldPC 点击处理：结束 =====
-#endif
-}
-void clif_parse_emotion2(const int32 fd, map_session_data* const sd)
-{
-#if (PACKETVER_MAIN_NUM >= 20230925)
-	nullpo_retv(sd);
-
-	const PACKET_CZ_REQ_EMOTION2* const Packet = reinterpret_cast<PACKET_CZ_REQ_EMOTION2*>(RFIFOP(fd, 0));
-
-	pc_use_emotion(sd, Packet->ExpantionId, Packet->EmotionId);
-#endif
-}
-
-void clif_emotion2(block_list* const bl, const uint16 ExpantionId, const uint16 EmotionId)
-{
-#if (PACKETVER_MAIN_NUM >= 20230925)
-	nullpo_retv(bl);
-
-	PACKET_ZC_EMOTION2 Packet = {};
-	Packet.PacketType = HEADER_ZC_EMOTION2;
-	Packet.GID = bl->id;
-	Packet.ExpantionId = ExpantionId;
-	Packet.EmotionId = EmotionId;
-
-	clif_send(&Packet, sizeof(PACKET_ZC_EMOTION2), bl, AREA);
-#endif
-}
-
-void clif_emotion2_fail(map_session_data* const sd, const uint16 ExpantionId, const uint16 EmotionId, const EEmotionStatus Status)
-{
-#if (PACKETVER_MAIN_NUM >= 20230925)
-	nullpo_retv(sd);
-
-	const int32 fd = sd->fd;
-
-	WFIFOHEAD(fd, sizeof(PACKET_ZC_EMOTION2_FAIL));
-
-	PACKET_ZC_EMOTION2_FAIL* const Packet = reinterpret_cast<PACKET_ZC_EMOTION2_FAIL*>(WFIFOP(fd, 0));
-	Packet->PacketType = HEADER_ZC_EMOTION2_FAIL;
-	Packet->ExpantionId = ExpantionId;
-	Packet->EmotionId = EmotionId;
-	Packet->Status = Status;
-
-	WFIFOSET(fd, sizeof(PACKET_ZC_EMOTION2_FAIL));
-#endif
-}
-
-void clif_parse_emotion2_expantion(const int32 fd, map_session_data* const sd)
-{
-#if (PACKETVER_MAIN_NUM >= 20230925)
-	nullpo_retv(sd);
-
-	const PACKET_CZ_REQ_EMOTION2_EXPANTION* const Packet = reinterpret_cast<PACKET_CZ_REQ_EMOTION2_EXPANTION*>(RFIFOP(fd, 0));
-
-	pc_buy_emotion_expantion(sd, Packet->ExpantionId, Packet->ItemId, Packet->Amount);
-#endif
-}
-
-void clif_emotion2_expantion(map_session_data* const sd, const uint16 ExpantionId, const bool bRented, const uint32 RentEndTime)
-{
-#if (PACKETVER_MAIN_NUM >= 20230925)
-	nullpo_retv(sd);
-
-	const int32 fd = sd->fd;
-
-	WFIFOHEAD(fd, sizeof(PACKET_ZC_EMOTION2_EXPANTION));
-
-	PACKET_ZC_EMOTION2_EXPANTION* const Packet = reinterpret_cast<PACKET_ZC_EMOTION2_EXPANTION*>(WFIFOP(fd, 0));
-	Packet->PacketType = HEADER_ZC_EMOTION2_EXPANTION;
-	Packet->ExpantionId = ExpantionId;
-	Packet->bRented = bRented;
-	Packet->Timestamp = RentEndTime;
-
-	WFIFOSET(fd, sizeof(PACKET_ZC_EMOTION2_EXPANTION));
-#endif
-}
-
-void clif_emotion2_expantion_fail(map_session_data* const sd, const uint16 ExpantionId, const EEmotionExpantionStatus Status)
-{
-#if (PACKETVER_MAIN_NUM >= 20230925)
-	nullpo_retv(sd);
-
-	const int fd = sd->fd;
-
-	WFIFOHEAD(fd, sizeof(PACKET_ZC_EMOTION2_EXPANTION_FAIL));
-
-	PACKET_ZC_EMOTION2_EXPANTION_FAIL* const Packet = reinterpret_cast<PACKET_ZC_EMOTION2_EXPANTION_FAIL*>(WFIFOP(fd, 0));
-	Packet->PacketType = HEADER_ZC_EMOTION2_EXPANTION_FAIL;
-	Packet->ExpantionId = ExpantionId;
-	Packet->Status = Status;
-
-	WFIFOSET(fd, sizeof(PACKET_ZC_EMOTION2_EXPANTION_FAIL));
-#endif
-}
-
-void clif_emotion2_expantion_list(map_session_data* const sd, const std::vector<PACKET_ZC_EMOTION2_EXPANTION_LIST_SUB>& List)
-{
-#if (PACKETVER_MAIN_NUM >= 20230925)
-	nullpo_retv(sd);
-
-	const int fd = sd->fd;
-
-	const size_t PacketTotalSize = sizeof(PACKET_ZC_EMOTION2_EXPANTION_LIST) + sizeof(PACKET_ZC_EMOTION2_EXPANTION_LIST_SUB) * List.size();
-	WFIFOHEAD(fd, PacketTotalSize);
-
-	PACKET_ZC_EMOTION2_EXPANTION_LIST* const Packet = reinterpret_cast<PACKET_ZC_EMOTION2_EXPANTION_LIST*>(WFIFOP(fd, 0));
-	Packet->PacketType = HEADER_ZC_EMOTION2_EXPANTION_LIST;
-	Packet->Timestamp = uint32(time(nullptr));
-	Packet->Timezone = 540; // Seems to be 9 (Korean UTC) * 60
-
-	for (size_t Num = 0; Num < List.size(); ++Num)
-	{
-		Packet->List[Num] = List[Num];
-	}
-
-	Packet->PacketLength = uint16(PacketTotalSize);
-
-	WFIFOSET(fd, PacketTotalSize);
 #endif
 }
 void clif_rune_ui_open( map_session_data* sd ){
@@ -669,4 +552,4 @@ void clif_runedecompowindow_result (map_session_data* sd, enum e_runedecompo_res
 	clif_send( &p, sizeof( p ), sd, SELF );
 #endif
 }
-// ===== rAthena 移植 Pandas GoldPC、Cash Emotion 与符文石板客户端逻辑：结束 =====
+// ===== rAthena 移植 Pandas GoldPC 与符文石板客户端逻辑：结束 =====

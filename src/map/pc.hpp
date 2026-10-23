@@ -1,4 +1,4 @@
-﻿// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
+// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
 // For more information, see LICENCE in the main folder
 
 #ifndef PC_HPP
@@ -1431,53 +1431,6 @@ public:
 };
 
 extern PlayerStatPointDatabase statpoint_db;
-
-// ===== rAthena 移植 Pandas Cash Emotion 数据库：开始 =====
-// 修改内容：声明表情扩展校验、购买状态和 YAML 数据库接口。
-enum EEmotionStatus : uint8 {
-	EMSG_EMOTION_EXPANTION_USE_FAIL_DATE,
-	EMSG_EMOTION_EXPANTION_USE_FAIL_UNPURCHASED,
-	EMSG_EMOTION_USE_FAIL_SKILL_LEVEL,
-	EMSG_EMOTION_EXPANTION_USE_FAIL_UNKNOWN,
-};
-
-enum EEmotionExpantionStatus : uint8 {
-	EMSG_EMOTION_EXPANTION_NOT_ENOUGH_NYANGVINE,
-	EMSG_EMOTION_EXPANTION_FAIL_DATE,
-	EMSG_EMOTION_EXPANTION_FAIL_ALREADY_BUY,
-	EMSG_EMOTION_EXPANTION_FAIL_ANOTHER_SALE_BUY,
-	EMSG_EMOTION_EXPANTION_NOT_ENOUGH_BASICSKILL_LEVEL,
-	EMSG_NOT_YET_SALE_START_TIME,
-	EMSG_EMOTION_EXPANTION_FAIL_UNKNOWN,
-};
-
-struct s_emotion_db {
-	uint16 Id;
-	uint16 Price;
-	uint16 Type;
-	uint32 SaleStart;
-	uint32 SaleEnd;
-	// ===== rAthena 修复 Cash Emotion 租期溢出：开始 =====
-	// 修改原因：该字段保存秒数，一天已超过 uint16 上限，需使用 uint32。
-	uint32 SaleRentalPeriod;
-	// ===== rAthena 修复 Cash Emotion 租期溢出：结束 =====
-	std::vector<emotion_type> Emotions;
-};
-
-class EmotionDatabase : public TypesafeCachedYamlDatabase<uint16, s_emotion_db> {
-public:
-	EmotionDatabase() : TypesafeCachedYamlDatabase("EMOTION_DB", 1) {}
-	const std::string getDefaultLocation() override;
-	uint64 parseBodyNode(const ryml::NodeRef& node) override;
-};
-
-extern EmotionDatabase emotion_db;
-void do_init_emotions();
-void do_final_emotions();
-void pc_use_emotion(map_session_data* sd, uint16 expansionId, uint16 emotionId);
-void pc_buy_emotion_expantion(map_session_data* sd, uint16 expansionId, uint16 itemId, uint8 amount);
-void pc_load_emotion_expantion_list(map_session_data* sd);
-// ===== rAthena 移植 Pandas Cash Emotion 数据库：结束 =====
 
 /// Enum of Summoner Power of 
 enum e_summoner_power_type {

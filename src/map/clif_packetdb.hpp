@@ -2026,12 +2026,13 @@
 	parseable_packet( HEADER_CZ_ALLY_CHAT, -1, clif_parse_dull, 0 );
 #endif
 
-	// ===== rAthena 移植 Pandas Cash Emotion 旧占位包兼容：开始 =====
-	// 修改原因：2023-09-25 起相同包头已用于真实表情请求，避免重复注册为 dull。
-#if PACKETVER_MAIN_NUM >= 20230705 && PACKETVER_MAIN_NUM < 20230925
-	parseable_packet( HEADER_CZ_REQ_EMOTION_EXPANSION, sizeof( struct PACKET_CZ_REQ_EMOTION_EXPANSION ), clif_parse_dull, 0 );
+	// ===== rAthena 移植 rathena PR #10105 Cash Emotion 注册：开始 =====
+	// 修改内容：表情使用/购买请求按 PR #10105 注册真实解析器，RE 口味同样生效。
+#if PACKETVER_MAIN_NUM >= 20230705 || PACKETVER_RE_NUM >= 20230705
+	parseable_packet( HEADER_CZ_REQ_EMOTION_EXPANSION, sizeof( struct PACKET_CZ_REQ_EMOTION_EXPANSION ), clif_parse_EmotionExpansion, 0 );
+	parseable_packet( HEADER_CZ_REQ_BUY_EMOTION_EXPANSION, sizeof( struct PACKET_CZ_REQ_BUY_EMOTION_EXPANSION ), clif_parse_BuyEmotionExpansion, 0 );
 #endif
-	// ===== rAthena 移植 Pandas Cash Emotion 旧占位包兼容：结束 =====
+	// ===== rAthena 移植 rathena PR #10105 Cash Emotion 注册：结束 =====
 
 #if PACKETVER_MAIN_NUM >= 20230802
 	parseable_packet( HEADER_CZ_QUEST_STATUS_REQ, -1, clif_parse_dull, 0 );
@@ -2055,19 +2056,6 @@
 	parseable_packet(HEADER_CZ_DYNAMICNPC_CREATE_REQUEST, sizeof(PACKET_CZ_DYNAMICNPC_CREATE_REQUEST), clif_parse_dynamic_npc, 0);
 #endif
 // ===== rAthena 移植 Pandas GoldPC 动态 NPC 协议注册：结束 =====
-
-// ===== rAthena 移植 Pandas Cash Emotion 协议注册：开始 =====
-// 修改内容：注册新版表情使用、购买和结果数据包。
-#if PACKETVER_MAIN_NUM >= 20230925
-	parseable_packet(HEADER_CZ_REQ_EMOTION2, sizeof(PACKET_CZ_REQ_EMOTION2), clif_parse_emotion2, 0);
-	packet(HEADER_ZC_EMOTION2, sizeof(PACKET_ZC_EMOTION2));
-	packet(HEADER_ZC_EMOTION2_FAIL, sizeof(PACKET_ZC_EMOTION2_FAIL));
-	parseable_packet(HEADER_CZ_REQ_EMOTION2_EXPANTION, sizeof(PACKET_CZ_REQ_EMOTION2_EXPANTION), clif_parse_emotion2_expantion, 0);
-	packet(HEADER_ZC_EMOTION2_EXPANTION, sizeof(PACKET_ZC_EMOTION2_EXPANTION));
-	packet(HEADER_ZC_EMOTION2_EXPANTION_FAIL, sizeof(PACKET_ZC_EMOTION2_EXPANTION_FAIL));
-	packet(HEADER_ZC_EMOTION2_EXPANTION_LIST, -1);
-#endif
-// ===== rAthena 移植 Pandas Cash Emotion 协议注册：结束 =====
 
 // ===== rAthena 移植 Pandas 符文石板协议注册：开始 =====
 // 修改内容：注册符文界面、书册、套装、升级、启用、分解和奖励请求。

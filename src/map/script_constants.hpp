@@ -3816,8 +3816,8 @@
 	export_constant(ET_YUT5);
 	export_constant(ET_YUT6);
 	export_constant(ET_YUT7);
-	// ===== rAthena 移植 Pandas Cash Emotion 常量导出：开始 =====
-	// 修改内容：让 emotion_db.yml 和脚本识别新版扩展表情名称。
+	// ===== rAthena 移植 rathena PR #10105 扩展表情常量导出：开始 =====
+	// 修改内容：让 emotion_pack.yml 和脚本识别新版扩展表情名称与表情包类型。
 	export_constant(ET_CLICK_ME); export_constant(ET_DAILY_QUEST); export_constant(ET_EVENT);
 	export_constant(ET_JOB_QUEST); export_constant(ET_TRAFFIC_LINE_QUEST);
 	export_constant(ET_CUSTOM_1); export_constant(ET_CUSTOM_2); export_constant(ET_CUSTOM_3);
@@ -3825,7 +3825,13 @@
 	export_constant(ET_CUSTOM_7); export_constant(ET_CUSTOM_8); export_constant(ET_CUSTOM_9);
 	export_constant(ET_CUSTOM_10); export_constant(ET_CUSTOM_11); export_constant(ET_CUSTOM_12);
 	export_constant(ET_CUSTOM_13); export_constant(ET_CUSTOM_14); export_constant(ET_CUSTOM_15);
-	// ===== rAthena 移植 Pandas Cash Emotion 常量导出：结束 =====
+	// ===== rAthena 移植 rathena PR #10105 扩展表情常量导出：结束 =====
+
+	/* emotion pack types (cash emotions) */
+	export_constant(EPT_BASIC);
+	export_constant(EPT_21ST_ANNIVERSARY);
+	export_constant(EPT_2023CHUSEOK);
+	export_constant(EPT_2023THXGIVING);
 
 	/* send targets */
 	export_constant(ALL_CLIENT);

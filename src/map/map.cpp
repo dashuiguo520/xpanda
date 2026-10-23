@@ -1,4 +1,4 @@
-﻿// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
+// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
 // For more information, see LICENCE in the main folder
 
 #include "map.hpp"
@@ -5120,13 +5120,13 @@ void MapServer::finalize(){
 	do_final_duel();
 	do_final_elemental();
 	do_final_cashshop();
+	do_final_emotion_pack();
 	do_final_channel(); //should be called after final guild
 	do_final_vending();
 	do_final_buyingstore();
 	do_final_path();
 	// ===== rAthena 移植 Pandas Cash Emotion 与符文数据库关闭：开始 =====
 	// 修改内容：释放新增 YAML 数据库及脚本资源。
-	do_final_emotions();
 	do_final_rune();
 	// ===== rAthena 移植 Pandas Cash Emotion 与符文数据库关闭：结束 =====
 
@@ -5487,6 +5487,7 @@ bool MapServer::initialize( int32 argc, char *argv[] ){
 	do_init_itemdb();
 	do_init_channel();
 	do_init_cashshop();
+	do_init_emotion_pack();
 	do_init_skill();
 	do_init_mob();
 	do_init_pc();
@@ -5508,7 +5509,6 @@ bool MapServer::initialize( int32 argc, char *argv[] ){
 	do_init_buyingstore();
 	// ===== rAthena 移植 Pandas Cash Emotion 与符文数据库初始化：开始 =====
 	// 修改内容：NPC OnInit 前加载表情扩展和符文配置。
-	do_init_emotions();
 	do_init_rune();
 	// ===== rAthena 移植 Pandas Cash Emotion 与符文数据库初始化：结束 =====
 

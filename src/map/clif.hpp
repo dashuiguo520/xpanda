@@ -58,14 +58,11 @@ enum e_macro_report_status : uint8;
 enum e_hom_state2 : uint8;
 enum _sp;
 enum e_searchstore_failure : uint16;
-// ===== rAthena 移植 Pandas Cash Emotion 与符文前置声明：开始 =====
-// 修改内容：避免客户端接口头文件与角色、符文模块互相包含。
-enum EEmotionStatus : uint8;
-enum EEmotionExpantionStatus : uint8;
+// ===== rAthena 移植 Pandas 符文前置声明：开始 =====
+// 修改内容：避免客户端接口头文件与符文模块互相包含。
 enum e_runedecompo_result : uint8_t;
 enum e_runereward_result : uint8_t;
-struct PACKET_ZC_EMOTION2_EXPANTION_LIST_SUB;
-// ===== rAthena 移植 Pandas Cash Emotion 与符文前置声明：结束 =====
+// ===== rAthena 移植 Pandas 符文前置声明：结束 =====
 
 #define DMGVAL_IGNORE -30000
 
@@ -367,14 +364,29 @@ enum emotion_type {
 	ET_YUT5,
 	ET_YUT6,
 	ET_YUT7,
-	// ===== rAthena 移植 Pandas Cash Emotion 类型：开始 =====
-	// 修改内容：补充新版客户端和付费扩展使用的表情编号。
-	ET_CLICK_ME, ET_DAILY_QUEST, ET_EVENT, ET_JOB_QUEST, ET_TRAFFIC_LINE_QUEST,
-	ET_CUSTOM_1, ET_CUSTOM_2, ET_CUSTOM_3, ET_CUSTOM_4, ET_CUSTOM_5,
-	ET_CUSTOM_6, ET_CUSTOM_7, ET_CUSTOM_8, ET_CUSTOM_9, ET_CUSTOM_10,
-	ET_CUSTOM_11, ET_CUSTOM_12, ET_CUSTOM_13, ET_CUSTOM_14, ET_CUSTOM_15,
-	ET_EMOTION_LAST,
-	// ===== rAthena 移植 Pandas Cash Emotion 类型：结束 =====
+	// ===== rAthena 移植 rathena PR #10105 扩展表情编号：开始 =====
+	// 修改内容：补充 2023+ 客户端新增的表情编号（与上游 PR #10105 一致）。
+	ET_CLICK_ME,
+	ET_DAILY_QUEST,
+	ET_EVENT,
+	ET_JOB_QUEST,
+	ET_TRAFFIC_LINE_QUEST,
+	ET_CUSTOM_1,
+	ET_CUSTOM_2,
+	ET_CUSTOM_3,
+	ET_CUSTOM_4,
+	ET_CUSTOM_5,
+	ET_CUSTOM_6,
+	ET_CUSTOM_7,
+	ET_CUSTOM_8,
+	ET_CUSTOM_9,
+	ET_CUSTOM_10,
+	ET_CUSTOM_11,
+	ET_CUSTOM_12,
+	ET_CUSTOM_13,
+	ET_CUSTOM_14,
+	ET_CUSTOM_15,
+	// ===== rAthena 移植 rathena PR #10105 扩展表情编号：结束 =====
 	//
 	ET_MAX
 };
@@ -976,17 +988,47 @@ void clif_changechatstatus( const chat_data& cd);
 void clif_refresh_storagewindow(map_session_data *sd);
 void clif_refresh(map_session_data *sd);	// self
 
-void clif_emotion( const block_list& bl, emotion_type type );
-// ===== rAthena 移植 Pandas Cash Emotion 接口：开始 =====
-// 修改内容：声明新版表情协议的解析、广播和购买结果接口。
-void clif_parse_emotion2(int32 fd, map_session_data* sd);
-void clif_emotion2(block_list* bl, uint16 expansionId, uint16 emotionId);
-void clif_emotion2_fail(map_session_data* sd, uint16 expansionId, uint16 emotionId, EEmotionStatus status);
-void clif_parse_emotion2_expantion(int32 fd, map_session_data* sd);
-void clif_emotion2_expantion(map_session_data* sd, uint16 expansionId, bool rented, uint32 rentEndTime);
-void clif_emotion2_expantion_fail(map_session_data* sd, uint16 expansionId, EEmotionExpantionStatus status);
-void clif_emotion2_expantion_list(map_session_data* sd, const std::vector<PACKET_ZC_EMOTION2_EXPANTION_LIST_SUB>& list);
-// ===== rAthena 移植 Pandas Cash Emotion 接口：结束 =====
+// ===== rAthena 移植 rathena PR #10105 Cash Emotion 接口：开始 =====
+// 修改内容：表情包 YAML 数据库与新版表情协议接口（替代旧 EMOTION2 半成品）。
+enum emotion_pack_type {
+	EPT_BASIC = 0,
+	EPT_21ST_ANNIVERSARY = 1,
+	EPT_2023CHUSEOK = 2,
+	EPT_2023THXGIVING = 3,
+	EPT_MAX
+};
+
+struct s_emotion_pack {
+	int16 id;
+	std::string aegis_name;
+	std::string name;
+	uint32 price;
+	t_itemid item_id;
+	uint32 start_date;
+	uint32 end_date;
+	uint8 is_expire;
+	uint32 duration;
+};
+
+class EmotionPackDatabase : public TypesafeYamlDatabase<int16, s_emotion_pack> {
+public:
+	EmotionPackDatabase() : TypesafeYamlDatabase("EMOTION_PACK_DB", 1) {
+	}
+
+	const std::string getDefaultLocation() override;
+	uint64 parseBodyNode(const ryml::NodeRef& node) override;
+};
+
+extern EmotionPackDatabase emotion_pack_db;
+void do_init_emotion_pack(void);
+void do_final_emotion_pack(void);
+
+void clif_emotion( const block_list& bl, emotion_type type, int16 group_id = 0 );
+void clif_emotion_expansion_list( map_session_data* sd );
+void clif_emotion_expansion_buy_ack( map_session_data* sd, int16 pack_id, uint8 type, uint32 expire_time );
+void clif_emotion_expansion_buy_fail( map_session_data* sd, int16 pack_id, uint8 result );
+void clif_parse_BuyEmotionExpansion( int32 fd, map_session_data* sd );
+// ===== rAthena 移植 rathena PR #10105 Cash Emotion 接口：结束 =====
 void clif_talkiebox( const block_list* bl, const char* talkie );
 void clif_wedding_effect( const block_list& bl );
 void clif_divorced( const map_session_data& sd, const char* name );
