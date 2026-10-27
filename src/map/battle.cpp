@@ -2705,6 +2705,8 @@ static int32 battle_range_type(const block_list* src, const block_list* target, 
 
 			return sc != nullptr && sc->hasSCE(SC_HOLY_S) ? BF_LONG : BF_SHORT;
 		}
+		case ABC_PHANTOM_DAGGER:
+			return BF_SHORT;
 		case AC_SHOWER:
 		case AM_DEMONSTRATION:
 			// When monsters use Arrow Shower or Bomb, it is always short range
