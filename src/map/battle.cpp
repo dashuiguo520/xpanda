@@ -1984,12 +1984,14 @@ int64 battle_calc_damage(block_list *src,block_list *bl,struct Damage *d,int64 d
 	status_change* sc = status_get_sc(src);
 
 	if (sc != nullptr && !sc->empty()) {
-		if (sc->getSCE(SC_BREAKINGLIMIT)) {
+		if (sc->hasSCE(SC_BREAKINGLIMIT)) {
 			switch (skill_id) {
+				case HN_WIND_CUTTER_TURBO:
 				case HN_SHIELD_CHAIN_RUSH:
 				case HN_DOUBLEBOWLINGBASH:
 					damage += damage * 120 / 100; 
 					break;
+				case HN_HIGH_MAGNUM_BREAK:
 				case HN_MEGA_SONIC_BLOW:
 					damage *= 2;
 					break;
@@ -2716,6 +2718,7 @@ static int32 battle_range_type(const block_list* src, const block_list* target, 
 		case WH_DEEPBLINDTRAP_ATK:
 		case WH_SWIFTTRAP_ATK:
 		case WH_FLAMETRAP_ATK:
+		case HN_HIGH_MAGNUM_BREAK:
 			return BF_SHORT;
 		case AC_SHOWER:
 		case AM_DEMONSTRATION:

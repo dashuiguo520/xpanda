@@ -1055,6 +1055,7 @@
     <ClInclude Include="skills/novice/groundgravitation.hpp" />
     <ClInclude Include="skills/novice/hellsdrive.hpp" />
     <ClInclude Include="skills/novice/helpangel.hpp" />
+    <ClInclude Include="skills/novice/highmagnumbreak.hpp" />
     <ClInclude Include="skills/novice/jackfrostnova.hpp" />
     <ClInclude Include="skills/novice/jupitelthunderstorm.hpp" />
     <ClInclude Include="skills/novice/megasonicblow.hpp" />
@@ -1064,6 +1065,7 @@
     <ClInclude Include="skills/novice/shieldchainrush.hpp" />
     <ClInclude Include="skills/novice/skill_factory_novice.hpp" />
     <ClInclude Include="skills/novice/spiralpiercemax.hpp" />
+    <ClInclude Include="skills/novice/windcutterturbo.hpp" />
     <ClInclude Include="skills/npc/acidbreath.hpp" />
     <ClInclude Include="skills/npc/agilityup.hpp" />
     <ClInclude Include="skills/npc/antimagic.hpp" />
@@ -4018,6 +4020,9 @@
     <ClCompile Include="skills/novice/helpangel.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="skills/novice/highmagnumbreak.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="skills/novice/jackfrostnova.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
@@ -4041,6 +4046,9 @@
     </ClCompile>
     <ClCompile Include="skills/novice/skill_factory_novice.cpp" />
     <ClCompile Include="skills/novice/spiralpiercemax.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="skills/novice/windcutterturbo.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="skills/npc/acidbreath.cpp">
