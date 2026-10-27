@@ -1006,6 +1006,7 @@
     <ClInclude Include="skills/ninja/illusionshock.hpp" />
     <ClInclude Include="skills/ninja/improviseddefense.hpp" />
     <ClInclude Include="skills/ninja/infiltrate.hpp" />
+    <ClInclude Include="skills/ninja/kagegekiryuu.hpp" />
     <ClInclude Include="skills/ninja/kamaitachi.hpp" />
     <ClInclude Include="skills/ninja/kocrossslash.hpp" />
     <ClInclude Include="skills/ninja/kunaidistortion.hpp" />
@@ -1018,6 +1019,7 @@
     <ClInclude Include="skills/ninja/makibishi.hpp" />
     <ClInclude Include="skills/ninja/meltaway.hpp" />
     <ClInclude Include="skills/ninja/mirage.hpp" />
+    <ClInclude Include="skills/ninja/mirageswarm.hpp" />
     <ClInclude Include="skills/ninja/mirrorimage.hpp" />
     <ClInclude Include="skills/ninja/moonlightfantasy.hpp" />
     <ClInclude Include="skills/ninja/nightmareerasion.hpp" />
@@ -3867,6 +3869,9 @@
     <ClCompile Include="skills/ninja/infiltrate.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="skills/ninja/kagegekiryuu.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="skills/ninja/kamaitachi.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
@@ -3901,6 +3906,9 @@
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="skills/ninja/mirage.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="skills/ninja/mirageswarm.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="skills/ninja/mirrorimage.cpp">

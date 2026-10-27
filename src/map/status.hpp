@@ -1483,6 +1483,7 @@ enum sc_type : int16 {
 	SC_VENOMIGNITION,
 	SC_ELEMENTAL_INTEGRATION,
 	SC_PRIMED_TRAP,
+	SC_NOBORU,
 
 	SC_MAX, //Automatically updated max, used in for's to check we are within bounds.
 };
@@ -3033,6 +3034,7 @@ enum efst_type : int16{
 	EFST_VENOMIGNITION = 2163,
 	EFST_ELEMENTAL_INTEGRATION = 2164,
 	EFST_PRIMED_TRAP = 2173,
+	EFST_NOBORU = 2172,
 
 	EFST_MAX,
 };
