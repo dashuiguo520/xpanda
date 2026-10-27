@@ -3071,6 +3071,12 @@ static bool is_attack_critical(struct Damage* wd, block_list *src, const block_l
 	// Venom Ignition also prevents otherwise guaranteed critical attacks.
 	if (const status_change* sc = status_get_sc(src); sc != nullptr && sc->hasSCE(SC_VENOMIGNITION))
 		return false;
+	if (skill_id == IQ_BROKENHEAVEN) {
+		const status_change* sc = status_get_sc(src);
+
+		if (sc == nullptr || !sc->hasSCE(SC_FIRST_FAITH_POWER) || sc->hasSCE(SC_SECOND_JUDGE) || sc->hasSCE(SC_THIRD_EXOR_FLAME))
+			return false;
+	}
 
 	if (skill_id == NPC_CRITICALSLASH || skill_id == LG_PINPOINTATTACK) //Always critical skills
 		return true;

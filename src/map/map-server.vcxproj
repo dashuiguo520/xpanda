@@ -262,6 +262,7 @@
     <ClInclude Include="skills/acolyte/basilica.hpp" />
     <ClInclude Include="skills/acolyte/blazingflameblast.hpp" />
     <ClInclude Include="skills/acolyte/blessing.hpp" />
+    <ClInclude Include="skills/acolyte/brokenheaven.hpp" />
     <ClInclude Include="skills/acolyte/bssacramenti.hpp" />
     <ClInclude Include="skills/acolyte/cantocandidus.hpp" />
     <ClInclude Include="skills/acolyte/chaincrushcombo.hpp" />
@@ -1646,6 +1647,9 @@
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="skills/acolyte/blessing.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="skills/acolyte/brokenheaven.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="skills/acolyte/bssacramenti.cpp">
