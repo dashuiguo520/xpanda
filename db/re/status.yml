@@ -10130,6 +10130,10 @@ Body:
     Icon: EFST_THUNDERING_ROD_MAX
     Flags:
       BlEffect: true
+  - Status: Venomignition
+    Icon: EFST_VENOMIGNITION
+    DurationLookup: SHC_VENOMIGNITION
+    Flags:
       DisplayPc: true
       NoDispell: true
       NoBanishingBuster: true
@@ -10257,3 +10261,7 @@ Body:
     Icon: EFST_FERAL_CLAW
     EndOnStart:
       Primal_Claw: true
+    Script: |
+      .@val1 = getstatus(SC_VENOMIGNITION, 1);
+      bonus bNonCritAtkRate, 25 + 15 * .@val1;
+      bonus bHit, 50 + 20 * .@val1;
