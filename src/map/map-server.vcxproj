@@ -683,6 +683,7 @@
     <ClInclude Include="skills/mage/astralstrike.hpp" />
     <ClInclude Include="skills/mage/beastlyhypnosis.hpp" />
     <ClInclude Include="skills/mage/blindingmist.hpp" />
+    <ClInclude Include="skills/mage/burningflame.hpp" />
     <ClInclude Include="skills/mage/castcancel.hpp" />
     <ClInclude Include="skills/mage/chainlightning.hpp" />
     <ClInclude Include="skills/mage/classchange.hpp" />
@@ -733,6 +734,7 @@
     <ClInclude Include="skills/mage/frostdiver.hpp" />
     <ClInclude Include="skills/mage/frostnova.hpp" />
     <ClInclude Include="skills/mage/frostymisty.hpp" />
+    <ClInclude Include="skills/mage/frozenhail.hpp" />
     <ClInclude Include="skills/mage/frozenslash.hpp" />
     <ClInclude Include="skills/mage/ganbantein.hpp" />
     <ClInclude Include="skills/mage/golddigger.hpp" />
@@ -791,6 +793,7 @@
     <ClInclude Include="skills/mage/stonecurse.hpp" />
     <ClInclude Include="skills/mage/stormcannon.hpp" />
     <ClInclude Include="skills/mage/stormgust.hpp" />
+    <ClInclude Include="skills/mage/stormrise.hpp" />
     <ClInclude Include="skills/mage/strantumtremor.hpp" />
     <ClInclude Include="skills/mage/striking.hpp" />
     <ClInclude Include="skills/mage/suicide.hpp" />
@@ -807,12 +810,14 @@
     <ClInclude Include="skills/mage/summonwaterball.hpp" />
     <ClInclude Include="skills/mage/summonwaterspiritaqua.hpp" />
     <ClInclude Include="skills/mage/summonwindspiritventus.hpp" />
+    <ClInclude Include="skills/mage/terraburst.hpp" />
     <ClInclude Include="skills/mage/terradrive.hpp" />
     <ClInclude Include="skills/mage/tetravortex.hpp" />
     <ClInclude Include="skills/mage/thunderstorm.hpp" />
     <ClInclude Include="skills/mage/tornadostorm.hpp" />
     <ClInclude Include="skills/mage/vacuumextreme.hpp" />
     <ClInclude Include="skills/mage/varetyrspear.hpp" />
+    <ClInclude Include="skills/mage/venombombard.hpp" />
     <ClInclude Include="skills/mage/venomswamp.hpp" />
     <ClInclude Include="skills/mage/violentquake.hpp" />
     <ClInclude Include="skills/mage/volcano.hpp" />
@@ -2890,6 +2895,9 @@
     <ClCompile Include="skills/mage/blindingmist.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="skills/mage/burningflame.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="skills/mage/castcancel.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
@@ -3038,6 +3046,9 @@
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="skills/mage/frostymisty.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="skills/mage/frozenhail.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="skills/mage/frozenslash.cpp">
@@ -3212,6 +3223,9 @@
     <ClCompile Include="skills/mage/stormgust.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="skills/mage/stormrise.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="skills/mage/strantumtremor.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
@@ -3260,6 +3274,9 @@
     <ClCompile Include="skills/mage/summonwindspiritventus.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="skills/mage/terraburst.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="skills/mage/terradrive.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
@@ -3276,6 +3293,9 @@
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="skills/mage/varetyrspear.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="skills/mage/venombombard.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="skills/mage/venomswamp.cpp">
