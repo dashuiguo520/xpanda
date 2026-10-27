@@ -2063,6 +2063,8 @@
 	export_constant(SC_ELEMENTAL_INTEGRATION);
 	export_constant(SC_PRIMED_TRAP);
 	export_constant(SC_NOBORU);
+	export_constant(SC_SEVENTH_KICK_SKILLORB);
+	export_constant(SC_SEVENTH_KICK_MAX);
 
 /// Do not modify code below this, until the end of the API hook, since it will be automatically generated again
 /// @APIHOOK_START(EFST_CONST)
@@ -3584,6 +3586,8 @@
 	export_constant(EFST_ELEMENTAL_INTEGRATION);
 	export_constant(EFST_PRIMED_TRAP);
 	export_constant(EFST_NOBORU);
+	export_constant(EFST_SEVENTH_KICK_SKILLORB);
+	export_constant(EFST_SEVENTH_KICK_MAX);
 	export_constant(EFST_MAX);
 
 	/* elements */

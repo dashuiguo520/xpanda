@@ -1425,6 +1425,8 @@
     <ClInclude Include="skills/taekwon/risingmoon.hpp" />
     <ClInclude Include="skills/taekwon/risingsun.hpp" />
     <ClInclude Include="skills/taekwon/run.hpp" />
+    <ClInclude Include="skills/taekwon/seventhheavenkick.hpp" />
+    <ClInclude Include="skills/taekwon/seventhkick.hpp" />
     <ClInclude Include="skills/taekwon/sevenwind.hpp" />
     <ClInclude Include="skills/taekwon/shadowssoul.hpp" />
     <ClInclude Include="skills/taekwon/skill_factory_taekwon.hpp" />
@@ -5109,6 +5111,12 @@
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="skills/taekwon/run.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="skills/taekwon/seventhheavenkick.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="skills/taekwon/seventhkick.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="skills/taekwon/sevenwind.cpp">
