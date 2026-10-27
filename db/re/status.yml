@@ -10140,6 +10140,10 @@ Body:
     Flags:
       OverlapIgnoreLevel: true  # Cast level selects an element, not buff strength.
       SendVal1: true
+  - Status: Primed_Trap
+    Icon: EFST_PRIMED_TRAP
+    DurationLookup: WH_PRIMED_TRAP
+    Flags:
       DisplayPc: true
       NoDispell: true
       NoBanishingBuster: true
