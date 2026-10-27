@@ -1404,6 +1404,7 @@
     <ClInclude Include="skills/taekwon/falconssoul.hpp" />
     <ClInclude Include="skills/taekwon/fallingstar.hpp" />
     <ClInclude Include="skills/taekwon/feelingthesunmoonandstars.hpp" />
+    <ClInclude Include="skills/taekwon/fieldofkirin.hpp" />
     <ClInclude Include="skills/taekwon/flashkick.hpp" />
     <ClInclude Include="skills/taekwon/fullmoonkick.hpp" />
     <ClInclude Include="skills/taekwon/golemssoul.hpp" />
@@ -5048,6 +5049,9 @@
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="skills/taekwon/feelingthesunmoonandstars.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="skills/taekwon/fieldofkirin.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="skills/taekwon/flashkick.cpp">
