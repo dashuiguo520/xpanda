@@ -7975,6 +7975,11 @@ Body:
         Requires:
           - Name: TR_METALIC_FURY
             Level: 3
+      - Name: TR_FUGUE_DES_FLECHES
+        MaxLevel: 5
+        Requires:
+          - Name: TR_RHYTHMSHOOTING
+            Level: 3
   - Job: Trouvere
     Inherit:
       Novice: true
@@ -8063,6 +8068,11 @@ Body:
         MaxLevel: 5
         Requires:
           - Name: TR_METALIC_FURY
+            Level: 3
+      - Name: TR_FUGUE_DES_FLECHES
+        MaxLevel: 5
+        Requires:
+          - Name: TR_RHYTHMSHOOTING
             Level: 3
   - Job: Windhawk2
     Inherit:
