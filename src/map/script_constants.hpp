@@ -2065,6 +2065,8 @@
 	export_constant(SC_NOBORU);
 	export_constant(SC_SEVENTH_KICK_SKILLORB);
 	export_constant(SC_SEVENTH_KICK_MAX);
+	export_constant(SC_KI_SUL_AND_CHUL_HO);
+	export_constant(SC_KI_SUL_AND_HYUN_ROK);
 
 /// Do not modify code below this, until the end of the API hook, since it will be automatically generated again
 /// @APIHOOK_START(EFST_CONST)
@@ -3588,6 +3590,8 @@
 	export_constant(EFST_NOBORU);
 	export_constant(EFST_SEVENTH_KICK_SKILLORB);
 	export_constant(EFST_SEVENTH_KICK_MAX);
+	export_constant(EFST_KI_SUL_AND_CHUL_HO);
+	export_constant(EFST_KI_SUL_AND_HYUN_ROK);
 	export_constant(EFST_MAX);
 
 	/* elements */

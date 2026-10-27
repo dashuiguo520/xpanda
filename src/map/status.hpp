@@ -1486,6 +1486,8 @@ enum sc_type : int16 {
 	SC_NOBORU,
 	SC_SEVENTH_KICK_SKILLORB,
 	SC_SEVENTH_KICK_MAX,
+	SC_KI_SUL_AND_CHUL_HO,
+	SC_KI_SUL_AND_HYUN_ROK,
 
 	SC_MAX, //Automatically updated max, used in for's to check we are within bounds.
 };
@@ -3039,6 +3041,8 @@ enum efst_type : int16{
 	EFST_NOBORU = 2172,
 	EFST_SEVENTH_KICK_SKILLORB = 2165,
 	EFST_SEVENTH_KICK_MAX,
+	EFST_KI_SUL_AND_CHUL_HO = 2170,
+	EFST_KI_SUL_AND_HYUN_ROK,
 
 	EFST_MAX,
 };
