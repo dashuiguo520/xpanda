@@ -9952,6 +9952,50 @@ Body:
       NoDispell: true
       NoBanishingBuster: true
       NoClearance: true
+  - Status: Venomignition
+    Icon: EFST_VENOMIGNITION
+    DurationLookup: SHC_VENOMIGNITION
+    Flags:
+      DisplayPc: true
+      NoDispell: true
+      NoBanishingBuster: true
+      NoClearance: true
+  - Status: Elemental_Integration
+    Icon: EFST_ELEMENTAL_INTEGRATION
+    DurationLookup: EM_ELEMENTAL_INTEGRATION
+    Flags:
+      OverlapIgnoreLevel: true  # Cast level selects an element, not buff strength.
+      SendVal1: true
+      DisplayPc: true
+      NoDispell: true
+      NoBanishingBuster: true
+      NoClearance: true
+  - Status: Primed_Trap
+    Icon: EFST_PRIMED_TRAP
+    DurationLookup: WH_PRIMED_TRAP
+    Flags:
+      DisplayPc: true
+      NoDispell: true
+      NoBanishingBuster: true
+      NoClearance: true
+  - Status: Noboru
+    Icon: EFST_NOBORU
+    DurationLookup: SS_NOBORU
+    Flags:
+      DisplayPc: true
+      NoDispell: true
+      NoBanishingBuster: true
+      NoClearance: true
+    Script: |
+      .@val1 = getstatus(SC_NOBORU, 1);
+      bonus bNonCritAtkRate, 10 * .@val1;
+      bonus bCritAtkRate, 10 * .@val1;
+      bonus bShortAtkRate, 30 * .@val1;
+      bonus bLongAtkRate, 30 * .@val1;
+    Script: |
+      .@val1 = getstatus(SC_VENOMIGNITION, 1);
+      bonus bNonCritAtkRate, 25 + 15 * .@val1;
+      bonus bHit, 50 + 20 * .@val1;
   - Status: Werewolf
     Icon: EFST_WEREWOLF
     Flags:
@@ -9961,6 +10005,48 @@ Body:
       NoDispell: true
       NoBanishingBuster: true
       NoClearance: true
+  - Status: Seventh_Kick_Skillorb
+    Icon: EFST_SEVENTH_KICK_SKILLORB
+    Flags:
+      SendVal1: true
+      DisplayPc: true
+      NoDispell: true
+      NoBanishingBuster: true
+      NoClearance: true
+  - Status: Ki_Sul_And_Chul_Ho
+    Icon: EFST_KI_SUL_AND_CHUL_HO
+    DurationLookup: SH_KI_SUL_AND_CHUL_HO
+    Flags:
+      DisplayPc: true
+      NoDispell: true
+      NoBanishingBuster: true
+      NoClearance: true
+    Script: |
+      bonus2 bSkillAtk,"SH_CHUL_HO_SONIC_CLAW",50;
+      bonus2 bSkillAtk,"SH_HOWLING_OF_CHUL_HO",30;
+      bonus2 bSkillAtk,"SH_HOGOGONG_STRIKE",60;
+      bonus2 bSkillAtk,"SH_CHUL_HO_BATTERING",50;
+  - Status: Ki_Sul_And_Hyun_Rok
+    Icon: EFST_KI_SUL_AND_HYUN_ROK
+    DurationLookup: SH_KI_SUL_AND_HYUN_ROK
+    Flags:
+      DisplayPc: true
+      NoDispell: true
+      NoBanishingBuster: true
+      NoClearance: true
+    Script: |
+      bonus2 bSkillAtk,"SH_HYUN_ROKS_BREEZE",50;
+      bonus2 bSkillAtk,"SH_HYUN_ROK_CANNON",30;
+      bonus2 bSkillAtk,"SH_HYUN_ROK_SPIRIT_POWER",60;
+      NoSave: true
+  - Status: Seventh_Kick_Max
+    Icon: EFST_SEVENTH_KICK_MAX
+    Flags:
+      DisplayPc: true
+      NoDispell: true
+      NoBanishingBuster: true
+      NoClearance: true
+      NoSave: true
     EndOnEnd:
       Enrage_Wolf: true
       Blood_Howling: true
@@ -10130,37 +10216,6 @@ Body:
     Icon: EFST_THUNDERING_ROD_MAX
     Flags:
       BlEffect: true
-  - Status: Venomignition
-    Icon: EFST_VENOMIGNITION
-    DurationLookup: SHC_VENOMIGNITION
-    Flags:
-  - Status: Elemental_Integration
-    Icon: EFST_ELEMENTAL_INTEGRATION
-    DurationLookup: EM_ELEMENTAL_INTEGRATION
-    Flags:
-      OverlapIgnoreLevel: true  # Cast level selects an element, not buff strength.
-      SendVal1: true
-  - Status: Primed_Trap
-    Icon: EFST_PRIMED_TRAP
-    DurationLookup: WH_PRIMED_TRAP
-  - Status: Noboru
-    Icon: EFST_NOBORU
-    DurationLookup: SS_NOBORU
-  - Status: Seventh_Kick_Skillorb
-    Icon: EFST_SEVENTH_KICK_SKILLORB
-    Flags:
-      SendVal1: true
-      DisplayPc: true
-      NoDispell: true
-      NoBanishingBuster: true
-      NoClearance: true
-      NoSave: true
-  - Status: Seventh_Kick_Max
-    Icon: EFST_SEVENTH_KICK_MAX
-  - Status: Ki_Sul_And_Chul_Ho
-    Icon: EFST_KI_SUL_AND_CHUL_HO
-    DurationLookup: SH_KI_SUL_AND_CHUL_HO
-    Flags:
       DisplayPc: true
       NoDispell: true
       NoBanishingBuster: true
@@ -10211,15 +10266,6 @@ Body:
     Icon: EFST_ALPHA_PHASE
     Flags:
       BlEffect: true
-    Script: |
-      bonus2 bSkillAtk,"SH_CHUL_HO_SONIC_CLAW",50;
-      bonus2 bSkillAtk,"SH_HOWLING_OF_CHUL_HO",30;
-      bonus2 bSkillAtk,"SH_HOGOGONG_STRIKE",60;
-      bonus2 bSkillAtk,"SH_CHUL_HO_BATTERING",50;
-  - Status: Ki_Sul_And_Hyun_Rok
-    Icon: EFST_KI_SUL_AND_HYUN_ROK
-    DurationLookup: SH_KI_SUL_AND_HYUN_ROK
-    Flags:
       DisplayPc: true
       NoDispell: true
       NoBanishingBuster: true
@@ -10297,18 +10343,3 @@ Body:
     Icon: EFST_FERAL_CLAW
     EndOnStart:
       Primal_Claw: true
-    Script: |
-      .@val1 = getstatus(SC_VENOMIGNITION, 1);
-      bonus bNonCritAtkRate, 25 + 15 * .@val1;
-      bonus bHit, 50 + 20 * .@val1;
-    Script: |
-      .@val1 = getstatus(SC_NOBORU, 1);
-      bonus bNonCritAtkRate, 10 * .@val1;
-      bonus bCritAtkRate, 10 * .@val1;
-      bonus bShortAtkRate, 30 * .@val1;
-      bonus bLongAtkRate, 30 * .@val1;
-      NoSave: true
-    Script: |
-      bonus2 bSkillAtk,"SH_HYUN_ROKS_BREEZE",50;
-      bonus2 bSkillAtk,"SH_HYUN_ROK_CANNON",30;
-      bonus2 bSkillAtk,"SH_HYUN_ROK_SPIRIT_POWER",60;

@@ -9171,8 +9171,16 @@ bool skill_check_condition_castbegin( map_session_data& sd, uint16 skill_id, uin
 			break;
 		case DK_SERVANT_W_CLEAVE:
 			if (sd.servantball <= 0) {
+				clif_skill_fail(sd, skill_id, USESKILL_FAIL_CONDITION);
+				return false;
+			}
+			break;
 		case IQ_BROKENHEAVEN:
 			if (sc == nullptr || !(sc->hasSCE(SC_FIRST_FAITH_POWER) || sc->hasSCE(SC_SECOND_JUDGE) || sc->hasSCE(SC_THIRD_EXOR_FLAME))) {
+				clif_skill_fail(sd, skill_id, USESKILL_FAIL_CONDITION);
+				return false;
+			}
+			break;
 		case SS_NOBORU: {
 			int32 mirages = 0;
 
@@ -9181,15 +9189,23 @@ bool skill_check_condition_castbegin( map_session_data& sd, uint16 skill_id, uin
 					mirages++;
 			}
 			if (mirages < 3) {
+				clif_skill_fail(sd, skill_id, USESKILL_FAIL_CONDITION);
+				return false;
+			}
+			break;
+		}
 		case NW_TACTICAL_REPOSITIONING:
 			if (sc == nullptr || !sc->hasSCE(SC_INTENSIVE_AIM) || !sc->hasSCE(SC_INTENSIVE_AIM_COUNT) || sc->getSCE(SC_INTENSIVE_AIM_COUNT)->val1 <= 0) {
+				clif_skill_fail(sd, skill_id, USESKILL_FAIL_CONDITION);
+				return false;
+			}
+			break;
 		case SOA_FIELD_OF_KIRIN:
 			if (sc == nullptr || !(sc->hasSCE(SC_T_FOURTH_GOD) || sc->hasSCE(SC_T_FIFTH_GOD))) {
 				clif_skill_fail(sd, skill_id, USESKILL_FAIL_CONDITION);
 				return false;
 			}
 			break;
-		}
 		case DK_SERVANT_W_PHANTOM:
 		case DK_SERVANT_W_DEMOL:
 			if (sd.servantball > 0 && sd.servantball < require.spiritball)
