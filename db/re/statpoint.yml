@@ -657,3 +657,34 @@ Body:
   - Level: 275
     Points: 4099
     TraitPoints: 285
+# 276-285: kRO 未公布加点数据；按本表既有模式延伸（+3/级、逢5级+7），如与官方有出入请以此修正
+  - Level: 276
+    Points: 4099
+    TraitPoints: 288
+  - Level: 277
+    Points: 4099
+    TraitPoints: 291
+  - Level: 278
+    Points: 4099
+    TraitPoints: 294
+  - Level: 279
+    Points: 4099
+    TraitPoints: 297
+  - Level: 280
+    Points: 4099
+    TraitPoints: 304
+  - Level: 281
+    Points: 4099
+    TraitPoints: 307
+  - Level: 282
+    Points: 4099
+    TraitPoints: 310
+  - Level: 283
+    Points: 4099
+    TraitPoints: 313
+  - Level: 284
+    Points: 4099
+    TraitPoints: 316
+  - Level: 285
+    Points: 4099
+    TraitPoints: 323

@@ -5024,6 +5024,10 @@ Body:
         Sta: 1
       - Level: 58
         Con: 1
+      - Level: 61
+        Sta: 1
+      - Level: 64
+        Pow: 1
   - Jobs:
       Meister: true
       Meister2: true
@@ -5172,6 +5176,11 @@ Body:
         Wis: 1
       - Level: 59
         Pow: 1
+      - Level: 61
+        Int: 1
+        Spl: 1
+      - Level: 63
+        Con: 1
   - Jobs:
       Shadow_Cross: true
     MaxWeight: 42000
@@ -5319,6 +5328,11 @@ Body:
         Con: 1
       - Level: 59
         Crt: 1
+      - Level: 61
+        Dex: 1
+        Con: 1
+      - Level: 64
+        Spl: 1
   - Jobs:
       Arch_Mage: true
     MaxWeight: 40000
@@ -5466,6 +5480,11 @@ Body:
         Wis: 1
       - Level: 59
         Spl: 1
+      - Level: 61
+        Spl: 1
+      - Level: 64
+        Str: 1
+        Sta: 1
   - Jobs:
       Cardinal: true
     MaxWeight: 40000
@@ -5614,6 +5633,10 @@ Body:
         Con: 1
       - Level: 59
         Spl: 1
+      - Level: 62
+        Spl: 1
+      - Level: 65
+        Con: 1
   - Jobs:
       Windhawk: true
       Windhawk2: true
@@ -5762,6 +5785,16 @@ Body:
         Crt: 1
       - Level: 59
         Pow: 1
+      - Level: 61
+        Spl: 1
+      - Level: 62
+        Luk: 1
+      - Level: 63
+        Int: 1
+        Con: 1
+      - Level: 64
+        Dex: 1
+        Sta: 1
   - Jobs:
       Imperial_Guard: true
       Imperial_Guard2: true
@@ -5910,6 +5943,11 @@ Body:
         Pow: 1
       - Level: 59
         Spl: 1
+      - Level: 61
+        Sta: 1
+      - Level: 64
+        Agi: 1
+        Pow: 1
   - Jobs:
       Biolo: true
     MaxWeight: 42000
@@ -6057,6 +6095,11 @@ Body:
         Sta: 1
       - Level: 59
         Pow: 1
+      - Level: 61
+        Spl: 1
+      - Level: 64
+        Dex: 1
+        Sta: 1
   - Jobs:
       Abyss_Chaser: true
     MaxWeight: 42000
@@ -6204,6 +6247,11 @@ Body:
         Spl: 1
       - Level: 59
         Pow: 1
+      - Level: 62
+        Vit: 1
+        Wis: 1
+      - Level: 65
+        Luk: 1
   - Jobs:
       Elemental_Master: true
     MaxWeight: 40000
@@ -6352,6 +6400,11 @@ Body:
         Wis: 1
       - Level: 59
         Con: 1
+      - Level: 61
+        Sta: 1
+      - Level: 64
+        Str: 1
+        Spl: 1
   - Jobs:
       Inquisitor: true
     MaxWeight: 42000
@@ -6498,6 +6551,11 @@ Body:
         Wis: 1
       - Level: 59
         Con: 1
+      - Level: 61
+        Spl: 1
+      - Level: 64
+        Int: 1
+        Sta: 1
   - Jobs:
       Troubadour: true
     MaxWeight: 42000
@@ -6644,6 +6702,11 @@ Body:
         Spl: 1
       - Level: 59
         Pow: 1
+      - Level: 62
+        Luk: 1
+      - Level: 64
+        Dex: 1
+        Sta: 1
   - Jobs:
       Trouvere: true
     MaxWeight: 42000
@@ -6791,6 +6854,11 @@ Body:
         Spl: 1
       - Level: 59
         Pow: 1
+      - Level: 62
+        Luk: 1
+      - Level: 64
+        Dex: 1
+        Sta: 1
   - Jobs:
       Sky_Emperor: true
       Sky_Emperor2: true
@@ -6939,6 +7007,11 @@ Body:
         Wis: 1
       - Level: 59
         Con: 1
+      - Level: 62
+        Con: 1
+      - Level: 65
+        Int: 1
+        Sta: 1
   - Jobs:
       Soul_Ascetic: true
     MaxWeight: 42000
@@ -7077,6 +7150,11 @@ Body:
         Wis: 1
       - Level: 59
         Con: 1
+      - Level: 61
+        Spl: 1
+      - Level: 64
+        Vit: 1
+        Sta: 1
   - Jobs:
       Shinkiro: true
     MaxWeight: 45000
@@ -7226,6 +7304,11 @@ Body:
       - Level: 59
         Int: 1
         Spl: 1
+      - Level: 61
+        Wis: 1
+      - Level: 64
+        Vit: 1
+        Wis: 1
   - Jobs:
       Shiranui: true
     MaxWeight: 45000
@@ -7374,6 +7457,10 @@ Body:
       - Level: 59
         Str: 1
         Pow: 1
+      - Level: 61
+        Wis: 1
+      - Level: 64
+        Wis: 1
   - Jobs:
       Night_Watch: true
     MaxWeight: 48000
@@ -7519,6 +7606,10 @@ Body:
         Wis: 1
       - Level: 59
         Crt: 1
+      - Level: 61
+        Pow: 1
+      - Level: 65
+        Con: 1
   - Jobs:
       Hyper_Novice: true
     MaxWeight: 40000
@@ -7667,6 +7758,10 @@ Body:
         Pow: 1
       - Level: 59
         Spl: 1
+      - Level: 62
+        Pow: 1
+      - Level: 64
+        Con: 1
   - Jobs:
       Spirit_Handler: true
     MaxWeight: 42000
@@ -7815,6 +7910,10 @@ Body:
         Spl: 1
       - Level: 59
         Pow: 1
+      - Level: 61
+        Spl: 1
+      - Level: 64
+        Wis: 1
   - Jobs:
       Druid: true
       Baby_Druid: true
@@ -8097,3 +8196,8 @@ Body:
         Wis: 1
       - Level: 59
         Con: 1
+      - Level: 61
+        Vit: 1
+        Wis: 1
+      - Level: 64
+        Wis: 1
