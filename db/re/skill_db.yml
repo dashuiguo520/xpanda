@@ -50435,6 +50435,75 @@ Body:
       SpCost: 50
     Status: Ki_Sul_And_Hyun_Rok
 
+  - Id: 6642
+    Name: AT_PLUME_PIERCER
+    Description: "Plume Piercer"
+    MaxLevel: 5
+    Type: Weapon
+    TargetType: Attack
+    Range: 7
+    GiveAp: 2
+    Hit: Multi_Hit
+    HitCount: 4
+    Element: Weapon
+    SplashArea:
+      - Level: 1
+        Area: 4
+      - Level: 2
+        Area: 4
+      - Level: 3
+        Area: 4
+      - Level: 4
+        Area: 4
+      - Level: 5
+        Area: 4
+    CastTime: 1000
+    FixedCastTime: 1000
+    AfterCastActDelay: 350
+    Cooldown: 700
+    Requires:
+      SpCost:
+        - Level: 1
+          Amount: 76
+        - Level: 2
+          Amount: 78
+        - Level: 3
+          Amount: 80
+        - Level: 4
+          Amount: 82
+        - Level: 5
+          Amount: 84
+      Status:
+        Wereraptor: true
+
+  - Id: 6643
+    Name: AT_NATURE_RAGE
+    Description: "Nature Rage"
+    MaxLevel: 5
+    Type: Magic
+    TargetType: Attack
+    Range: 7
+    GiveAp: 2
+    Hit: Multi_Hit
+    HitCount: 5
+    Element: Neutral
+    CastTime: 1000
+    FixedCastTime: 1500
+    AfterCastActDelay: 300
+    Cooldown: 500
+    Requires:
+      SpCost:
+        - Level: 1
+          Amount: 74
+        - Level: 2
+          Amount: 78
+        - Level: 3
+          Amount: 82
+        - Level: 4
+          Amount: 86
+        - Level: 5
+          Amount: 90
+
   - Id: 8001
     Name: HLIF_HEAL
     Description: Healing Touch
