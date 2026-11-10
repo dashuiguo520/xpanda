@@ -59,23 +59,23 @@ struct s_target_search {
 	std::vector<s_target_candidate>* candidates;
 };
 
-struct s_avoid_search {
-	map_session_data* sd;
-	const s_autoplay_config* config;
-	block_list* threat;
-	int32 nearest_distance;
+// ===== rAthena 优化挂机怪物扫描合并：开始 =====
+// 修改原因：回避威胁、坐下危险、包围检测原本各做一次 map_foreachinrange，
+// 每只怪最多 3 次 battle_check_target（较昂贵的敌对判定）；
+// 合并为每 tick 单次扫描，按需计算各结果。
+struct s_mob_scan {
+	map_session_data* sd = nullptr;
+	const s_autoplay_session* session = nullptr;
+	bool need_avoid = false;
+	bool need_sit_danger = false;
+	bool need_surrounded = false;
+	block_list* threat = nullptr;   // nearest avoid/boss-avoid threat
+	int32 threat_distance = INT_MAX;
+	bool sit_danger = false;
+	uint8 surrounded = 0;
+	uint8 surrounded_limit = 0;
 };
-
-struct s_sit_danger_search {
-	map_session_data* sd;
-	bool found;
-};
-
-struct s_surrounded_search {
-	map_session_data* sd;
-	uint8 count;
-	uint8 limit;
-};
+// ===== rAthena 优化挂机怪物扫描合并：结束 =====
 
 static uint8 autoplay_monster_action(const s_autoplay_config& config, int32 mob_id) {
 	for (uint8 i = 0; i < config.monster_count && i < AUTOPLAY_MAX_MONSTER_RULES; ++i)
@@ -133,30 +133,53 @@ static block_list* autoplay_select_target(map_session_data& sd, s_autoplay_sessi
 	return nullptr;
 }
 
-static int32 autoplay_avoid_sub(block_list* bl, va_list ap) {
-	auto* search = va_arg(ap, s_avoid_search*);
-	if (bl == nullptr || bl->type != BL_MOB || status_isdead(*bl) || battle_check_target(search->sd, bl, BCT_ENEMY) <= 0)
+static int32 autoplay_mob_scan_sub(block_list* bl, va_list ap) {
+	auto* scan = va_arg(ap, s_mob_scan*);
+	if (bl == nullptr || bl->type != BL_MOB || status_isdead(*bl) || battle_check_target(scan->sd, bl, BCT_ENEMY) <= 0)
 		return 0;
 	const auto* md = static_cast<mob_data*>(bl);
-	const uint8 action = autoplay_monster_action(*search->config, md->mob_id);
-	if (action != AUTOPLAY_MONSTER_AVOID && !(action == 0 && md->get_bosstype() != BOSSTYPE_NONE && search->config->boss_action == AUTOPLAY_BOSS_AVOID))
-		return 0;
-	const int32 threat_distance = distance_bl(search->sd, bl);
-	if (threat_distance >= search->nearest_distance)
-		return 0;
-	search->threat = bl;
-	search->nearest_distance = threat_distance;
-	return 1;
+	const auto& config = scan->session->config;
+	const bool attacks_me = md->target_id == scan->sd->id || md->attacked_id == scan->sd->id || md->norm_attacked_id == scan->sd->id;
+	if (scan->need_surrounded && attacks_me && scan->surrounded < scan->surrounded_limit)
+		++scan->surrounded;
+	if (scan->need_sit_danger && !scan->sit_danger &&
+		(attacks_me || status_has_mode(&md->status, MD_AGGRESSIVE)))
+		scan->sit_danger = true;
+	if (scan->need_avoid) {
+		const uint8 action = autoplay_monster_action(config, md->mob_id);
+		if (action == AUTOPLAY_MONSTER_AVOID || (action == 0 && md->get_bosstype() != BOSSTYPE_NONE && config.boss_action == AUTOPLAY_BOSS_AVOID)) {
+			const int32 threat_distance = distance_bl(scan->sd, bl);
+			if (scan->threat == nullptr || threat_distance < scan->threat_distance) {
+				scan->threat = bl;
+				scan->threat_distance = threat_distance;
+			}
+		}
+	}
+	return 0;
 }
 
-static bool autoplay_avoid(map_session_data& sd, s_autoplay_session& session) {
-	s_avoid_search search{ &sd, &session.config, nullptr, session.config.search_range + 1 };
-	map_foreachinrange(autoplay_avoid_sub, &sd, session.config.search_range, BL_MOB, &search);
-	if (search.threat == nullptr) {
+static void autoplay_mob_scan(map_session_data& sd, s_autoplay_session& session, s_mob_scan& scan) {
+	const auto& config = session.config;
+	scan.sd = &sd;
+	scan.session = &session;
+	scan.need_avoid = true;
+	scan.need_sit_danger = config.sit_recovery || session.sitting_recovery;
+	scan.need_surrounded = config.surrounded_teleport_count > 0;
+	scan.threat = nullptr;
+	scan.threat_distance = INT_MAX;
+	scan.sit_danger = false;
+	scan.surrounded = 0;
+	scan.surrounded_limit = config.surrounded_teleport_count;
+	map_foreachinrange(autoplay_mob_scan_sub, &sd, config.search_range, BL_MOB, &scan);
+}
+
+static bool autoplay_avoid(map_session_data& sd, s_autoplay_session& session, const s_mob_scan& scan) {
+	if (scan.threat == nullptr) {
 		session.avoid_id = 0;
 		return false;
 	}
-	if (session.avoid_id == search.threat->id && unit_is_walking(&sd))
+	block_list* threat = scan.threat;
+	if (session.avoid_id == threat->id && unit_is_walking(&sd))
 		return true;
 
 	const int32 radius = std::clamp<int32>(session.config.search_range / 2, 3, 8);
@@ -168,7 +191,7 @@ static bool autoplay_avoid(map_session_data& sd, s_autoplay_session& session) {
 				continue;
 			const int16 x = static_cast<int16>(std::clamp<int32>(sd.x + dx * radius, 1, map[sd.m].xs - 2));
 			const int16 y = static_cast<int16>(std::clamp<int32>(sd.y + dy * radius, 1, map[sd.m].ys - 2));
-			const int64 distance = static_cast<int64>(x - search.threat->x) * (x - search.threat->x) + static_cast<int64>(y - search.threat->y) * (y - search.threat->y);
+			const int64 distance = static_cast<int64>(x - threat->x) * (x - threat->x) + static_cast<int64>(y - threat->y) * (y - threat->y);
 			if (distance > best_distance && unit_can_reach_pos(&sd, x, y, 0)) {
 				best_x = x;
 				best_y = y;
@@ -179,7 +202,7 @@ static bool autoplay_avoid(map_session_data& sd, s_autoplay_session& session) {
 
 	unit_stop_attack(&sd);
 	session.target_id = 0;
-	session.avoid_id = search.threat->id;
+	session.avoid_id = threat->id;
 	session.state = AUTOPLAY_MOVING;
 	// ===== rAthena 修复挂机不可移动状态处理：开始 =====
 	// 修改原因：定身等状态下不应反复提交必然失败的移动请求。
@@ -625,18 +648,6 @@ static bool autoplay_use_recovery(map_session_data& sd, s_autoplay_session& sess
 	return false;
 }
 
-static int32 autoplay_sit_danger_sub(block_list* bl, va_list ap) {
-	auto* search = va_arg(ap, s_sit_danger_search*);
-	if (bl == nullptr || bl->type != BL_MOB || status_isdead(*bl) || battle_check_target(search->sd, bl, BCT_ENEMY) <= 0)
-		return 0;
-	const auto* md = static_cast<mob_data*>(bl);
-	if (md->target_id == search->sd->id || md->attacked_id == search->sd->id || md->norm_attacked_id == search->sd->id || status_has_mode(&md->status, MD_AGGRESSIVE)) {
-		search->found = true;
-		return 1;
-	}
-	return 0;
-}
-
 static uint8 autoplay_sp_percent(const map_session_data& sd) {
 	// ===== rAthena 修复挂机百分比溢出：开始 =====
 	// 修改原因：hp/sp 超过 INT_MAX/100（约 2147 万）时 int32 乘法溢出为负，高倍率服务器可能触及。
@@ -644,12 +655,11 @@ static uint8 autoplay_sp_percent(const map_session_data& sd) {
 	// ===== rAthena 修复挂机百分比溢出：结束 =====
 }
 
-static bool autoplay_manage_sit_recovery(map_session_data& sd, s_autoplay_session& session) {
+static bool autoplay_manage_sit_recovery(map_session_data& sd, s_autoplay_session& session, const s_mob_scan& scan) {
 	if (!session.config.sit_recovery && !session.sitting_recovery)
 		return false;
-	s_sit_danger_search search{ &sd, false };
-	map_foreachinrange(autoplay_sit_danger_sub, &sd, session.config.search_range, BL_MOB, &search);
-	const bool danger = search.found || sd.ud.attacktimer != INVALID_TIMER || sd.ud.skilltimer != INVALID_TIMER || session.target_id != 0;
+	// 危险判定由每 tick 的合并怪物扫描（autoplay_mob_scan）提供。
+	const bool danger = scan.sit_danger || sd.ud.attacktimer != INVALID_TIMER || sd.ud.skilltimer != INVALID_TIMER || session.target_id != 0;
 	const uint8 hp = autoplay_hp_percent(sd);
 	const uint8 sp = autoplay_sp_percent(sd);
 
@@ -812,6 +822,14 @@ static bool autoplay_manage_storage(map_session_data& sd, s_autoplay_session& se
 }
 
 static bool autoplay_manage_inventory(map_session_data& sd, s_autoplay_session& session) {
+	// ===== rAthena 优化挂机背包检查：开始 =====
+	// 修改原因：slots_full/weight_full 两个触发条件分别依赖两项阈值，均为 0 时
+	// 弃置与仓库流程本就不可达（被下方门控挡住），直接早退省去每 tick 的逐格统计。
+	if (session.config.inventory_stop_at == 0 && session.config.storage_weight_at == 0) {
+		session.storage_blocked = false;
+		return false;
+	}
+	// ===== rAthena 优化挂机背包检查：结束 =====
 	if (sd.status.inventory_slots == 0)
 		return false;
 	size_t used = 0;
@@ -909,26 +927,12 @@ static bool autoplay_teleport(map_session_data& sd, s_autoplay_session& session,
 	return false;
 }
 
-static int32 autoplay_surrounded_sub(block_list* bl, va_list ap) {
-	auto* search = va_arg(ap, s_surrounded_search*);
-	if (bl == nullptr || bl->type != BL_MOB || status_isdead(*bl) || battle_check_target(search->sd, bl, BCT_ENEMY) <= 0)
-		return 0;
-	const auto* md = static_cast<mob_data*>(bl);
-	if (md->target_id != search->sd->id && md->attacked_id != search->sd->id && md->norm_attacked_id != search->sd->id)
-		return 0;
-	if (search->count < search->limit)
-		++search->count;
-	return search->count >= search->limit;
-}
-
-static bool autoplay_danger_teleport(map_session_data& sd, s_autoplay_session& session, t_tick tick) {
+static bool autoplay_danger_teleport(map_session_data& sd, s_autoplay_session& session, t_tick tick, const s_mob_scan& scan) {
 	const uint8 hp = autoplay_hp_percent(sd);
 	bool triggered = hp <= session.config.emergency_hp_below;
-	if (!triggered && session.config.surrounded_teleport_count > 0) {
-		s_surrounded_search search{ &sd, 0, session.config.surrounded_teleport_count };
-		map_foreachinrange(autoplay_surrounded_sub, &sd, session.config.search_range, BL_MOB, &search);
-		triggered = search.count >= search.limit;
-	}
+	// 包围计数由每 tick 的合并怪物扫描（autoplay_mob_scan）提供，达到上限即触发。
+	if (!triggered && session.config.surrounded_teleport_count > 0 && scan.surrounded >= scan.surrounded_limit)
+		triggered = true;
 	if (!triggered && session.config.miss_teleport && session.consecutive_misses >= 7)
 		triggered = true;
 	return triggered && autoplay_teleport(sd, session, tick);
@@ -1201,11 +1205,17 @@ static void autoplay_tick_character(map_session_data& sd, t_tick tick) {
 		return;
 	// Cast end can extend the native delay after an autoplay skill was started.
 	const bool action_delayed = DIFF_TICK(tick, std::max(session.next_action_tick, sd.ud.canact_tick)) < 0;
-	if (!action_delayed && autoplay_danger_teleport(sd, session, tick))
+	// ===== rAthena 优化挂机怪物扫描合并：开始 =====
+	// 每 tick 单次怪物扫描，供危险传送（包围）、坐下危险与回避共用；
+	// 原逻辑在此后最多做 3 次 map_foreachinrange、每只怪重复 battle_check_target。
+	s_mob_scan scan;
+	autoplay_mob_scan(sd, session, scan);
+	// ===== rAthena 优化挂机怪物扫描合并：结束 =====
+	if (!action_delayed && autoplay_danger_teleport(sd, session, tick, scan))
 		return;
 	if (!action_delayed && autoplay_use_recovery(sd, session))
 		return;
-	if (autoplay_manage_sit_recovery(sd, session))
+	if (autoplay_manage_sit_recovery(sd, session, scan))
 		return;
 	if (autoplay_manage_inventory(sd, session))
 		return;
@@ -1288,7 +1298,7 @@ static void autoplay_tick_character(map_session_data& sd, t_tick tick) {
 	}
 	if (!action_delayed && autoplay_cast_support(sd, session))
 		return;
-	if (autoplay_avoid(sd, session))
+	if (autoplay_avoid(sd, session, scan))
 		return;
 	if (follow != nullptr && autoplay_follow(sd, session, *follow))
 		return;
