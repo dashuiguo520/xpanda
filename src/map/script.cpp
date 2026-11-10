@@ -68,6 +68,7 @@
 #include "pc.hpp"
 #include "pc_groups.hpp"
 #include "pet.hpp"
+#include "population_engine.hpp"
 #include "quest.hpp"
 #include "storage.hpp"
 

@@ -55,6 +55,7 @@
 #include "pc.hpp"
 #include "pc_groups.hpp"
 #include "pet.hpp"
+#include "population_engine.hpp"
 #include "quest.hpp"
 // ===== rAthena 移植 Pandas 符文石板依赖：开始 =====
 // 修改内容：客户端符文处理调用符文数据库和角色状态接口。
@@ -462,8 +463,9 @@ static int32 clif_send_sub(block_list *bl, va_list ap)
 	}
 
 	/* unless visible, hold it here */
-	if (!battle_config.update_enemy_position && clif_ally_only && !sd->special_state.intravision &&
-		!sd->sc.getSCE(SC_INTRAVISION) && battle_check_target(src_bl,sd,BCT_ENEMY) > 0)
+	if (!(src_bl->type == BL_PC && population_engine_is_population_pc(src_bl->id))
+		&& !battle_config.update_enemy_position && clif_ally_only && !sd->special_state.intravision &&
+		!sd->sc.getSCE(SC_INTRAVISION) && battle_check_target(src_bl,sd, BCT_ENEMY) > 0)
 		return 0;
 
 	WFIFOHEAD(fd, len);
@@ -11572,6 +11574,8 @@ void clif_disconnect_ack(map_session_data* sd, int16 result)
 ///     0 = quit
 void clif_parse_QuitGame(int32 fd, map_session_data *sd)
 {
+	population_engine_combat_shell_stop(sd);
+
 	/*	Rovert's prevent logout option fixed [Valaris]	*/
 	if( !sd->sc.getSCE(SC_CLOAKING) && !sd->sc.getSCE(SC_HIDING) && !sd->sc.getSCE(SC_CHASEWALK) && !sd->sc.getSCE(SC_CLOAKINGEXCEED) && !sd->sc.getSCE(SC_SUHIDE) && !sd->sc.getSCE(SC_NEWMOON) &&
 		(!battle_config.prevent_logout || sd->canlog_tick == 0 || DIFF_TICK(gettick(), sd->canlog_tick) > battle_config.prevent_logout) )
@@ -11665,6 +11669,8 @@ void clif_parse_GlobalMessage(int32 fd, map_session_data* sd)
 	// Chat logging type 'O' / Global Chat
 	log_chat(LOG_CHAT_GLOBAL, 0, sd->status.char_id, sd->status.account_id, mapindex_id2name(sd->mapindex), sd->x, sd->y, nullptr, message);
 	//achievement_update_objective(sd, AG_CHAT, 1, sd->m); //! TODO: What's the official use of this achievement type?
+
+	population_engine_on_global_chat_mention(sd, message);
 }
 
 
@@ -12295,6 +12301,7 @@ void clif_parse_Restart(int32 fd, map_session_data *sd)
 {
 	switch(RFIFOB(fd,packet_db[RFIFOW(fd,0)].pos[0])) {
 	case 0x00:
+		population_engine_combat_shell_stop(sd);
 		pc_respawn(sd,CLR_OUTSIGHT);
 		break;
 	case 0x01:
@@ -12426,6 +12433,11 @@ void clif_parse_WisMessage(int32 fd, map_session_data* sd)
 
 	// notify sender of success
 	clif_wis_end( *sd, ACKWHISPER_SUCCESS );
+
+	if (population_engine_is_population_pc(dstsd->id)) {
+		population_engine_on_whisper_to_population_pc(sd, dstsd, message);
+		return;
+	}
 
 	// Normal message
 	clif_wis_message(dstsd, sd->status.name, message, strlen(message)+1, 0);
