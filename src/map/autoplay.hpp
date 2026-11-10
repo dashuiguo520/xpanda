@@ -72,6 +72,7 @@ struct s_autoplay_session {
 	bool storage_blocked = false;
 	bool storage_moved = false;
 	bool storage_by_weight = false;
+	uint8 storage_open_attempts = 0;
 	bool follow_offline_handled = false;
 	bool manual_walk_active = false;
 	int16 manual_walk_map = -1;

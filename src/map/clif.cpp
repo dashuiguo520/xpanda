@@ -26407,7 +26407,8 @@ void clif_autoplay_send_config(int32 fd, map_session_data& sd) {
 	if (!sd.autoplay || !sd.autoplay->client_supported)
 		return;
 	PACKET_ZC_AUTOPLAY_CONFIG packet{}; packet.packetType = HEADER_ZC_AUTOPLAY_CONFIG;
-	packet.result = sd.autoplay && sd.autoplay->loaded;
+	// 顶部已保证 sd.autoplay 非空，冗余判断移除。
+	packet.result = sd.autoplay->loaded;
 	if (sd.autoplay) packet.config = sd.autoplay->config;
 	WFIFOHEAD(fd, sizeof(packet)); memcpy(WFIFOP(fd, 0), &packet, sizeof(packet)); WFIFOSET(fd, sizeof(packet));
 }
@@ -26481,7 +26482,7 @@ void clif_parse_autoplay_config_save(int32 fd, map_session_data* sd) {
 void clif_parse_autoplay_control(int32 fd, map_session_data* sd) {
 	if (!sd || !sd->autoplay || !sd->autoplay->client_supported)
 		return;
-	const uint8 control = RFIFOB(fd, 2); const bool valid = sd && control >= AUTOPLAY_CONTROL_START && control <= AUTOPLAY_CONTROL_STOP;
+	const uint8 control = RFIFOB(fd, 2); const bool valid = control >= AUTOPLAY_CONTROL_START && control <= AUTOPLAY_CONTROL_STOP; // 顶部早退已保证 sd 非空
 	const bool result = valid && autoplay_control(*sd, static_cast<e_autoplay_control>(control));
 	if (sd) {
 		static constexpr const char* operations[] = { "invalid", "start", "pause", "resume", "stop" };
@@ -26501,6 +26502,12 @@ void clif_parse_autoplay_status_get(int32 fd, map_session_data* sd) {
 void clif_parse_autoplay_walk_to(int32 fd, map_session_data* sd) {
 	if (!sd || !sd->autoplay || !sd->autoplay->client_supported)
 		return;
+	// ===== rAthena 修复挂机行走权限校验：开始 =====
+	// 修改原因：walk_to 会直接驱动角色移动，必须与 START/RESUME 一致要求挂机权限，
+	// 避免无权限的自定义客户端借该封包获得自动行走能力。
+	if (!pc_has_permission(sd, PC_PERM_AUTOPLAY))
+		return;
+	// ===== rAthena 修复挂机行走权限校验：结束 =====
 	if (!sd || pc_isdead(sd) || pc_cant_act(sd) || sd->progressbar.npc_id)
 		return;
 	autoplay_walk_to(*sd, static_cast<int16>(RFIFOW(fd, 2)), static_cast<int16>(RFIFOW(fd, 4)));

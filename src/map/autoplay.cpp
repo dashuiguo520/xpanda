@@ -27,13 +27,36 @@
 #define AUTOPLAY_BATCH_SIZE 50
 static size_t autoplay_cursor = 0;
 
+// ===== rAthena 优化挂机定时器扫描：开始 =====
+// 修改原因：原实现每 250ms 用 mapit 全量遍历在线玩家挑选活跃角色；
+// 改为维护 char_id 注册表（不含指针，杜绝跨服切换 unit_free_pc 造成的悬空），
+// 每轮经 map_charid2sd 重新解析并惰性清理失效条目，登出/暂停/停止自动退出。
+static std::vector<uint32> autoplay_registry;
+
+static void autoplay_registry_add(map_session_data& sd) {
+	const uint32 char_id = sd.status.char_id;
+	if (char_id != 0 && std::find(autoplay_registry.begin(), autoplay_registry.end(), char_id) == autoplay_registry.end())
+		autoplay_registry.push_back(char_id);
+}
+
+static void autoplay_registry_remove(map_session_data& sd) {
+	const auto it = std::find(autoplay_registry.begin(), autoplay_registry.end(), sd.status.char_id);
+	if (it != autoplay_registry.end())
+		autoplay_registry.erase(it);
+}
+// ===== rAthena 优化挂机定时器扫描：结束 =====
+
 // Dispatch online characters in batches and reuse native movement and combat entry points.
+struct s_target_candidate {
+	block_list* bl;
+	int32 distance;
+	bool priority;
+};
+
 struct s_target_search {
 	map_session_data* sd;
 	const s_autoplay_session* session;
-	block_list* target;
-	int32 nearest_distance;
-	bool priority;
+	std::vector<s_target_candidate>* candidates;
 };
 
 struct s_avoid_search {
@@ -65,7 +88,7 @@ static bool autoplay_boss_attacking(const mob_data& md, const map_session_data& 
 	return md.target_id == sd.id || md.attacked_id == sd.id || md.norm_attacked_id == sd.id;
 }
 
-static int32 autoplay_target_sub(block_list* bl, va_list ap) {
+static int32 autoplay_target_collect(block_list* bl, va_list ap) {
 	auto* search = va_arg(ap, s_target_search*);
 	if (bl == nullptr || bl->type != BL_MOB || status_isdead(*bl))
 		return 0;
@@ -84,13 +107,30 @@ static int32 autoplay_target_sub(block_list* bl, va_list ap) {
 		!check_distance_xy(bl->x, bl->y, search->session->origin_x, search->session->origin_y, config.search_range)))
 		return 0;
 	const bool priority = action == AUTOPLAY_MONSTER_PRIORITY || (boss && config.boss_action == AUTOPLAY_BOSS_PRIORITY);
+	// ===== rAthena 优化挂机选怪可达性检查：开始 =====
+	// 修改原因：原逻辑对范围内每只候选怪各做一次寻路（unit_can_reach_bl），
+	// 现改为仅收集候选，排序后按序检查可达性，常态从 O(怪物数) 次寻路降为 1~2 次。
 	const int32 target_distance = distance_bl(search->sd, bl);
-	if ((!priority && search->priority) || (priority == search->priority && target_distance >= search->nearest_distance) || !unit_can_reach_bl(search->sd, bl, 0, 0, nullptr, nullptr))
-		return 0;
-	search->target = bl;
-	search->nearest_distance = target_distance;
-	search->priority = priority;
+	search->candidates->push_back({ bl, target_distance, priority });
 	return 1;
+	// ===== rAthena 优化挂机选怪可达性检查：结束 =====
+}
+
+// Highest priority class wins, then nearest; ties keep foreach order.
+// Reachability is deferred until after sorting, scanning until the first reachable candidate.
+static block_list* autoplay_select_target(map_session_data& sd, s_autoplay_session& session) {
+	std::vector<s_target_candidate> candidates;
+	s_target_search search{ &sd, &session, &candidates };
+	map_foreachinrange(autoplay_target_collect, &sd, session.config.search_range, BL_MOB, &search);
+	std::stable_sort(candidates.begin(), candidates.end(), [](const s_target_candidate& a, const s_target_candidate& b) {
+		if (a.priority != b.priority)
+			return a.priority;
+		return a.distance < b.distance;
+	});
+	for (const auto& candidate : candidates)
+		if (unit_can_reach_bl(&sd, candidate.bl, 0, 0, nullptr, nullptr))
+			return candidate.bl;
+	return nullptr;
 }
 
 static int32 autoplay_avoid_sub(block_list* bl, va_list ap) {
@@ -156,12 +196,17 @@ static bool autoplay_avoid(map_session_data& sd, s_autoplay_session& session) {
 	return true;
 }
 
-static bool autoplay_forbidden(const map_session_data& sd) {
+static bool autoplay_forbidden(map_session_data& sd) {
+	// ===== rAthena 修复挂机交互状态检测：开始 =====
+	// 修改原因：手写清单缺少 trading、npc_shopid、barter、精炼/时装/轮盘等界面状态
+	// 以及本仓库 Pandas 补丁的 runeui_open，复用 pc_cant_act2 规范清单避免再次漂移；
+	// 邮件撰写、银行和地图限制不在 pc_cant_act2 范围内，保持专用判断。
 	return !sd.state.active || sd.state.warping || sd.npc_id != 0 || sd.st != nullptr ||
-		sd.state.vending || sd.state.buyingstore || sd.state.storage_flag != 0 ||
+		sd.chatID != 0 || pc_cant_act2(&sd) ||
 		sd.state.mail_writing || sd.state.banking ||
 		map_getmapflag(sd.m, MF_PVP) || map_getmapflag(sd.m, MF_GVG) ||
 		map_getmapflag(sd.m, MF_GVG_TE) || map_getmapflag(sd.m, MF_NOAUTOPLAY);
+	// ===== rAthena 修复挂机交互状态检测：结束 =====
 }
 
 static bool autoplay_is_custom_warper(npc_data* npc) {
@@ -302,7 +347,7 @@ static void autoplay_set_warp_step(s_autoplay_transition& step, npc_data& warp) 
 	step.kind = AUTOPLAY_TRANSITION_WARP;
 }
 
-static bool autoplay_walk_transition(map_session_data& sd, s_autoplay_session& session, const s_autoplay_transition& transition);
+static bool autoplay_walk_transition(map_session_data& sd, s_autoplay_session& session, s_autoplay_transition& transition);
 
 static bool autoplay_long_waypoint(const map_session_data& sd, int16 destination_x, int16 destination_y, int16 range_x,
 	int16 range_y, int16& waypoint_x, int16& waypoint_y) {
@@ -322,8 +367,15 @@ static bool autoplay_long_waypoint(const map_session_data& sd, int16 destination
 		int32 index;
 		bool operator<(const s_route_node& other) const { return score > other.score; }
 	};
-	std::vector<int32> costs(static_cast<size_t>(width) * height, INT_MAX);
-	std::vector<int32> parents(static_cast<size_t>(width) * height, -1);
+	// ===== rAthena 优化挂机寻路缓冲：开始 =====
+	// 修改原因：每次 A* 临时分配 2×宽×高 的 int 向量（大图 MB 级瞬时分配）；
+	// 复用静态缓冲并整块重置（INT_MAX/-1 哨兵本就需逐格重置），仅省去反复分配释放。
+	// map-server 地图逻辑单线程执行，thread_local 仅为将来并发预留安全性。
+	static thread_local std::vector<int32> costs;
+	static thread_local std::vector<int32> parents;
+	costs.assign(static_cast<size_t>(width) * height, INT_MAX);
+	parents.assign(static_cast<size_t>(width) * height, -1);
+	// ===== rAthena 优化挂机寻路缓冲：结束 =====
 	std::priority_queue<s_route_node> pending;
 	auto heuristic = [&](int32 x, int32 y) {
 		const int32 dx = x < left ? left - x : x > right ? x - right : 0;
@@ -412,6 +464,8 @@ bool autoplay_walk_to(map_session_data& sd, int16 x, int16 y) {
 	session.manual_walk_x = x;
 	session.manual_walk_y = y;
 	session.manual_walk_active = x != sd.x || y != sd.y;
+	if (session.manual_walk_active)
+		autoplay_registry_add(sd);
 	unit_stop_attack(&sd);
 	if (!session.manual_walk_active) {
 		unit_stop_walking(&sd, USW_FORCE_STOP | USW_RELEASE_TARGET);
@@ -471,7 +525,7 @@ static bool autoplay_route_to_map(map_session_data& sd, s_autoplay_session& sess
 	return autoplay_walk_transition(sd, session, step);
 }
 
-static bool autoplay_walk_transition(map_session_data& sd, s_autoplay_session& session, const s_autoplay_transition& transition) {
+static bool autoplay_walk_transition(map_session_data& sd, s_autoplay_session& session, s_autoplay_transition& transition) {
 	unit_stop_attack(&sd);
 	session.target_id = 0;
 	session.state = AUTOPLAY_MOVING;
@@ -483,9 +537,14 @@ static bool autoplay_walk_transition(map_session_data& sd, s_autoplay_session& s
 	}
 	npc_data* npc = map_id2nd(transition.npc_id);
 	if (npc == nullptr || npc->m != sd.m) {
+		// ===== rAthena 修复挂机路线缓存失效：开始 =====
+		// 修改原因：@reloadscript 等场景下 warp NPC 被删除重建（block id 不复用），
+		// 缓存步骤会永久指向无效 ID 导致角色卡在 PAUSED；清空缓存使下一轮重新寻路。
+		transition = {};
 		session.state = AUTOPLAY_PAUSED;
 		session.stop_reason = AUTOPLAY_STOP_MAP;
 		return true;
+		// ===== rAthena 修复挂机路线缓存失效：结束 =====
 	}
 	if (transition.kind == AUTOPLAY_TRANSITION_WARP) {
 		if (sd.x >= npc->x - npc->u.warp.xs && sd.x <= npc->x + npc->u.warp.xs &&
@@ -532,14 +591,25 @@ static void autoplay_stop_actions(map_session_data& sd, s_autoplay_session& sess
 }
 // ===== rAthena 修复挂机停止动作一致性：结束 =====
 
+static uint8 autoplay_hp_percent(const map_session_data& sd);
+static uint8 autoplay_sp_percent(const map_session_data& sd);
+
 static bool autoplay_use_recovery(map_session_data& sd, s_autoplay_session& session) {
-	const auto& status = sd.battle_status;
-	const uint8 hp = status.max_hp > 0 ? static_cast<uint8>(status.hp * 100 / status.max_hp) : 0;
-	const uint8 sp = status.max_sp > 0 ? static_cast<uint8>(status.sp * 100 / status.max_sp) : 0;
-	for (size_t i = 0; i < session.config.recovery_count && i < 5; ++i) {
+	const uint8 hp = autoplay_hp_percent(sd);
+	const uint8 sp = autoplay_sp_percent(sd);
+	for (size_t i = 0; i < session.config.recovery_count && i < AUTOPLAY_MAX_RECOVERY_ITEMS; ++i) {
 		const auto& rule = session.config.recovery_items[i];
+		if (!rule.enabled)
+			continue;
+		// ===== rAthena 修复挂机恢复阈值回退：开始 =====
+		// 修改原因：hp_recover_below/sp_recover_below 此前仅校验持久化、运行时从未读取；
+		// 历史数据中 trigger_below 可能为 0（道具永不触发），此时回退到全局阈值，
+		// 赋予全局阈值兜底语义且不改变 wire 结构。
+		const uint8 trigger = rule.trigger_below != 0 ? rule.trigger_below
+			: rule.resource_type == 1 ? session.config.sp_recover_below : session.config.hp_recover_below;
+		// ===== rAthena 修复挂机恢复阈值回退：结束 =====
 		const uint8 value = rule.resource_type == 1 ? sp : hp;
-		if (!rule.enabled || value > rule.trigger_below)
+		if (value > trigger)
 			continue;
 		for (int32 index = 0; index < MAX_INVENTORY; ++index) {
 			if (sd.inventory.u.items_inventory[index].nameid == rule.item_id && sd.inventory.u.items_inventory[index].amount > 0) {
@@ -568,7 +638,10 @@ static int32 autoplay_sit_danger_sub(block_list* bl, va_list ap) {
 }
 
 static uint8 autoplay_sp_percent(const map_session_data& sd) {
-	return sd.battle_status.max_sp > 0 ? static_cast<uint8>(sd.battle_status.sp * 100 / sd.battle_status.max_sp) : 0;
+	// ===== rAthena 修复挂机百分比溢出：开始 =====
+	// 修改原因：hp/sp 超过 INT_MAX/100（约 2147 万）时 int32 乘法溢出为负，高倍率服务器可能触及。
+	return sd.battle_status.max_sp > 0 ? static_cast<uint8>(static_cast<int64>(sd.battle_status.sp) * 100 / sd.battle_status.max_sp) : 0;
+	// ===== rAthena 修复挂机百分比溢出：结束 =====
 }
 
 static bool autoplay_manage_sit_recovery(map_session_data& sd, s_autoplay_session& session) {
@@ -577,7 +650,7 @@ static bool autoplay_manage_sit_recovery(map_session_data& sd, s_autoplay_sessio
 	s_sit_danger_search search{ &sd, false };
 	map_foreachinrange(autoplay_sit_danger_sub, &sd, session.config.search_range, BL_MOB, &search);
 	const bool danger = search.found || sd.ud.attacktimer != INVALID_TIMER || sd.ud.skilltimer != INVALID_TIMER || session.target_id != 0;
-	const uint8 hp = sd.battle_status.max_hp > 0 ? static_cast<uint8>(sd.battle_status.hp * 100 / sd.battle_status.max_hp) : 0;
+	const uint8 hp = autoplay_hp_percent(sd);
 	const uint8 sp = autoplay_sp_percent(sd);
 
 	if (session.sitting_recovery) {
@@ -653,6 +726,7 @@ static bool autoplay_manage_storage(map_session_data& sd, s_autoplay_session& se
 	unit_stop_attack(&sd);
 	session.target_id = 0;
 	if (sd.state.storage_flag == 1) {
+		session.storage_open_attempts = 0;
 		for (int32 i = 0; i < sd.status.inventory_slots; ++i) {
 			item& entry = sd.inventory.u.items_inventory[i];
 			if (!autoplay_storage_item(sd, session, entry))
@@ -710,6 +784,18 @@ static bool autoplay_manage_storage(map_session_data& sd, s_autoplay_session& se
 		return true;
 	}
 	if (check_distance_bl(&sd, npc, 3)) {
+		// ===== rAthena 修复挂机仓库打开重试：开始 =====
+		// 修改原因：openstorage 被拒绝（如 pc_can_give_items 权限不足）时 storage_flag
+		// 不会置位，脚本会被每 250ms 重触发刷屏；限次后按资源不足暂停并标记 blocked。
+		if (session.storage_open_attempts >= 20) {
+			session.storage_blocked = true;
+			session.storage_trip = false;
+			session.state = AUTOPLAY_PAUSED;
+			session.stop_reason = AUTOPLAY_STOP_RESOURCE;
+			return true;
+		}
+		session.storage_open_attempts++;
+		// ===== rAthena 修复挂机仓库打开重试：结束 =====
 		session.storage_moved = false;
 		npc_event(&sd, "AutoplayStorage::OnAutoplayOpen", 0);
 		session.state = AUTOPLAY_RECOVERING;
@@ -763,6 +849,7 @@ static bool autoplay_manage_inventory(map_session_data& sd, s_autoplay_session& 
 		session.storage_by_weight = weight_full;
 		session.storage_returning = false;
 		session.storage_moved = false;
+		session.storage_open_attempts = 0;
 		session.storage_step = {};
 		session.storage_route_map = -1;
 		session.state = AUTOPLAY_MOVING;
@@ -835,7 +922,7 @@ static int32 autoplay_surrounded_sub(block_list* bl, va_list ap) {
 }
 
 static bool autoplay_danger_teleport(map_session_data& sd, s_autoplay_session& session, t_tick tick) {
-	const uint8 hp = sd.battle_status.max_hp > 0 ? static_cast<uint8>(sd.battle_status.hp * 100 / sd.battle_status.max_hp) : 0;
+	const uint8 hp = autoplay_hp_percent(sd);
 	bool triggered = hp <= session.config.emergency_hp_below;
 	if (!triggered && session.config.surrounded_teleport_count > 0) {
 		s_surrounded_search search{ &sd, 0, session.config.surrounded_teleport_count };
@@ -856,7 +943,10 @@ static uint16 autoplay_skill_level(map_session_data& sd, const s_autoplay_skill_
 }
 
 static uint8 autoplay_hp_percent(const map_session_data& sd) {
-	return sd.battle_status.max_hp > 0 ? static_cast<uint8>(sd.battle_status.hp * 100 / sd.battle_status.max_hp) : 0;
+	// ===== rAthena 修复挂机百分比溢出：开始 =====
+	// 修改原因：hp/sp 超过 INT_MAX/100（约 2147 万）时 int32 乘法溢出为负，高倍率服务器可能触及。
+	return sd.battle_status.max_hp > 0 ? static_cast<uint8>(static_cast<int64>(sd.battle_status.hp) * 100 / sd.battle_status.max_hp) : 0;
+	// ===== rAthena 修复挂机百分比溢出：结束 =====
 }
 
 static map_session_data* autoplay_follow_target(map_session_data& sd, uint32 follow_char_id) {
@@ -977,8 +1067,14 @@ static int32 autoplay_skill_range(map_session_data& sd, const s_autoplay_session
 }
 
 static bool autoplay_move_to_range(map_session_data& sd, s_autoplay_session& session, block_list& target, int32 range) {
-	if (battle_check_range(&sd, &target, range))
+	if (battle_check_range(&sd, &target, range)) {
+		// ===== rAthena 修复挂机路径失败计数：开始 =====
+		// 修改原因：path_failures 只增不减会在长期运行中持续膨胀；已在射程内意味着
+		// 战斗流程恢复正常，此时复位计数，让该值只反映当前滞留状态。
+		session.path_failures = 0;
 		return false;
+		// ===== rAthena 修复挂机路径失败计数：结束 =====
+	}
 	session.state = AUTOPLAY_MOVING;
 	// ===== rAthena 修复挂机追敌不可移动状态：开始 =====
 	// 修改原因：不可移动时保留当前目标，等待控制状态结束而不是错误清除目标。
@@ -1164,7 +1260,13 @@ static void autoplay_tick_character(map_session_data& sd, t_tick tick) {
 					follow = autoplay_follow_target(sd, session.follow_char_id);
 				}
 			} else if (follow_member != nullptr && follow_member->online) {
+				// ===== rAthena 修复挂机跨服跟随限制说明：开始 =====
+				// 已知限制：多 map-server 部署下目标在其他 map-server 时 map_mapindex2mapid 返回 -1，
+				// BFS 与 pending_follow_transition 的 autoplay_map_allowed 都会拒绝，
+				// 跟随停留在 PAUSED STOP_PARTY/STOP_MAP；当前单 map-server 部署不受影响。
+				// 若将来拆分 map-server，需对 WARP 类 transition 放行跨服目的地（由 warp NPC 自然跨服）。
 				follow_map = map_mapindex2mapid(mapindex_name2idx(follow_member->map, nullptr));
+				// ===== rAthena 修复挂机跨服跟随限制说明：结束 =====
 			}
 			if (follow_map >= 0 && follow_map != sd.m) {
 				autoplay_route_to_map(sd, session, follow_map, follow_x, follow_y,
@@ -1201,16 +1303,18 @@ static void autoplay_tick_character(map_session_data& sd, t_tick tick) {
 	bool target_acquired = false;
 	const bool outside_fixed_area = target != nullptr && session.config.mode == AUTOPLAY_MODE_FIXED &&
 		(target->m != session.origin_map || !check_distance_xy(target->x, target->y, session.origin_x, session.origin_y, session.config.search_range));
-	if (target == nullptr || target->m != sd.m || status_isdead(*target) || outside_fixed_area || battle_check_target(&sd, target, BCT_ENEMY) <= 0) {
-		if (target != nullptr)
-			unit_stop_attack(&sd);
-		s_target_search search{ &sd, &session, nullptr, session.config.search_range + 1, false };
-		session.state = AUTOPLAY_SEARCHING;
-		map_foreachinrange(autoplay_target_sub, &sd, session.config.search_range, BL_MOB, &search);
-		target = search.target;
-		session.target_id = target ? target->id : 0;
-		target_acquired = target != nullptr;
-	}
+		if (target == nullptr || target->m != sd.m || status_isdead(*target) || outside_fixed_area || battle_check_target(&sd, target, BCT_ENEMY) <= 0) {
+			if (target != nullptr)
+				unit_stop_attack(&sd);
+			// ===== rAthena 优化挂机选怪可达性检查：开始 =====
+			// 修改原因：排序选择天然容纳 FIXED 模式下候选怪距玩家 2×search_range 的情况，
+			// 取代原先 nearest_distance 初始阈值方案（Fix 10）。
+			session.state = AUTOPLAY_SEARCHING;
+			target = autoplay_select_target(sd, session);
+			// ===== rAthena 优化挂机选怪可达性检查：结束 =====
+			session.target_id = target ? target->id : 0;
+			target_acquired = target != nullptr;
+		}
 	if (target == nullptr) {
 		const bool no_monster_enabled = follow == nullptr && session.config.no_monster_teleport_seconds > 0;
 		if (no_monster_enabled && session.no_target_since == 0)
@@ -1251,32 +1355,39 @@ static void autoplay_tick_character(map_session_data& sd, t_tick tick) {
 }
 
 static int32 autoplay_timer(int32 tid, t_tick tick, int32 id, intptr_t data) {
-	std::vector<map_session_data*> active_characters;
-	s_mapiterator* iter = mapit_getallusers();
-	for (auto* sd = static_cast<map_session_data*>(mapit_first(iter)); mapit_exists(iter); sd = static_cast<map_session_data*>(mapit_next(iter)))
-		if (sd->autoplay && (sd->autoplay->active || sd->autoplay->manual_walk_active))
-			active_characters.push_back(sd);
-	mapit_free(iter);
-	if (active_characters.empty()) {
+	// 惰性清理失效条目：char_id 解析不到在线会话、会话已停用即剔除，
+	// 登出/换服释放的指针永远不会被访问（注册表只保存 char_id）。
+	for (size_t i = 0; i < autoplay_registry.size(); ) {
+		const map_session_data* sd = map_charid2sd(autoplay_registry[i]);
+		if (sd == nullptr || sd->autoplay == nullptr ||
+			(!sd->autoplay->active && !sd->autoplay->manual_walk_active))
+			autoplay_registry.erase(autoplay_registry.begin() + i);
+		else
+			++i;
+	}
+	if (autoplay_registry.empty()) {
 		autoplay_cursor = 0;
 		return 0;
 	}
-	const size_t count = std::min(static_cast<size_t>(AUTOPLAY_BATCH_SIZE), active_characters.size());
+	const size_t count = std::min(static_cast<size_t>(AUTOPLAY_BATCH_SIZE), autoplay_registry.size());
 	for (size_t i = 0; i < count; ++i) {
-		if (autoplay_cursor >= active_characters.size())
+		if (autoplay_cursor >= autoplay_registry.size())
 			autoplay_cursor = 0;
-		auto& sd = *active_characters[autoplay_cursor++];
-		auto& session = *sd.autoplay;
+		const uint32 char_id = autoplay_registry[autoplay_cursor++];
+		map_session_data* sd = map_charid2sd(char_id);
+		if (sd == nullptr || sd->autoplay == nullptr)
+			continue;
+		auto& session = *sd->autoplay;
 		if (session.manual_walk_active) {
-			if (!sd.state.active || status_isdead(sd) || sd.m != session.manual_walk_map ||
-				(sd.x == session.manual_walk_x && sd.y == session.manual_walk_y)) {
+			if (!sd->state.active || status_isdead(*sd) || sd->m != session.manual_walk_map ||
+				(sd->x == session.manual_walk_x && sd->y == session.manual_walk_y)) {
 				session.manual_walk_active = false;
-			} else if (!unit_is_walking(&sd) && !autoplay_walk_toward(sd, session.manual_walk_x, session.manual_walk_y)) {
+			} else if (!unit_is_walking(sd) && !autoplay_walk_toward(*sd, session.manual_walk_x, session.manual_walk_y)) {
 				session.manual_walk_active = false;
 			}
 			continue;
 		}
-		autoplay_tick_character(sd, tick);
+		autoplay_tick_character(*sd, tick);
 	}
 	return 0;
 }
@@ -1287,6 +1398,7 @@ void do_init_autoplay() {
 
 void do_final_autoplay() {
 	autoplay_cursor = 0;
+	autoplay_registry.clear();
 }
 
 void autoplay_attach(map_session_data& sd) {
@@ -1296,6 +1408,7 @@ void autoplay_attach(map_session_data& sd) {
 
 void autoplay_detach(map_session_data& sd) {
 	if (sd.autoplay != nullptr) {
+		autoplay_registry_remove(sd);
 		autoplay_stand(sd, *sd.autoplay);
 		autoplay_stop_actions(sd, *sd.autoplay);
 		autoplay_restore_autoloot(sd, *sd.autoplay);
@@ -1418,6 +1531,7 @@ bool autoplay_control(map_session_data& sd, e_autoplay_control control) {
 		session.manual_walk_active = false;
 		session.kills = 0;
 		session.loot_count = 0;
+		session.path_failures = 0;
 		session.follow_char_id = session.config.follow_char_id;
 		session.origin_map = sd.m;
 		session.instance_id = autoplay_map_instance(sd.m);
@@ -1456,6 +1570,7 @@ bool autoplay_control(map_session_data& sd, e_autoplay_control control) {
 			}
 			autoplay_apply_autoloot(sd, session.config);
 			session.active = true;
+			autoplay_registry_add(sd);
 			session.next_action_tick = 0;
 			session.no_target_since = 0;
 			session.consecutive_misses = 0;
@@ -1465,7 +1580,13 @@ bool autoplay_control(map_session_data& sd, e_autoplay_control control) {
 		case AUTOPLAY_CONTROL_PAUSE:
 			autoplay_stand(sd, session);
 			autoplay_stop_actions(sd, session);
+			// ===== rAthena 修复挂机暂停手动行走：开始 =====
+			// 修改原因：manual_walk 定时分支不检查 active，暂停后必须同时清除该标记，
+			// 否则角色在"已暂停"状态下仍会继续走向手动目标（与 START/RESUME 行为对齐）。
+			session.manual_walk_active = false;
+			// ===== rAthena 修复挂机暂停手动行走：结束 =====
 			session.active = false;
+			autoplay_registry_remove(sd);
 			session.state = AUTOPLAY_PAUSED;
 			return true;
 		case AUTOPLAY_CONTROL_STOP:

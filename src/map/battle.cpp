@@ -347,10 +347,15 @@ int32 battle_damage(block_list *src, block_list *target, int64 damage, int16 div
 	block_list* autoplay_master = src != nullptr && src->type != BL_PC ? battle_get_master(src) : src;
 	map_session_data* autoplay_sd = BL_CAST(BL_PC, autoplay_master);
 	if (autoplay_sd != nullptr && target->type == BL_MOB) {
-		if (dmg_lv == ATK_LUCKY || dmg_lv == ATK_FLEE || dmg_lv == ATK_MISS)
+		// ===== rAthena 修复挂机未命中统计：开始 =====
+		// 修改原因：幸运闪避（ATK_LUCKY）说明攻击本身有效、目标可命中，
+		// 不应计入连续 miss 触发 miss_teleport；只有 FLEE/MISS 才累计，
+		// DEF 与 LUCKY 视为命中并清零计数。
+		if (dmg_lv == ATK_FLEE || dmg_lv == ATK_MISS)
 			autoplay_record_attack_result(*autoplay_sd, true);
-		else if (dmg_lv == ATK_DEF)
+		else if (dmg_lv == ATK_DEF || dmg_lv == ATK_LUCKY)
 			autoplay_record_attack_result(*autoplay_sd, false);
+		// ===== rAthena 修复挂机未命中统计：结束 =====
 	}
 	// ===== 挂机系统：结束 =====
 	FreeBlockLock freeLock;
