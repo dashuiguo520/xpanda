@@ -156,6 +156,6 @@ Thumbs.db
 generated
 
 # local build output
-.codex-build
+.codex-build*/
 /lib/
 /Release/

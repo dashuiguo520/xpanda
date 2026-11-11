@@ -47,8 +47,8 @@
 这四点决定了不能沿用旧系统的做法：
 
 1. **队伍成员不存在 party 表里。** `party` 表只有 `party_id/name/exp/item/leader_id/leader_char`（`sql-files/main.sql:974-982`），成员关系存在 `char.party_id`（`main.sql:244`）。char-server 读队伍时直接 `SELECT ... FROM char WHERE party_id = ?`（`src/char/int_party.cpp:233`）。
-2. **char-server 有内存缓存。** `inter_party_fromsql` 先查 `party_db` 缓存（`int_party.cpp:207-211`），直接改 SQL 不会生效，必须走 `intif_party_addmember` / `intif_party_leave`。
-3. **入队回调要求在线会话。** `party_member_added` 要求 `map_id2sd(account_id)` 存在、`char_id` 匹配且 `party_joining == true`（`src/map/party.cpp:694-700`）。所以机器人必须先有 `map_session_data`，再发起入队。
+2. **char-server 有内存缓存。** `inter_party_fromsql` 先查 `party_db` 缓存（`int_party.cpp:206-211`），直接改 SQL 不会生效，必须走 `intif_party_addmember` / `intif_party_leave`。
+3. **入队回调要求在线会话。** `party_member_added` 要求 `map_id2sd(account_id)` 存在、`char_id` 匹配且 `party_joining == true`（`src/map/party.cpp:690-696`）。所以机器人必须先有 `map_session_data`，再发起入队。
 4. **队长退队会解散整队。** char-server 在队长离开时清空所有成员（`int_party.cpp:655-666`）。机器人回收必须挂在这个流程之前或之中。
 
 **结论：机器人必须有真实 `char` 记录；入队、离队必须经过 char-server，不能只改内存或 SQL。**
@@ -252,7 +252,7 @@ NPC 或 `@companion dismiss`：
 | 玩家主动退队 | `party_leave`（`party.cpp:834`） | 若退队者是租用者，先回收其机器人 |
 | 被队长踢出 | `party_removemember`（`party.cpp:764`） | 若目标是租用者，先回收其机器人 |
 | 掉线/登出 | `party_member_withdraw`（`party.cpp:885`） | 若目标是租用者，回收机器人 |
-| 队伍解散 | `party_broken`（`party.cpp:941`） | 回收该队伍全部机器人 |
+| 队伍解散 | `party_broken`（`party.cpp:937`） | 回收该队伍全部机器人 |
 
 防递归：`state=3` 时直接返回；回收流程内再次触发 `party_member_withdraw` 不会二次回收。
 
@@ -326,7 +326,7 @@ if (companion_is_bot(target_char_id) &&
 
 | 位置 | 现状 | 改造 |
 |---|---|---|
-| `party_exp_share`（`party.cpp:1330`） | 遍历 `p->data[i].sd` 均分经验 | 跳过 `companion_is_bot(sd)`，且不计入人数 `c` |
+| `party_exp_share`（`party.cpp:1323`） | 遍历 `p->data[i].sd` 均分经验 | 跳过 `companion_is_bot(sd)`，且不计入人数 `c` |
 | `party_share_loot`（`party.cpp:1383`） | 轮转/随机把物品给队员 | 跳过机器人，避免物品蒸发 |
 | `mob_dead` 伤害汇总 | 机器人伤害计入 `total_damage` | `exp_mode: none` 时排除机器人伤害与 `count` |
 | `mob_dead` 击杀者 | `sd` 可能是机器人 | 若是机器人，回退到伤害最高的真人，保证任务/成就/脚本掉落归真人 |
@@ -474,12 +474,12 @@ P1–P3 完成即可上线最小可用版本；P4 决定体验，P5 决定经济
 | `party_member_joined` | `src/map/party.cpp:671` |
 | `party_removemember` | `src/map/party.cpp:764` |
 | `party_member_withdraw` | `src/map/party.cpp:885` |
-| `party_broken` | `src/map/party.cpp:941` |
-| `party_exp_share` | `src/map/party.cpp:1330` |
+| `party_broken` | `src/map/party.cpp:937` |
+| `party_exp_share` | `src/map/party.cpp:1323` |
 | `party_share_loot` | `src/map/party.cpp:1383` |
 | `intif_party_addmember` | `src/map/intif.cpp` |
 | `intif_party_leave` | `src/map/intif.cpp` |
-| `inter_party_fromsql` | `src/char/int_party.cpp:213` |
+| `inter_party_fromsql` | `src/char/int_party.cpp:192` |
 | `map_session_data::party_joining` | `src/map/pc.hpp` |
 | `chrif_char_online` | `src/map/chrif.cpp:1511` |
 | `chrif_char_offline_nsd` | `src/map/chrif.cpp:1469` |
