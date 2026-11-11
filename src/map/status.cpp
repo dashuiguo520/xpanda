@@ -32,8 +32,6 @@
 #include "npc.hpp"
 #include "path.hpp"
 #include "pc.hpp"
-#include "population_engine.hpp"
-#include "population_engine/runtime/population_engine_combat.hpp"
 #include "pc_groups.hpp"
 #include "pet.hpp"
 // ===== rAthena 移植 Pandas 符文石板属性依赖：开始 =====
@@ -1509,15 +1507,6 @@ int32 status_damage(block_list *src,block_list *target,int64 dhp, int64 dsp, int
 
 	nullpo_ret(target);
 
-	// Population shells are immortal by default; only shells with PSF::Mortal (Flags: mortal) take damage.
-	if (target->type == BL_PC) {
-		map_session_data *pop_sd = BL_CAST(BL_PC, target);
-		if (pop_sd != nullptr && population_engine_is_population_pc(pop_sd->id)
-		    && !population_engine_shell_is_mortal(pop_sd)
-		    && (hp > 0 || sp > 0 || ap > 0))
-			return 0;
-	}
-
 	if(sp && !(target->type&BL_CONSUME))
 		sp = 0; // Not a valid SP target.
 
@@ -1814,8 +1803,7 @@ int32 status_damage(block_list *src,block_list *target,int64 dhp, int64 dsp, int
 				npc_event(sd, bg->die_event.c_str(), 0);
 		}
 
-		if (!IS_POPULATION_ENGINE_ACCOUNT_ID(sd->status.account_id))
-			npc_script_event( *sd, NPCE_DIE );
+		npc_script_event( *sd, NPCE_DIE );
 	}
 
 	return (int32)(hp+sp+ap);
@@ -13222,7 +13210,7 @@ static bool status_change_start_post_delay(block_list* src, block_list* bl, sc_t
 				break;
 		}
 
-	if (sd && current_equip_combo_pos > 0 && tick == INFINITE_TICK && !population_engine_is_population_pc(bl->id)) {
+	if (sd && current_equip_combo_pos > 0 && tick == INFINITE_TICK) {
 		ShowWarning("sc_start: Item combo of item #%u contains an INFINITE_TICK duration. Skipping bonus.\n", sd->inventory_data[pc_checkequip(sd, current_equip_combo_pos)]->nameid);
 		return false;
 	}

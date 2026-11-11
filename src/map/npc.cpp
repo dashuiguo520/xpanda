@@ -1882,11 +1882,6 @@ int32 npc_settimerevent_tick(npc_data* nd, int32 newtimer)
 
 int32 npc_event_sub(map_session_data* sd, struct event_data* ev, const char* eventname)
 {
-	// Population engine shells never run NPC scripts — skip silently to avoid
-	// filling the event queue with OnTouch/OnTouch_ events as shells roam past NPCs.
-	if (IS_POPULATION_ENGINE_ACCOUNT_ID(sd->status.account_id))
-		return 0;
-
 	if ( sd->npc_id != 0 )
 	{
 		//Enqueue the event trigger.
@@ -6089,8 +6084,6 @@ static bool npc_event_rightnow(map_session_data& sd, const script_event_s& evt) 
 
 size_t npc_script_event( map_session_data& sd, enum npce_event type ){
 	if (type == NPCE_MAX)
-		return 0;
-	if (IS_POPULATION_ENGINE_ACCOUNT_ID(sd.status.account_id))
 		return 0;
 
 	// ===== rAthena 修复 Filter/Express 事件卸载 NPC 安全性：开始 =====

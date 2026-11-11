@@ -35,7 +35,6 @@
 #include "pc.hpp"
 #include "pc_groups.hpp"
 #include "pet.hpp"
-#include "population_engine.hpp"
 #include "quest.hpp"
 #include "status.hpp"
 #include "storage.hpp"
@@ -410,11 +409,6 @@ int32 intif_saveregistry(map_session_data *sd)
 	DBData *data;
 	int32 plen = 0;
 	size_t len;
-
-	if (sd && IS_POPULATION_ENGINE_ACCOUNT_ID(sd->status.account_id)) {
-		sd->vars_dirty = false;
-		return 0;
-	}
 
 	if (CheckForCharServer() || !sd->regs.vars)
 		return -1;
@@ -2249,11 +2243,6 @@ void intif_parse_achievementsave(int32 fd)
 	if (!sd) // User not online anymore
 		return;
 
-	if (sd && IS_POPULATION_ENGINE_ACCOUNT_ID(sd->status.account_id)) {
-		sd->achievement_data.save = false;
-		return;
-	}
-
 	if (!RFIFOB(fd, 6))
 		ShowError("intif_parse_achievementsave: Failed to save achievement(s) for character %s (%d)!\n", sd->status.name, cid);
 }
@@ -3608,11 +3597,8 @@ static void intif_parse_StorageSaved(int32 fd)
 			default:
 				break;
 		}
-	} else {
-		uint32 account_id = RFIFOL(fd, 2);
-		if (!IS_POPULATION_ENGINE_ACCOUNT_ID(account_id))
-			ShowError("Failed to save inventory/cart/storage data (AID: %d, type: %d).\n", account_id, RFIFOB(fd, 7));
-	}
+	} else
+		ShowError("Failed to save inventory/cart/storage data (AID: %d, type: %d).\n", RFIFOL(fd, 2), RFIFOB(fd, 7));
 }
 
 /**

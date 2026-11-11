@@ -5,7 +5,6 @@
 
 #include <cmath>
 #include <cstdlib>
-#include <cinttypes>
 #include <set>
 #include <unordered_map>
 
@@ -50,9 +49,6 @@
 #include "pc.hpp"
 #include "pc_groups.hpp"
 #include "pet.hpp"
-#include "population_engine.hpp"
-#include "population_engine/core/pe_perf.hpp"
-#include "population_engine/runtime/population_engine_path.hpp"
 #include "quest.hpp"
 // ===== rAthena 移植 Pandas 符文数据库重载依赖：开始 =====
 // 修改内容：管理员命令可重新加载符文 YAML 数据库。
