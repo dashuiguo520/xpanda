@@ -2087,4 +2087,8 @@
 
 #include <custom/autoplay_packetdb.inc>
 
+// ===== 拍卖行系统：开始 =====
+#include <custom/auction_packetdb.inc>
+// ===== 拍卖行系统：结束 =====
+
 #endif /* CLIF_PACKETDB_HPP */

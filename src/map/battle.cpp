@@ -9074,6 +9074,30 @@ static const struct _battle_data {
 	// ===== 挂机系统：开始 =====
 	{ "autoplay_search_range",              &battle_config.autoplay_search_range,           12,     1,      30,             },
 	// ===== 挂机系统：结束 =====
+	// ===== 拍卖行系统：开始 =====
+	{ "auction_enable",                     &battle_config.auction_enable,                  0,      0,      1,              },
+	{ "auction_allow_cash",                 &battle_config.auction_allow_cash,              1,      0,      1,              },
+	{ "auction_fee_permille",               &battle_config.auction_fee_permille,            50,     0,      500,            },
+	{ "auction_cash_fee_permille",          &battle_config.auction_cash_fee_permille,       50,     0,      500,            },
+	{ "auction_deposit_permille",           &battle_config.auction_deposit_permille,        0,      0,      500,            },
+	{ "auction_duration1",                  &battle_config.auction_duration1,               12,     0,      336,            },
+	{ "auction_duration2",                  &battle_config.auction_duration2,               24,     0,      336,            },
+	{ "auction_duration3",                  &battle_config.auction_duration3,               48,     0,      336,            },
+	{ "auction_duration4",                  &battle_config.auction_duration4,               0,      0,      336,            },
+	{ "auction_duration5",                  &battle_config.auction_duration5,               0,      0,      336,            },
+	{ "auction_max_listings",               &battle_config.auction_max_listings,            20,     1,      100,            },
+	{ "auction_min_price",                  &battle_config.auction_min_price,               1,      1,      MAX_ZENY,       },
+	{ "auction_min_increment",              &battle_config.auction_min_increment,           100,    1,      1000000,        },
+	{ "auction_min_increment_percent",      &battle_config.auction_min_increment_percent,   1,      0,      50,             },
+	{ "auction_buynow_min_ratio",           &battle_config.auction_buynow_min_ratio,        100,    100,    10000,          },
+	{ "auction_ban_bound_items",            &battle_config.auction_ban_bound_items,         1,      0,      1,              },
+	{ "auction_allow_named_items",          &battle_config.auction_allow_named_items,       1,      0,      1,              },
+	{ "auction_ban_rental_items",           &battle_config.auction_ban_rental_items,        1,      0,      1,              },
+	{ "auction_settle_scan_interval",       &battle_config.auction_settle_scan_interval,    30000,  1000,   3600000,        },
+	{ "auction_register_interval",          &battle_config.auction_register_interval,       2000,   100,    60000,          },
+	{ "auction_search_interval",            &battle_config.auction_search_interval,         1000,   100,    60000,          },
+	{ "auction_bid_interval",               &battle_config.auction_bid_interval,            500,    100,    60000,          },
+	// ===== 拍卖行系统：结束 =====
 
 #include <custom/battle_config_init.inc>
 };

@@ -1,4 +1,4 @@
-// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
+﻿// Copyright (c) rAthena Dev Teams - Licensed under GNU GPL
 // For more information, see LICENCE in the main folder
 
 #ifndef PC_HPP
@@ -413,6 +413,12 @@ public:
 	// ===== 挂机系统：开始 =====
 	std::shared_ptr<s_autoplay_session> autoplay;
 	// ===== 挂机系统：结束 =====
+	// ===== 拍卖行系统：开始 =====
+	// Set by the CZ_AUCTION_OPEN handshake (AUCT magic); all auction CZ
+	// handlers and ZC sends are gated on it so stock clients never see
+	// project-local packets.
+	bool auction_supported = false;
+	// ===== 拍卖行系统：结束 =====
 	struct unit_data ud;
 	struct view_data vd;
 	struct status_data base_status, battle_status;

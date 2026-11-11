@@ -48,6 +48,9 @@
 #include "log.hpp"
 #include "mail.hpp"
 #include "map.hpp"
+// ===== 拍卖行系统：开始 =====
+#include "auction_custom.hpp"
+// ===== 拍卖行系统：结束 =====
 #include "mercenary.hpp"
 #include "mob.hpp"
 #include "npc.hpp"
@@ -26526,6 +26529,196 @@ void clif_autoplay_walk_step(const map_session_data& sd, int16 from_x, int16 fro
 	clif_send(&packet, sizeof(packet), &sd, SELF);
 }
 // ===== 挂机系统：结束 =====
+
+// ===== 拍卖行系统：开始 =====
+// Wire format and parameter semantics:
+// nostalro-client/docs/auction-house-design-2026-11-11.md §2/§7.
+
+bool clif_auction_capability(const map_session_data& sd) {
+	return sd.auction_supported;
+}
+
+void clif_auction_send_open_ack(map_session_data& sd, uint8 result, uint8 reason) {
+	if (!sd.auction_supported || sd.fd == 0)
+		return;
+	const int32 fd = sd.fd;
+	PACKET_ZC_AUCTION_OPEN_ACK packet{};
+	packet.packetType = HEADER_ZC_AUCTION_OPEN_ACK;
+	packet.result = result;
+	packet.reason = reason;
+	packet.my_listings = 0;
+	packet.my_bids = 0;
+	packet.fee_permille = static_cast<uint16>(battle_config.auction_fee_permille);
+	packet.cash_fee_permille = static_cast<uint16>(battle_config.auction_cash_fee_permille);
+	const int32 durations[AUCTION_MAX_DURATION_SLOTS] = {
+		battle_config.auction_duration1, battle_config.auction_duration2,
+		battle_config.auction_duration3, battle_config.auction_duration4,
+		battle_config.auction_duration5,
+	};
+	uint8 duration_count = 0;
+	for (int32 hours : durations) {
+		if (hours > 0 && hours <= 255 && duration_count < AUCTION_MAX_DURATION_SLOTS)
+			packet.durations[duration_count++] = static_cast<uint8>(hours);
+	}
+	packet.duration_count = duration_count;
+	packet.max_listings = static_cast<uint16>(battle_config.auction_max_listings);
+	packet.min_increment = static_cast<uint32>(battle_config.auction_min_increment);
+	packet.cash_balance = static_cast<uint32>(sd.cashPoints);
+	WFIFOHEAD(fd, sizeof(packet));
+	memcpy(WFIFOP(fd, 0), &packet, sizeof(packet));
+	WFIFOSET(fd, sizeof(packet));
+}
+
+void clif_auction_send_result(map_session_data& sd, uint8 operation, uint8 result, uint8 reason, uint32 auction_id, uint32 value) {
+	if (!sd.auction_supported || sd.fd == 0)
+		return;
+	const int32 fd = sd.fd;
+	PACKET_ZC_AUCTION_RESULT packet{};
+	packet.packetType = HEADER_ZC_AUCTION_RESULT;
+	packet.operation = operation;
+	packet.result = result;
+	packet.reason = reason;
+	packet.reserved = 0;
+	packet.auctionId = auction_id;
+	packet.value = value;
+	WFIFOHEAD(fd, sizeof(packet));
+	memcpy(WFIFOP(fd, 0), &packet, sizeof(packet));
+	WFIFOSET(fd, sizeof(packet));
+}
+
+void clif_auction_send_notify(map_session_data& sd, uint8 event, uint8 reason, uint32 auction_id, uint32 value) {
+	if (!sd.auction_supported || sd.fd == 0)
+		return;
+	const int32 fd = sd.fd;
+	PACKET_ZC_AUCTION_NOTIFY packet{};
+	packet.packetType = HEADER_ZC_AUCTION_NOTIFY;
+	packet.event = event;
+	packet.reason = reason;
+	packet.reserved = 0;
+	packet.auctionId = auction_id;
+	packet.value = value;
+	WFIFOHEAD(fd, sizeof(packet));
+	memcpy(WFIFOP(fd, 0), &packet, sizeof(packet));
+	WFIFOSET(fd, sizeof(packet));
+}
+
+// Capability + permission gate shared by the business operations. Returns
+// false (after an optional receipt) when the request must not proceed.
+static bool clif_auction_gate(map_session_data* sd, uint8 operation, bool reply) {
+	if (sd == nullptr || !sd->auction_supported)
+		return false;
+	if (!battle_config.auction_enable) {
+		if (reply)
+			clif_auction_send_result(*sd, operation, AUCTION_RESULT_FAIL, AUCTION_REASON_DISABLED, 0, 0);
+		return false;
+	}
+	if (!pc_has_permission(sd, PC_PERM_TRADE)) {
+		if (reply)
+			clif_auction_send_result(*sd, operation, AUCTION_RESULT_FAIL, AUCTION_REASON_NO_PERMISSION, 0, 0);
+		return false;
+	}
+	return true;
+}
+
+void clif_parse_auction_open(int32 fd, map_session_data* sd) {
+	if (sd == nullptr)
+		return;
+	// Handshake doubles as the capability opt-in: magic/version must match,
+	// otherwise the session loses all auction privileges (stock clients and
+	// modified clients that do not speak v1 are treated identically).
+	if (RFIFOL(fd, 2) != AUCTION_PROTOCOL_MAGIC || RFIFOW(fd, 6) != AUCTION_PROTOCOL_VERSION) {
+		sd->auction_supported = false;
+		return;
+	}
+	sd->auction_supported = true;
+	if (!battle_config.auction_enable) {
+		clif_auction_send_open_ack(*sd, AUCTION_RESULT_FAIL, AUCTION_REASON_DISABLED);
+		return;
+	}
+	if (!pc_has_permission(sd, PC_PERM_TRADE)) {
+		clif_auction_send_open_ack(*sd, AUCTION_RESULT_FAIL, AUCTION_REASON_NO_PERMISSION);
+		return;
+	}
+	clif_auction_send_open_ack(*sd, AUCTION_RESULT_OK, AUCTION_REASON_OK);
+}
+
+// R1 skeleton: business operations run the capability/permission gate and
+// answer with an explicit "not yet implemented" receipt (reason=INTERNAL) so
+// the client can verify the full round trip end to end. The escrow/bid/
+// settle core lands in R2 (src/map/auction_custom.cpp + int_auction_custom).
+void clif_parse_auction_search(int32 fd, map_session_data* sd) {
+	if (!clif_auction_gate(sd, AUCTION_OP_SEARCH, true))
+		return;
+	PACKET_CZ_AUCTION_SEARCH pkt{};
+	pkt.type = RFIFOB(fd, 2);
+	pkt.refineMin = RFIFOB(fd, 3);
+	pkt.refineMax = RFIFOB(fd, 4);
+	pkt.priceMin = RFIFOL(fd, 5);
+	pkt.priceMax = RFIFOL(fd, 9);
+	pkt.sort = RFIFOB(fd, 13);
+	pkt.currency = RFIFOB(fd, 14);
+	pkt.page = RFIFOW(fd, 15);
+	pkt.nameidCount = RFIFOB(fd, 17);
+	if (pkt.currency != AUCTION_CURRENCY_ANY && pkt.currency > AUCTION_CURRENCY_CASH) {
+		clif_auction_send_result(*sd, AUCTION_OP_SEARCH, AUCTION_RESULT_FAIL, AUCTION_REASON_INVALID_PRICE, 0, 0);
+		return;
+	}
+	if (pkt.nameidCount > AUCTION_MAX_NAMEID_FILTERS) {
+		clif_auction_send_result(*sd, AUCTION_OP_SEARCH, AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, 0, 0);
+		return;
+	}
+	memcpy(pkt.nameids, RFIFOP(fd, 18), sizeof(pkt.nameids));
+	auction_custom::request_search(*sd, pkt);
+}
+
+void clif_parse_auction_detail(int32 fd, map_session_data* sd) {
+	if (!clif_auction_gate(sd, AUCTION_OP_DETAIL, true))
+		return;
+	auction_custom::request_detail(*sd, RFIFOL(fd, 2));
+}
+
+void clif_parse_auction_register(int32 fd, map_session_data* sd) {
+	if (!clif_auction_gate(sd, AUCTION_OP_REGISTER, true))
+		return;
+	const uint8 duration_idx = RFIFOB(fd, 14);
+	const uint8 currency = RFIFOB(fd, 15);
+	if (currency > AUCTION_CURRENCY_CASH || duration_idx >= AUCTION_MAX_DURATION_SLOTS) {
+		clif_auction_send_result(*sd, AUCTION_OP_REGISTER, AUCTION_RESULT_FAIL, AUCTION_REASON_INVALID_PRICE, 0, 0);
+		return;
+	}
+	auction_custom::request_register(*sd, RFIFOW(fd, 2), RFIFOW(fd, 4), RFIFOL(fd, 6), RFIFOL(fd, 10), duration_idx, currency);
+}
+
+void clif_parse_auction_cancel(int32 fd, map_session_data* sd) {
+	if (!clif_auction_gate(sd, AUCTION_OP_CANCEL, true))
+		return;
+	auction_custom::request_cancel(*sd, RFIFOL(fd, 2));
+}
+
+void clif_parse_auction_bid(int32 fd, map_session_data* sd) {
+	if (!clif_auction_gate(sd, AUCTION_OP_BID, true))
+		return;
+	auction_custom::request_bid(*sd, RFIFOL(fd, 2), RFIFOL(fd, 6));
+}
+
+void clif_parse_auction_buy_now(int32 fd, map_session_data* sd) {
+	if (!clif_auction_gate(sd, AUCTION_OP_BUY_NOW, true))
+		return;
+	auction_custom::request_buy_now(*sd, RFIFOL(fd, 2));
+}
+
+void clif_parse_auction_my_listings(int32 fd, map_session_data* sd) {
+	if (!clif_auction_gate(sd, AUCTION_OP_MY_LISTINGS, true))
+		return;
+	auction_custom::request_my_listings(*sd, RFIFOW(fd, 2));
+}
+
+void clif_parse_auction_my_bids(int32 fd, map_session_data* sd) {
+	if (!clif_auction_gate(sd, AUCTION_OP_MY_BIDS, true))
+		return;
+	auction_custom::request_my_bids(*sd, RFIFOW(fd, 2));
+}
+// ===== 拍卖行系统：结束 =====
 
 void do_init_clif(void) {
 	const int32 colors[COLOR_MAX] = {

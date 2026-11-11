@@ -41,6 +41,18 @@ int32 intif_saveregistry(map_session_data *sd);
 // ===== 挂机系统：开始 =====
 bool intif_autoplay_request(uint32 char_id);
 bool intif_autoplay_save(uint32 char_id, const s_autoplay_config& config);
+
+// ===== 拍卖行系统：开始 =====
+struct PACKET_CZ_AUCTION_SEARCH;
+bool intif_auction_search(map_session_data& sd, uint8 scope, uint16 page, uint8 currency, uint8 type, uint8 refine_min, uint8 refine_max, uint32 price_min, uint32 price_max, uint8 sort, uint8 nameid_count, const uint16* nameids);
+bool intif_auction_my_page(map_session_data& sd, uint8 scope, uint16 page);
+bool intif_auction_escrow(map_session_data& sd, uint64 txid, uint32 price, uint32 buy_now, uint8 currency, uint8 duration_h, uint16 fee_permille, uint16 deposit_permille, const struct item& it, uint8 item_type, uint8 cap);
+bool intif_auction_commit(uint64 txid, uint32 auction_id);
+bool intif_auction_bid(map_session_data& sd, uint32 auction_id, uint32 price, uint8 currency, uint32 min_increment, uint8 min_increment_percent);
+bool intif_auction_op(map_session_data* sd, uint8 op, uint32 char_id, uint32 auction_id, uint32 price, uint8 currency);
+bool intif_auction_probe_reply(uint64 txid, uint8 alive);
+bool intif_auction_cash_reply(uint32 char_id, uint32 auction_id, uint8 result);
+// ===== 拍卖行系统：结束 =====
 // ===== 挂机系统：结束 =====
 int32 intif_request_registry(map_session_data *sd, int32 flag);
 

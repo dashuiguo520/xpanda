@@ -91,6 +91,8 @@ Thumbs.db
 /src/custom/*
 !/src/custom/autoplay_packets.hpp
 !/src/custom/autoplay_packetdb.inc
+!/src/custom/auction_packets.hpp
+!/src/custom/auction_packetdb.inc
 
 # /src/login/
 /src/login/Makefile

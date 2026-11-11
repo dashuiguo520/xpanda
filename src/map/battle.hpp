@@ -792,6 +792,32 @@ struct Battle_Config
 	// ===== 挂机系统：开始 =====
 	int32 autoplay_search_range;
 	// ===== 挂机系统：结束 =====
+	// ===== 拍卖行系统：开始 =====
+	// All knobs live in conf/battle/auction.conf; see the design doc §7 for
+	// the documented defaults. Durations are five sorted hour slots, 0=unused.
+	int32 auction_enable;
+	int32 auction_allow_cash;
+	int32 auction_fee_permille;
+	int32 auction_cash_fee_permille;
+	int32 auction_deposit_permille;
+	int32 auction_duration1;
+	int32 auction_duration2;
+	int32 auction_duration3;
+	int32 auction_duration4;
+	int32 auction_duration5;
+	int32 auction_max_listings;
+	int32 auction_min_price;
+	int32 auction_min_increment;
+	int32 auction_min_increment_percent;
+	int32 auction_buynow_min_ratio;
+	int32 auction_ban_bound_items;
+	int32 auction_allow_named_items;
+	int32 auction_ban_rental_items;
+	int32 auction_settle_scan_interval;
+	int32 auction_register_interval;
+	int32 auction_search_interval;
+	int32 auction_bid_interval;
+	// ===== 拍卖行系统：结束 =====
 
 #include <custom/battle_config_struct.inc>
 };

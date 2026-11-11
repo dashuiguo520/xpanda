@@ -27,6 +27,9 @@
 #include "atcommand.hpp"
 // ===== 挂机系统：开始 =====
 #include "autoplay.hpp"
+// ===== 拍卖行系统：开始 =====
+#include "auction_custom.hpp"
+// ===== 拍卖行系统：结束 =====
 // ===== 挂机系统：结束 =====
 #include "battle.hpp"
 #include "battleground.hpp"
@@ -5092,6 +5095,9 @@ void MapServer::finalize(){
 	// ===== 挂机系统：开始 =====
 	do_final_autoplay();
 	// ===== 挂机系统：结束 =====
+	// ===== 拍卖行系统：开始 =====
+	auction_custom::do_final_auction_custom();
+	// ===== 拍卖行系统：结束 =====
 	do_final_battle();
 	do_final_chrif();
 	do_final_clan();
@@ -5476,6 +5482,9 @@ bool MapServer::initialize( int32 argc, char *argv[] ){
 	// ===== 挂机系统：开始 =====
 	do_init_autoplay();
 	// ===== 挂机系统：结束 =====
+	// ===== 拍卖行系统：开始 =====
+	auction_custom::do_init_auction_custom();
+	// ===== 拍卖行系统：结束 =====
 	do_init_battle();
 	do_init_instance();
 	do_init_chrif();

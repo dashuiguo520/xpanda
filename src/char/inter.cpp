@@ -30,6 +30,9 @@
 #include "int_achievement.hpp"
 // ===== 挂机系统：开始 =====
 #include "int_autoplay.hpp"
+// ===== 拍卖行系统：开始 =====
+#include "int_auction_custom.hpp"
+// ===== 拍卖行系统：结束 =====
 // ===== 挂机系统：结束 =====
 #include "int_auction.hpp"
 #include "int_clan.hpp"
@@ -85,6 +88,9 @@ int32 inter_recv_packet_length[] = {
 	// ===== 挂机系统：开始 =====
 	 6, static_cast<int32>(6 + sizeof(s_autoplay_config)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	// 30B0-  Autoplay
 	// ===== 挂机系统：结束 =====
+	// ===== 拍卖行系统：开始 =====
+	151,111, 14,15,  0,11, 16,11,  0, 0, 0, 0,  0, 0,  0, 0,	// 30B2-  Auction house (B6 unused; B7 probe reply)
+	// ===== 拍卖行系统：结束 =====
 };
 
 #ifndef WHISPER_MESSAGE_SIZE
@@ -991,6 +997,10 @@ uint64 InterServerDatabase::parseBodyNode( const ryml::NodeRef& node ){
 // initialize
 int32 inter_init_sql(const char *file)
 {
+	// ===== 拍卖行系统：开始 =====
+	int_auction_custom_init();
+	// ===== 拍卖行系统：结束 =====
+
 	inter_config_read(file);
 
 	//DB connection initialized
@@ -1030,6 +1040,10 @@ int32 inter_init_sql(const char *file)
 // finalize
 void inter_final(void)
 {
+	// ===== 拍卖行系统：开始 =====
+	int_auction_custom_final();
+	// ===== 拍卖行系统：结束 =====
+
 	wis_db.clear();
 
 	inter_guild_sql_final();
@@ -1469,12 +1483,15 @@ int32 inter_parse_frommap(int32 fd)
 		  || inter_mercenary_parse_frommap(fd)
 		  || inter_elemental_parse_frommap(fd)
 		  || inter_mail_parse_frommap(fd)
-		  || inter_auction_parse_frommap(fd)
+		  || inter_auction_custom_parse_frommap(fd)
 		  || inter_quest_parse_frommap(fd)
 		  || inter_clan_parse_frommap(fd)
 		  || inter_achievement_parse_frommap(fd)
 		  // ===== 挂机系统：开始 =====
 		  || inter_autoplay_parse_frommap(fd)
+		  // ===== 拍卖行系统：开始 =====
+		  || inter_auction_custom_parse_frommap(fd)
+		  // ===== 拍卖行系统：结束 =====
 		  // ===== 挂机系统：结束 =====
 		   )
 			break;

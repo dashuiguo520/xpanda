@@ -2,6 +2,10 @@
 // For more information, see LICENCE in the main folder
 
 #include "intif.hpp"
+// ===== 拍卖行系统：开始 =====
+#include "auction_custom.hpp"
+#include <common/auction.hpp>
+// ===== 拍卖行系统：结束 =====
 
 #include <cstdlib>
 
@@ -53,7 +57,7 @@ static const int32 packet_len_table[] = {
 	-1,-1, 7, 3,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0,  0, 0, //0x3890  Homunculus [albator]
 	-1,-1, 8, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0,  0, 0, //0x38A0  Clans
 	// ===== 挂机系统：开始 =====
-	static_cast<int32>(7 + sizeof(s_autoplay_config)),11,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, //0x38B0 Autoplay
+	static_cast<int32>(7 + sizeof(s_autoplay_config)),11,-1,-1, -1,-1,-1,-1, -1,-1,0,0, 0,0,0,0, //0x38B0 Autoplay / Auction house (all auction replies variable len.W)
 	// ===== 挂机系统：结束 =====
 };
 
@@ -3783,6 +3787,166 @@ bool intif_autoplay_save(uint32 char_id, const s_autoplay_config& config) {
 	return true;
 }
 
+// ===== 拍卖行系统：开始 =====
+// Wire layouts are documented in src/map/auction_custom.cpp.
+bool intif_auction_search(map_session_data& sd, uint8 scope, uint16 page, uint8 currency, uint8 type, uint8 refine_min, uint8 refine_max, uint32 price_min, uint32 price_max, uint8 sort, uint8 nameid_count, const uint16* nameids) {
+	if (CheckForCharServer()) return false;
+	const uint8 count = (nameids != nullptr && nameid_count > AUCTION_MAX_NAMEID_FILTERS) ? AUCTION_MAX_NAMEID_FILTERS : nameid_count;
+	WFIFOHEAD(inter_fd, 151);
+	WFIFOW(inter_fd, 0) = 0x30B2;
+	WFIFOL(inter_fd, 2) = sd.status.char_id;
+	WFIFOW(inter_fd, 6) = page;
+	WFIFOB(inter_fd, 8) = scope;
+	WFIFOB(inter_fd, 9) = currency;
+	WFIFOB(inter_fd, 10) = type;
+	WFIFOB(inter_fd, 11) = refine_min;
+	WFIFOB(inter_fd, 12) = refine_max;
+	WFIFOL(inter_fd, 13) = price_min;
+	WFIFOL(inter_fd, 17) = price_max;
+	WFIFOB(inter_fd, 21) = sort;
+	WFIFOB(inter_fd, 22) = count;
+	if (count > 0)
+		memcpy(WFIFOP(inter_fd, 23), nameids, count * sizeof(uint16));
+	memset(WFIFOP(inter_fd, 23 + count * sizeof(uint16)), 0, (64 - count) * sizeof(uint16));
+	WFIFOSET(inter_fd, 151);
+	return true;
+}
+
+bool intif_auction_my_page(map_session_data& sd, uint8 scope, uint16 page) {
+	if (CheckForCharServer()) return false;
+	WFIFOHEAD(inter_fd, 151);
+	WFIFOW(inter_fd, 0) = 0x30B2;
+	WFIFOL(inter_fd, 2) = sd.status.char_id;
+	WFIFOW(inter_fd, 6) = page;
+	WFIFOB(inter_fd, 8) = scope;
+	WFIFOB(inter_fd, 9) = AUCTION_CURRENCY_ANY;
+	WFIFOB(inter_fd, 10) = 0xFF;
+	WFIFOB(inter_fd, 11) = 0;
+	WFIFOB(inter_fd, 12) = 0xFF;
+	WFIFOL(inter_fd, 13) = 0;
+	WFIFOL(inter_fd, 17) = 0;
+	WFIFOB(inter_fd, 21) = 0;
+	WFIFOB(inter_fd, 22) = 0;
+	memset(WFIFOP(inter_fd, 23), 0, 128);
+	WFIFOSET(inter_fd, 151);
+	return true;
+}
+
+bool intif_auction_escrow(map_session_data& sd, uint64 txid, uint32 price, uint32 buy_now, uint8 currency, uint8 duration_h, uint16 fee_permille, uint16 deposit_permille, const struct item& it, uint8 item_type, uint8 cap) {
+	if (CheckForCharServer()) return false;
+	WFIFOHEAD(inter_fd, 111);
+	WFIFOW(inter_fd, 0) = 0x30B3;
+	WFIFOL(inter_fd, 2) = sd.status.char_id;
+	WFIFOL(inter_fd, 6) = static_cast<uint32>(txid & 0xFFFFFFFFu);
+	WFIFOL(inter_fd, 10) = static_cast<uint32>((txid >> 32) & 0xFFFFFFFFu);
+	WFIFOL(inter_fd, 14) = price;
+	WFIFOL(inter_fd, 18) = buy_now;
+	WFIFOB(inter_fd, 22) = currency;
+	WFIFOB(inter_fd, 23) = duration_h;
+	WFIFOW(inter_fd, 24) = fee_permille;
+	WFIFOW(inter_fd, 26) = deposit_permille;
+	WFIFOW(inter_fd, 28) = AUCTION_ITEM_BLOB_VERSION;
+	memcpy(WFIFOP(inter_fd, 30), &it, AUCTION_ITEM_BLOB_SIZE);
+	WFIFOB(inter_fd, 107) = item_type;
+	WFIFOB(inter_fd, 108) = cap;
+	memset(WFIFOP(inter_fd, 109), 0, 2); // reserved tail
+	WFIFOSET(inter_fd, 111);
+	return true;
+}
+
+bool intif_auction_commit(uint64 txid, uint32 auction_id) {
+	if (CheckForCharServer()) return false;
+	WFIFOHEAD(inter_fd, 14);
+	WFIFOW(inter_fd, 0) = 0x30B4;
+	WFIFOL(inter_fd, 2) = static_cast<uint32>(txid & 0xFFFFFFFFu);
+	WFIFOL(inter_fd, 6) = static_cast<uint32>((txid >> 32) & 0xFFFFFFFFu);
+	WFIFOL(inter_fd, 10) = auction_id;
+	WFIFOSET(inter_fd, 14);
+	return true;
+}
+
+bool intif_auction_bid(map_session_data& sd, uint32 auction_id, uint32 price, uint8 currency, uint32 min_increment, uint8 min_increment_percent) {
+	if (CheckForCharServer()) return false;
+	WFIFOHEAD(inter_fd, 20);
+	WFIFOW(inter_fd, 0) = 0x30B5;
+	WFIFOL(inter_fd, 2) = auction_id;
+	WFIFOL(inter_fd, 6) = sd.status.char_id;
+	WFIFOL(inter_fd, 10) = price;
+	WFIFOB(inter_fd, 14) = currency;
+	WFIFOL(inter_fd, 15) = min_increment;
+	WFIFOB(inter_fd, 19) = min_increment_percent;
+	WFIFOSET(inter_fd, 20);
+	return true;
+}
+
+bool intif_auction_op(map_session_data* sd, uint8 op, uint32 char_id, uint32 auction_id, uint32 price, uint8 currency) {
+	if (CheckForCharServer()) return false;
+	WFIFOHEAD(inter_fd, 16);
+	WFIFOW(inter_fd, 0) = 0x30B8;
+	WFIFOB(inter_fd, 2) = op;
+	WFIFOL(inter_fd, 3) = char_id;
+	WFIFOL(inter_fd, 7) = auction_id;
+	WFIFOL(inter_fd, 11) = price;
+	WFIFOB(inter_fd, 15) = currency;
+	WFIFOSET(inter_fd, 16);
+	return true;
+}
+
+bool intif_auction_probe_reply(uint64 txid, uint8 alive) {
+	if (CheckForCharServer()) return false;
+	WFIFOHEAD(inter_fd, 11);
+	WFIFOW(inter_fd, 0) = 0x30B7;
+	WFIFOL(inter_fd, 2) = static_cast<uint32>(txid & 0xFFFFFFFFu);
+	WFIFOL(inter_fd, 6) = static_cast<uint32>((txid >> 32) & 0xFFFFFFFFu);
+	WFIFOB(inter_fd, 10) = alive;
+	WFIFOSET(inter_fd, 11);
+	return true;
+}
+
+bool intif_auction_cash_reply(uint32 char_id, uint32 auction_id, uint8 result) {
+	if (CheckForCharServer()) return false;
+	WFIFOHEAD(inter_fd, 11);
+	WFIFOW(inter_fd, 0) = 0x30B9;
+	WFIFOL(inter_fd, 2) = char_id;
+	WFIFOL(inter_fd, 6) = auction_id;
+	WFIFOB(inter_fd, 10) = result;
+	WFIFOSET(inter_fd, 11);
+	return true;
+}
+
+static void intif_parse_auction_search(int32 fd) {
+	auction_custom::on_search_or_detail(fd);
+}
+
+static void intif_parse_auction_escrow_ack(int32 fd) {
+	auction_custom::on_escrow_ack(fd);
+}
+
+static void intif_parse_auction_commit_ack(int32 fd) {
+	auction_custom::on_commit_ack(fd);
+}
+
+static void intif_parse_auction_bid_ack(int32 fd) {
+	auction_custom::on_bid_ack(fd);
+}
+
+static void intif_parse_auction_notify_forward(int32 fd) {
+	auction_custom::on_notify_forward(fd);
+}
+
+static void intif_parse_auction_txid_probe(int32 fd) {
+	auction_custom::on_txid_probe(fd);
+}
+
+static void intif_parse_auction_op_ack(int32 fd) {
+	auction_custom::on_op_ack(fd);
+}
+
+static void intif_parse_auction_cash_payout(int32 fd) {
+	auction_custom::on_cash_payout(fd);
+}
+// ===== 拍卖行系统：结束 =====
+
 static void intif_parse_autoplay_load(int32 fd) {
 	// ===== 挂机配置最终回执：开始 =====
 	// 修改原因：首次CONFIG_GET可能先返回未加载，数据库加载完成必须主动同步。
@@ -3941,6 +4105,16 @@ int32 intif_parse(int32 fd)
 	case 0x38B0:	intif_parse_autoplay_load(fd); break;
 	case 0x38B1:	intif_parse_autoplay_save(fd); break;
 	// ===== 挂机系统：结束 =====
+	// ===== 拍卖行系统：开始 =====
+	case 0x38B2:	intif_parse_auction_search(fd); break;
+	case 0x38B3:	intif_parse_auction_escrow_ack(fd); break;
+	case 0x38B4:	intif_parse_auction_commit_ack(fd); break;
+	case 0x38B5:	intif_parse_auction_bid_ack(fd); break;
+	case 0x38B6:	intif_parse_auction_notify_forward(fd); break;
+	case 0x38B7:	intif_parse_auction_txid_probe(fd); break;
+	case 0x38B8:	intif_parse_auction_op_ack(fd); break;
+	case 0x38B9:	intif_parse_auction_cash_payout(fd); break;
+	// ===== 拍卖行系统：结束 =====
 
 	default:
 		ShowError("intif_parse : unknown packet %d %x\n",fd,RFIFOW(fd,0));

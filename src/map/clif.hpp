@@ -68,9 +68,10 @@ enum e_runereward_result : uint8_t;
 
 enum e_PacketDBVersion { // packet DB
 	MIN_PACKET_DB  = 0x064,
-	// Official IDs remain below this bound; autoplay uses 0x7E00..0x7E08.
+	// Official IDs remain below this bound; autoplay uses 0x7E00..0x7E08 and
+	// the auction house uses 0x7E20..0x7E3F (project-local ranges).
 	MAX_OFFICIAL_PACKET_DB = 0xCFF,
-	MAX_PACKET_DB  = 0x7E08,
+	MAX_PACKET_DB  = 0x7E3F,
 #if !defined(MAX_PACKET_POS)
 	MAX_PACKET_POS = 20,
 #endif
@@ -1611,6 +1612,23 @@ void clif_parse_autoplay_status_get(int32 fd, map_session_data* sd);
 void clif_parse_autoplay_walk_to(int32 fd, map_session_data* sd);
 void clif_autoplay_walk_step(const map_session_data& sd, int16 from_x, int16 from_y, int16 to_x, int16 to_y, uint16 duration);
 // ===== 挂机系统：结束 =====
+
+// ===== 拍卖行系统：开始 =====
+// Wire format: nostalro-client/docs/auction-house-design-2026-11-11.md §2.
+void clif_parse_auction_open(int32 fd, map_session_data* sd);
+void clif_parse_auction_search(int32 fd, map_session_data* sd);
+void clif_parse_auction_detail(int32 fd, map_session_data* sd);
+void clif_parse_auction_register(int32 fd, map_session_data* sd);
+void clif_parse_auction_cancel(int32 fd, map_session_data* sd);
+void clif_parse_auction_bid(int32 fd, map_session_data* sd);
+void clif_parse_auction_buy_now(int32 fd, map_session_data* sd);
+void clif_parse_auction_my_listings(int32 fd, map_session_data* sd);
+void clif_parse_auction_my_bids(int32 fd, map_session_data* sd);
+void clif_auction_send_open_ack(map_session_data& sd, uint8 result, uint8 reason);
+void clif_auction_send_result(map_session_data& sd, uint8 operation, uint8 result, uint8 reason, uint32 auction_id, uint32 value);
+void clif_auction_send_notify(map_session_data& sd, uint8 event, uint8 reason, uint32 auction_id, uint32 value);
+bool clif_auction_capability(const map_session_data& sd);
+// ===== 拍卖行系统：结束 =====
 // ===== rAthena 移植 Pandas GoldPC 客户端接口：结束 =====
 
 // ===== rAthena 移植 Pandas 符文石板客户端接口：开始 =====
