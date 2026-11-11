@@ -86,10 +86,10 @@ int32 inter_recv_packet_length[] = {
 	-1,10,-1, 6,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0,  0, 0,	// 3090-  Homunculus packets [albator]
 	 2,-1, 6, 6,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0,  0, 0,	// 30A0-  Clan packets
 	// ===== 挂机系统：开始 =====
-	 6, static_cast<int32>(6 + sizeof(s_autoplay_config)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	// 30B0-  Autoplay
+	 6, static_cast<int32>(6 + sizeof(s_autoplay_config)),
 	// ===== 挂机系统：结束 =====
 	// ===== 拍卖行系统：开始 =====
-	151,111, 14,15,  0,11, 16,11,  0, 0, 0, 0,  0, 0,  0, 0,	// 30B2-  Auction house (B6 unused; B7 probe reply)
+	 151,111, 14,20,  0,11, 16,11,  0, 0,  0, 0,  0, 0,	// 30B0-  Autoplay(B0/B1) + Auction house(B2-B9; B6 unused; sizes = WFIFOSET)
 	// ===== 拍卖行系统：结束 =====
 };
 

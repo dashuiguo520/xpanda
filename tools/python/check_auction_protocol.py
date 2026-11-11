@@ -110,6 +110,43 @@ for value, row in ((0x7E31, 45), (0x7E34, 46), (0x7E35, 46)):
         rf"0x{value:04x} if frame\.len\(\) >= 9 && \(frame\.len\(\) - 9\) % {row} == 0", protocol
     ), f"Client variable-page arm missing: {value:04x}"
 assert 'bytes.extend_from_slice(b"AUCT");' in sender
+
+# Inter length tables: the map->char entries must land at the right indices in
+# char's inter_recv_packet_length (rows are positional; a misaligned row
+# silently breaks the whole map<->char stream) and must equal the builder's
+# WFIFOSET size. Map's packet_len_table must keep the 0x38B2-B9 replies
+# variable (-1) as the builders write len.W.
+inter_src = (server / "src/char/inter.cpp").read_text(encoding="utf-8", errors="replace")
+tbl = re.search(r"inter_recv_packet_length\[\] = \{(.*?)\};", inter_src, re.S).group(1)
+tbl = re.sub(r"//[^\n]*", "", tbl)
+elems = [e.strip() for e in tbl.split(",") if e.strip()]
+assert len(elems) == 192, f"char inter length table drifted: {len(elems)} entries (want 192)"
+assert "sizeof(s_autoplay_config)" in elems[0xB1], "autoplay cfg slot moved"
+builders = {
+    "intif_auction_search": 0xB2,
+    "intif_auction_escrow": 0xB3,
+    "intif_auction_commit": 0xB4,
+    "intif_auction_bid": 0xB5,
+    "intif_auction_probe_reply": 0xB7,
+    "intif_auction_op": 0xB8,
+    "intif_auction_cash_reply": 0xB9,
+}
+for fn, slot in builders.items():
+    src = (server / "src/map/intif.cpp").read_text(encoding="utf-8", errors="replace")
+    m = re.search(rf"bool {fn}\(.*?WFIFOSET\(inter_fd,\s*(\d+)\)", src, re.S)
+    assert m, f"WFIFOSET not found: {fn}"
+    size = int(m.group(1))
+    assert elems[slot] == str(size), (
+        f"inter length table slot 0x30{slot:02X} = {elems[slot]!r} but {fn} sends {size}"
+    )
+assert elems[0xB6] == "0", "0x30B6 is unused and must stay 0"
+mapintif = (server / "src/map/intif.cpp").read_text(encoding="utf-8", errors="replace")
+mtbl = re.search(r"packet_len_table\[\] = \{(.*?)\};", mapintif, re.S).group(1)
+mtbl = re.sub(r"//[^\n]*", "", mtbl)
+melems = [e.strip() for e in mtbl.split(",") if e.strip()]
+for slot in range(0xB2, 0xBA):
+    assert melems[slot] == "-1", f"map reply table slot 0x38{slot:02X} must be -1 (variable), got {melems[slot]!r}"
 print("PASS: auction IDs (CZ 0x7E20-28, ZC 0x7E30-36), upstream + inter collision scan,")
 print("      handshake/gate wiring, enable default off, DDL present,")
-print("      client request/ZC lengths, variable-page arms, builders, AUCT handshake")
+print("      client request/ZC lengths, variable-page arms, builders, AUCT handshake,")
+print("      inter length tables (char slots aligned to WFIFOSET, map replies variable)")
