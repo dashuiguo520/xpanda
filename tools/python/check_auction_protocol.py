@@ -271,6 +271,32 @@ assert 'ShowError("auction detail: char reply body' in map_detail, (
     "a dropped detail reply must be logged, not silently discarded"
 )
 
+# ---- Outgoing mail text must be in the data codepage --------------------
+# The UTF-8 literal "拍卖行" (E6 8B 8D E5 8D 96 E8 A1 8C) read as GBK leaves a
+# dangling 0x8C, so MySQL rejected every auction mail with
+#   Incorrect string value: '\x8C' for column 'send_name'
+# and the rollback took the listing with it. Both mail helpers must translate
+# their literals first, and the char-side insert must repair (and log) anything
+# that is still not valid in the connection codepage.
+assert "convert_utf8_file_content" in char_auction_src
+for helper in ("bool mail_zeny(", "bool mail_item("):
+    body = body_at(char_auction_src, helper)
+    assert "data_text(" in body, f"{helper} must convert its literals to the data codepage"
+assert not re.search(r'mail_sendmail\([^;\n]*"[^"\n]*[\u4e00-\u9fff][^"\n]*"', char_auction_src), (
+    "a raw CJK literal must never reach mail_sendmail: convert it with data_text() first"
+)
+int_mail_src = (server / "src/char/int_mail.cpp").read_text(encoding="utf-8")
+for field in ("send_name", "dest_name", "title", "body"):
+    assert f"normalize_data_text(msg->{field}" in int_mail_src, (
+        f"mail_savemessage must normalise the `{field}` field before binding"
+    )
+assert "BindParam(0, SQLDT_STRING, const_cast<char*>(send_name.c_str())" in int_mail_src, (
+    "the insert must bind the normalised buffer, not the raw struct field"
+)
+assert "mail_warn_text_repair" in int_mail_src, (
+    "a repaired field must be logged so the broken caller can be found"
+)
+
 print("PASS: auction IDs (CZ 0x7E20-29, ZC 0x7E30-37), upstream + inter collision scan,")
 print("      handshake/gate wiring, enable default off, DDL present,")
 print("      client request/ZC lengths, variable-page arms, builders, AUCT handshake,")
@@ -278,4 +304,5 @@ print("      inter length tables (char slots aligned to WFIFOSET, map replies va
 print("      v2 atomic batch packets + handshake version 2,")
 print("      browse type tabs incl. the 0xFE consumable group,")
 print("      descending-slot batch deletion with the pc_delitem 0=success rule,")
-print("      auctionId-first detail body pinned to the ZC struct")
+print("      auctionId-first detail body pinned to the ZC struct,")
+print("      auction mail text in the data codepage + char-side repair/log guard")

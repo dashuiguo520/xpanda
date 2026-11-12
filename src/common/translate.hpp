@@ -24,6 +24,12 @@ void set_console_data_encoding( const char* encoding );
 std::string normalize_console_output( const char* text, size_t length );
 // ===== 终端动态文本编码桥接 结束 =====
 
+// ===== 数据代码页文本守卫 开始 =====
+// 修改内容/原因：SQL 列与客户端文本都使用连接代码页；混入的 UTF-8 字面量或被截断的双字节字符会让整条 INSERT 失败并回滚业务事务（如拍卖邮件连同物品）。提供校验与修复入口。
+bool data_text_is_valid( const char* text, size_t length );
+std::string normalize_data_text( const char* text, size_t length );
+// ===== 数据代码页文本守卫 结束 =====
+
 // ===== UTF-8 配置与脚本读取支持 开始 =====
 // 修改内容/原因：为配置、YAML 数据及 NPC 脚本提供统一的 UTF-8（含 BOM）识别和内部代码页转换入口，默认直接启用。
 std::string convert_utf8_file_content( const char* text, size_t length, bool preserve_utf8 = false );

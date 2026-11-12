@@ -356,6 +356,63 @@ std::string normalize_console_output( const char* text, size_t length ) {
 }
 // ===== 终端动态文本编码桥接 结束 =====
 
+// ===== 数据代码页文本守卫 开始 =====
+// 修改内容/原因：调用方可能把 UTF-8 字面量或截断的双字节名字送进 SQL/客户端缓冲区；这里给出统一的“能否被当前数据代码页接受”判断与修复，避免整条语句失败。
+bool data_text_is_valid( const char* text, size_t length ) {
+	if( text == nullptr || length == 0 ) {
+		return true;
+	}
+#ifdef _WIN32
+	if( length > static_cast<size_t>( INT_MAX ) ) {
+		return false;
+	}
+	// MB_ERR_INVALID_CHARS: 任何非法/截断的双字节序列都返回 0。
+	return MultiByteToWideChar( console_data_codepage.load(), MB_ERR_INVALID_CHARS, text, static_cast<int>( length ), nullptr, 0 ) > 0;
+#else
+	// Linux 服务以 UTF-8 为内部编码，与 build 时一致，无需额外校验。
+	return true;
+#endif
+}
+
+std::string normalize_data_text( const char* text, size_t length ) {
+	if( text == nullptr || length == 0 ) {
+		return {};
+	}
+	if( data_text_is_valid( text, length ) ) {
+		return std::string( text, length );
+	}
+
+	// 常见原因：源码里的 UTF-8 字面量漏过了转码边界（例如 "拍卖行" 的
+	// E6 8B 8D E5 8D 96 E8 A1 8C 按 GBK 读会剩下一个孤立的 0x8C）。转成
+	// 数据代码页即可，文字本身不丢。
+	const std::string converted = convert_utf8_file_content( text, length );
+	if( data_text_is_valid( converted.data(), converted.size() ) ) {
+		return converted;
+	}
+
+#ifdef _WIN32
+	// 已经损坏的文本（例如长度上限把汉字切成半个）：宽松解码再编码，
+	// 坏字节变成替换字符，至少保证调用方的语句能执行完。
+	const UINT codepage = console_data_codepage.load();
+	const int wide_length = MultiByteToWideChar( codepage, 0, text, static_cast<int>( length ), nullptr, 0 );
+	if( wide_length > 0 ) {
+		std::wstring wide( static_cast<size_t>( wide_length ), L'\0' );
+		if( MultiByteToWideChar( codepage, 0, text, static_cast<int>( length ), wide.data(), wide_length ) > 0 ) {
+			const int target_length = WideCharToMultiByte( codepage, 0, wide.data(), wide_length, nullptr, 0, nullptr, nullptr );
+			if( target_length > 0 ) {
+				std::string repaired( static_cast<size_t>( target_length ), '\0' );
+				if( WideCharToMultiByte( codepage, 0, wide.data(), wide_length, repaired.data(), target_length, nullptr, nullptr ) > 0 ) {
+					return repaired;
+				}
+			}
+		}
+	}
+#endif
+
+	return std::string( text, length );
+}
+// ===== 数据代码页文本守卫 结束 =====
+
 // ===== UTF-8 配置与脚本读取支持 开始 =====
 // 修改内容/原因：识别 UTF-8 BOM 或严格有效的 UTF-8 内容；旧 GBK/Big5 文件原样保留，UTF-8 文件转换为当前服务内部代码页。
 std::string convert_utf8_file_content( const char* text, size_t length, bool preserve_utf8 ) {

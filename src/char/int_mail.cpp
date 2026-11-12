@@ -3,15 +3,18 @@
 
 #include "int_mail.hpp"
 
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <string>
 
 #include <common/mmo.hpp>
 #include <common/showmsg.hpp>
 #include <common/socket.hpp>
 #include <common/sql.hpp>
 #include <common/strlib.hpp>
+#include <common/translate.hpp>
 #include <common/utilities.hpp>
 
 #include "char.hpp"
@@ -77,6 +80,23 @@ int32 mail_fromsql(uint32 char_id, struct mail_data* md)
 	return 1;
 }
 
+/// Warn (with the raw bytes) when a mail field had to be repaired before it was
+/// bound, so the source of the bad text can be found. Silent repair alone would
+/// hide a broken caller.
+static void mail_warn_text_repair(const char* field, const char* raw, size_t raw_len, const std::string& fixed) {
+	if (fixed.size() == raw_len && (raw_len == 0 || std::memcmp(fixed.data(), raw, raw_len) == 0))
+		return;
+
+	char hex[3 * 32 + 1] = {};
+	size_t used = 0;
+	for (size_t i = 0; i < raw_len && i < 32; ++i)
+		used += static_cast<size_t>(snprintf(hex + used, sizeof(hex) - used, "%02X ", static_cast<unsigned char>(raw[i])));
+	if (used > 0)
+		hex[used - 1] = '\0';
+
+	ShowWarning("mail: `%s` is not valid in the database codepage and was repaired before insert (%zu bytes: %s)\n", field, raw_len, hex);
+}
+
 /// Stores a single message in the database.
 /// Returns the message's ID if successful (or 0 if it fails).
 int32 mail_savemessage(struct mail_message* msg)
@@ -85,6 +105,29 @@ int32 mail_savemessage(struct mail_message* msg)
 	SqlStmt stmt{ *sql_handle };
 	int32 i, j;
 	bool found = false;
+
+	// The columns use the connection codepage. A UTF-8 literal, or a name cut in
+	// the middle of a double-byte character, makes MySQL reject the whole INSERT
+	// ("Incorrect string value: ... for column 'send_name'") and the rollback
+	// takes the attached items with it. `normalize_data_text` leaves valid text
+	// untouched, converts leaked UTF-8 and repairs broken tails; anything it had
+	// to change is logged above so the caller can be fixed.
+	const std::string send_name = normalize_data_text(msg->send_name, strnlen(msg->send_name, NAME_LENGTH));
+	const std::string dest_name = normalize_data_text(msg->dest_name, strnlen(msg->dest_name, NAME_LENGTH));
+	const std::string title = normalize_data_text(msg->title, strnlen(msg->title, MAIL_TITLE_LENGTH));
+	const std::string body = normalize_data_text(msg->body, strnlen(msg->body, MAIL_BODY_LENGTH));
+	mail_warn_text_repair("send_name", msg->send_name, strnlen(msg->send_name, NAME_LENGTH), send_name);
+	mail_warn_text_repair("dest_name", msg->dest_name, strnlen(msg->dest_name, NAME_LENGTH), dest_name);
+	mail_warn_text_repair("title", msg->title, strnlen(msg->title, MAIL_TITLE_LENGTH), title);
+	mail_warn_text_repair("message", msg->body, strnlen(msg->body, MAIL_BODY_LENGTH), body);
+
+	// Keep the copy that goes back to the map (and from there to the client)
+	// identical to what the database accepted, so a repaired field cannot show
+	// up as mojibake in the recipient's mailbox.
+	safestrncpy(msg->send_name, send_name.c_str(), NAME_LENGTH);
+	safestrncpy(msg->dest_name, dest_name.c_str(), NAME_LENGTH);
+	safestrncpy(msg->title, title.c_str(), MAIL_TITLE_LENGTH);
+	safestrncpy(msg->body, body.c_str(), MAIL_BODY_LENGTH);
 
 	if( SQL_ERROR == Sql_QueryStr( sql_handle, "START TRANSACTION" ) ){
 		Sql_ShowDebug( sql_handle );
@@ -99,10 +142,10 @@ int32 mail_savemessage(struct mail_message* msg)
 
 	// prepare and execute query
 	if( SQL_SUCCESS != stmt.PrepareStr(StringBuf_Value(&buf))
-	||  SQL_SUCCESS != stmt.BindParam(0, SQLDT_STRING, msg->send_name, strnlen(msg->send_name, NAME_LENGTH))
-	||  SQL_SUCCESS != stmt.BindParam(1, SQLDT_STRING, msg->dest_name, strnlen(msg->dest_name, NAME_LENGTH))
-	||  SQL_SUCCESS != stmt.BindParam(2, SQLDT_STRING, msg->title, strnlen(msg->title, MAIL_TITLE_LENGTH))
-	||  SQL_SUCCESS != stmt.BindParam(3, SQLDT_STRING, msg->body, strnlen(msg->body, MAIL_BODY_LENGTH))
+	||  SQL_SUCCESS != stmt.BindParam(0, SQLDT_STRING, const_cast<char*>(send_name.c_str()), send_name.size())
+	||  SQL_SUCCESS != stmt.BindParam(1, SQLDT_STRING, const_cast<char*>(dest_name.c_str()), dest_name.size())
+	||  SQL_SUCCESS != stmt.BindParam(2, SQLDT_STRING, const_cast<char*>(title.c_str()), title.size())
+	||  SQL_SUCCESS != stmt.BindParam(3, SQLDT_STRING, const_cast<char*>(body.c_str()), body.size())
 	||  SQL_SUCCESS != stmt.Execute() )
 	{
 		SqlStmt_ShowDebug(stmt);

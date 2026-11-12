@@ -13,6 +13,7 @@
 #include <common/sql.hpp>
 #include <common/strlib.hpp>
 #include <common/timer.hpp>
+#include <common/translate.hpp>
 #include <common/utilities.hpp>
 
 #include <common/auction.hpp>
@@ -202,14 +203,31 @@ void cash_payout(uint32 char_id, uint32 auction_id, uint32 amount) {
 
 // Mail helpers: mail_sendmail inserts on the shared sql_handle, so inside an
 // open transaction the mail rows join the auction writes atomically (A4).
+//
+// Source literals in this file are UTF-8; the SQL connection and the game client
+// both speak the server's data codepage (GBK here). Handing the raw UTF-8 bytes
+// of "拍卖行" (E6 8B 8D E5 8D 96 E8 A1 8C) to mail_sendmail() made MySQL reject
+// every auction mail with "Incorrect string value: '\x8C' for column
+// 'send_name'" — read as GBK the last byte dangles — and the rollback took the
+// listing with it. Convert at this single boundary instead.
+static std::string data_text(const char* utf8) {
+	return utf8 == nullptr ? std::string() : convert_utf8_file_content(utf8, std::strlen(utf8));
+}
+
 bool mail_zeny(uint32 dest_char_id, const char* dest_name, int32 zeny, const char* title) {
 	if (zeny <= 0)
 		return true;
-	return mail_sendmail(0, "拍卖行", dest_char_id, dest_name, title, "拍卖行结算", zeny, nullptr, 0) ? true : false;
+	const std::string sender = data_text("拍卖行");
+	const std::string subject = data_text(title);
+	const std::string body = data_text("拍卖行结算");
+	return mail_sendmail(0, sender.c_str(), dest_char_id, dest_name, subject.c_str(), body.c_str(), zeny, nullptr, 0) ? true : false;
 }
 
 bool mail_item(uint32 dest_char_id, const char* dest_name, const struct item& it, const char* title) {
-	return mail_sendmail(0, "拍卖行", dest_char_id, dest_name, title, "拍卖行交付", 0, &const_cast<struct item&>(it), 1) ? true : false;
+	const std::string sender = data_text("拍卖行");
+	const std::string subject = data_text(title);
+	const std::string body = data_text("拍卖行交付");
+	return mail_sendmail(0, sender.c_str(), dest_char_id, dest_name, subject.c_str(), body.c_str(), 0, &const_cast<struct item&>(it), 1) ? true : false;
 }
 
 uint64 fee_of(uint32 price, uint16 permille) {
