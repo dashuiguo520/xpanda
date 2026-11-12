@@ -221,9 +221,22 @@ assert "type == AUCTION_TYPE_CONSUMABLE" in char_search, (
 )
 assert "`type` IN (0,2,10)" in char_search, "consumable group lost its item types"
 
+# The batch escrow ack deletes every staged stack. `pc_delitem` compacts the
+# inventory when a stack is emptied, so deleting in row order shifts the later
+# rows up: the batch then removes the wrong items (the auction shows X while
+# the bag lost Y). Descending server-slot order is the only safe order.
+batch_ack = body_at(auction_map_src, "void on_escrow_batch_ack(")
+assert "std::sort(deletions.begin(), deletions.end()" in batch_ack, (
+    "batch escrow ack must delete inventory slots in a deterministic order"
+)
+assert "a.index > b.index" in batch_ack, (
+    "batch escrow ack must delete from the highest slot down (inventory compaction)"
+)
+
 print("PASS: auction IDs (CZ 0x7E20-29, ZC 0x7E30-37), upstream + inter collision scan,")
 print("      handshake/gate wiring, enable default off, DDL present,")
 print("      client request/ZC lengths, variable-page arms, builders, AUCT handshake,")
 print("      inter length tables (char slots aligned to WFIFOSET, map replies variable),")
 print("      v2 atomic batch packets + handshake version 2,")
-print("      browse type tabs incl. the 0xFE consumable group")
+print("      browse type tabs incl. the 0xFE consumable group,")
+print("      descending-slot batch deletion")

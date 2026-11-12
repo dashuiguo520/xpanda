@@ -1,5 +1,6 @@
 #include "auction_custom.hpp"
 
+#include <algorithm>
 #include <cstring>
 #include <unordered_map>
 #include <vector>
@@ -556,14 +557,33 @@ void on_escrow_batch_ack(int32 fd) {
 	uint8 row_results[AUCTION_MAX_BATCH_ITEMS] = {};
 	uint8 row_reasons[AUCTION_MAX_BATCH_ITEMS] = {};
 	uint32 auction_ids[AUCTION_MAX_BATCH_ITEMS] = {};
+	// Build the commit list first: its pairing (txid, auction_id) follows the
+	// char server's row order, which the deletion order must not disturb.
+	struct BatchDeletion { int32 index; int32 amount; };
+	std::vector<BatchDeletion> deletions;
+	deletions.reserve(rows);
 	for (uint8 i = 0; i < rows; ++i) {
 		const BatchSlot& slot = pending.rows[i];
-		pc_delitem(sd, slot.index, slot.amount, 0, 1, LOG_TYPE_TRADE);
 		auction_ids[i] = RFIFOL(fd, 16 + i * 4);
 		put_le64(commit.data() + static_cast<size_t>(i) * 12, slot.txid);
 		put_le32(commit.data() + static_cast<size_t>(i) * 12 + 8, auction_ids[i]);
 		row_results[i] = AUCTION_RESULT_OK;
 		row_reasons[i] = AUCTION_REASON_OK;
+		deletions.push_back({ static_cast<int32>(slot.index), static_cast<int32>(slot.amount) });
+	}
+	// Delete high slots first. `pc_delitem` compacts the inventory when a stack
+	// is emptied, so deleting in row order shifts every later row up by one and
+	// the batch then removes the wrong items (or nothing at all). Descending
+	// indices keep every remaining target slot valid.
+	std::sort(deletions.begin(), deletions.end(),
+		[](const BatchDeletion& a, const BatchDeletion& b) { return a.index > b.index; });
+	for (const BatchDeletion& deletion : deletions) {
+		if (!pc_delitem(sd, deletion.index, deletion.amount, 0, 1, LOG_TYPE_TRADE)) {
+			// The escrow rows are already committed on the char server, so the
+			// missing stack is reported and left to the reconcile pass instead
+			// of being "restored" client-side twice.
+			ShowError("auction batch: pc_delitem failed char_id=%u index=%d amount=%d\n",
+				sd->status.char_id, deletion.index, deletion.amount);		}
 	}
 	chrif_save(sd, CSAVE_INVENTORY);
 	if (!intif_auction_commit_batch(batch_id, rows, commit.data())) {
