@@ -125,6 +125,10 @@ static_assert(sizeof(PACKET_CZ_AUCTION_MY_BIDS) == 6);
 static_assert(sizeof(PACKET_ZC_AUCTION_OPEN_ACK) == 28);
 static_assert(sizeof(PACKET_ZC_AUCTION_PAGE_HEADER) == 9);
 static_assert(sizeof(PACKET_ZC_AUCTION_DETAIL) == 126);
+// The inter 0x38B2 kind-1 reply ships this exact body size; the map server
+// copies it into the ZC frame verbatim, so a struct change must move the macro
+// too (and vice versa) or every detail reply gets dropped on the floor.
+static_assert(AUCTION_ZC_DETAIL_BODY_SIZE == sizeof(PACKET_ZC_AUCTION_DETAIL) - 2);
 static_assert(sizeof(PACKET_ZC_AUCTION_RESULT) == 14);
 static_assert(sizeof(PACKET_ZC_AUCTION_NOTIFY) == 14);
 // The detail blob mirrors packed struct item; a drift here is a protocol

@@ -232,6 +232,44 @@ assert "std::sort(deletions.begin(), deletions.end()" in batch_ack, (
 assert "a.index > b.index" in batch_ack, (
     "batch escrow ack must delete from the highest slot down (inventory compaction)"
 )
+# `pc_delitem` returns 0 on success and 1 on failure. The negated form logged
+# every successful deletion as an error and stayed silent on real ones, which
+# sent the "server has errors" investigation down the wrong path for a day.
+assert "pc_delitem(sd, deletion.index, deletion.amount, 0, 1, LOG_TYPE_TRADE) != 0" in batch_ack, (
+    "pc_delitem returns 0 on success; the batch must test `!= 0`"
+)
+single_ack = body_at(auction_map_src, "void on_escrow_ack(")
+assert "pc_delitem(sd, pending.index, pending.amount, 0, 1, LOG_TYPE_TRADE) != 0" in single_ack, (
+    "single escrow ack must report pc_delitem failures with the same 0=success rule"
+)
+
+# Detail reply. The char server answers 0x38B2 kind 1 with
+# [kind][char_id][ZC_AUCTION_DETAIL body]; the map server memcpy's that tail
+# straight into the ZC frame after its packetType, and the client parses
+# auctionId first. The tail used to omit auctionId and be one byte short, so the
+# map's length check dropped every reply: right-clicking a row did nothing.
+common_hpp = (server / "src/common/auction.hpp").read_text(encoding="utf-8")
+assert "#define AUCTION_ZC_DETAIL_BODY_SIZE 124" in common_hpp, (
+    "the inter detail body size must be one shared constant"
+)
+assert "AUCTION_ZC_DETAIL_BODY_SIZE == sizeof(PACKET_ZC_AUCTION_DETAIL) - 2" in headers, (
+    "the detail body constant must be pinned to the ZC struct by a static_assert"
+)
+char_detail = body_at(char_auction_src, "case AUC_OP_DETAIL:")
+assert "uint8 body[1 + 4 + AUCTION_ZC_DETAIL_BODY_SIZE]" in char_detail, (
+    "the char detail reply must carry exactly the ZC detail body"
+)
+assert re.search(r"uint8\* d = body \+ 5;\s*\n\s*memcpy\(d, &auction_id, 4\)", char_detail), (
+    "the detail payload must start with auctionId; the client keys on it"
+)
+assert "reply_ack(fd, 0x38B2, body, sizeof(body))" in char_detail
+map_detail = body_at(auction_map_src, "void on_search_or_detail(")
+assert "body_len != AUCTION_ZC_DETAIL_BODY_SIZE" in map_detail, (
+    "the map must compare the detail tail against the shared size"
+)
+assert 'ShowError("auction detail: char reply body' in map_detail, (
+    "a dropped detail reply must be logged, not silently discarded"
+)
 
 print("PASS: auction IDs (CZ 0x7E20-29, ZC 0x7E30-37), upstream + inter collision scan,")
 print("      handshake/gate wiring, enable default off, DDL present,")
@@ -239,4 +277,5 @@ print("      client request/ZC lengths, variable-page arms, builders, AUCT hands
 print("      inter length tables (char slots aligned to WFIFOSET, map replies variable),")
 print("      v2 atomic batch packets + handshake version 2,")
 print("      browse type tabs incl. the 0xFE consumable group,")
-print("      descending-slot batch deletion")
+print("      descending-slot batch deletion with the pc_delitem 0=success rule,")
+print("      auctionId-first detail body pinned to the ZC struct")

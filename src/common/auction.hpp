@@ -40,6 +40,13 @@
 #define AUCTION_ITEM_BLOB_SIZE 77
 // Version tag stored with every item blob; bump when struct item drifts (A7).
 #define AUCTION_ITEM_BLOB_VERSION 1
+// Body of PACKET_ZC_AUCTION_DETAIL after its packetType: auctionId, priceNow,
+// priceBuyNow, expire, topBidderId, topBidderName, blobVersion, currency and
+// the 77B item blob. The inter 0x38B2 kind-1 reply carries exactly these bytes
+// after [kind][char_id], so the map server can copy the tail straight into the
+// ZC frame without re-packing. Both ends and the static_assert in
+// custom/auction_packets.hpp read this one value, so the layout cannot drift.
+#define AUCTION_ZC_DETAIL_BODY_SIZE 124
 
 enum e_auction_currency : uint8 {
 	AUCTION_CURRENCY_ZENY = 0,

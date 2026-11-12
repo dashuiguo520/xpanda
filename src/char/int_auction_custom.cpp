@@ -1119,11 +1119,18 @@ void parse_op(int32 fd) {
 				return;
 			}
 			auto col = [&](int32 i) { char* d = nullptr; size_t l = 0; Sql_GetData(sql_handle, i, &d, &l); return d != nullptr ? d : "0"; };
-			uint8 body[1 + 4 + 123];
+			// 0x38B2 kind 1 = [kind][char_id][ZC_AUCTION_DETAIL body]. The map
+			// server memcpy's the tail into the ZC frame unchanged and the
+			// client parses auctionId first, so the tail must be the packet
+			// body byte for byte. It used to start at priceNow and be one
+			// byte short: the map's length check rejected every reply, which is
+			// why right-clicking a row never opened the detail panel.
+			uint8 body[1 + 4 + AUCTION_ZC_DETAIL_BODY_SIZE];
 			memset(body, 0, sizeof(body));
 			body[0] = 1; // kind 1 detail
 			memcpy(body + 1, &char_id, 4);
 			uint8* d = body + 5;
+			memcpy(d, &auction_id, 4); d += 4; // auctionId (client matches on it)
 			uint32 v = strtoul(col(0), nullptr, 10);
 			memcpy(d, &v, 4); d += 4; // price_now
 			v = strtoul(col(1), nullptr, 10);

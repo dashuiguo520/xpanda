@@ -474,7 +474,12 @@ void on_escrow_ack(int32 fd) {
 	// reconcile deletes the row and the inventory reload restores the item;
 	// a dup would need the row AND the saved inventory to both survive,
 	// which only happens after COMMIT when the save already ran.
-	pc_delitem(sd, pending.index, pending.amount, 0, 1, LOG_TYPE_TRADE);
+	// `pc_delitem` returns 0 on success and 1 on failure (pc.hpp), so the
+	// success test is `== 0` — the negated form logged every *successful*
+	// deletion as an error and stayed silent on real ones.
+	if (pc_delitem(sd, pending.index, pending.amount, 0, 1, LOG_TYPE_TRADE) != 0)
+		ShowError("auction: pc_delitem failed char_id=%u index=%u amount=%u\n",
+			sd->status.char_id, pending.index, pending.amount);
 	chrif_save(sd, CSAVE_INVENTORY);
 	pending_commit[txid] = auction_id;
 	if (!intif_auction_commit(txid, auction_id)) {
@@ -578,12 +583,15 @@ void on_escrow_batch_ack(int32 fd) {
 	std::sort(deletions.begin(), deletions.end(),
 		[](const BatchDeletion& a, const BatchDeletion& b) { return a.index > b.index; });
 	for (const BatchDeletion& deletion : deletions) {
-		if (!pc_delitem(sd, deletion.index, deletion.amount, 0, 1, LOG_TYPE_TRADE)) {
+		// 0 = success, 1 = failure (pc.hpp). Negating the result reported every
+		// successful batch deletion as `pc_delitem failed` in the log.
+		if (pc_delitem(sd, deletion.index, deletion.amount, 0, 1, LOG_TYPE_TRADE) != 0) {
 			// The escrow rows are already committed on the char server, so the
 			// missing stack is reported and left to the reconcile pass instead
 			// of being "restored" client-side twice.
 			ShowError("auction batch: pc_delitem failed char_id=%u index=%d amount=%d\n",
-				sd->status.char_id, deletion.index, deletion.amount);		}
+				sd->status.char_id, deletion.index, deletion.amount);
+		}
 	}
 	chrif_save(sd, CSAVE_INVENTORY);
 	if (!intif_auction_commit_batch(batch_id, rows, commit.data())) {
@@ -669,7 +677,11 @@ void on_search_or_detail(int32 fd) {
 	if (kind == 1) {
 		// The 0x38B2 body@9 is the ZC_AUCTION_DETAIL body (after cmd.W).
 		const int32 body_len = RFIFOW(fd, 2) - 9;
-		if (body_len != sizeof(PACKET_ZC_AUCTION_DETAIL) - 2) {
+		if (body_len != AUCTION_ZC_DETAIL_BODY_SIZE) {
+			// Never drop a detail reply silently: a mismatch here is a charset
+			// layout drift and the player just sees a dead right-click.
+			ShowError("auction detail: char reply body %d bytes, expected %d (char_id=%u)\n",
+				body_len, AUCTION_ZC_DETAIL_BODY_SIZE, char_id);
 			return;
 		}
 		PACKET_ZC_AUCTION_DETAIL packet{};
