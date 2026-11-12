@@ -178,6 +178,24 @@ assert not re.search(r"\bmap_id2sd\(", auction_map_code), (
 )
 assert auction_map_code.count("map_charid2sd(") >= 9, "char->map session lookups went missing"
 
+# 0x30BA header offsets must agree on both sides. The v2 draft wrote char_id.L@4
+# and then batch_id.Q@6, so the batch id's low word overwrote char_id's high
+# half (150002 -> 18930); the char server failed the seller lookup and answered
+# INTERNAL, rolling the whole batch back. Compare the offsets field by field
+# instead of trusting the comment.
+assert re.search(r"#define AUCTION_INTER_BATCH_HDR_SIZE 25\b", common), "0x30BA header size drifted"
+escrow_batch_tx = body_at(mapintif, "bool intif_auction_escrow_batch(")
+map_batch_offs = [int(v) for v in re.findall(r"WFIFO[WBLQ]\(inter_fd,\s*(\d+)\)", escrow_batch_tx)][2:]
+assert map_batch_offs == [4, 8, 12, 16, 17, 18, 19, 21, 23, 24], map_batch_offs
+assert "WFIFOP(inter_fd, AUCTION_INTER_BATCH_HDR_SIZE)" in escrow_batch_tx
+assert "AUCTION_INTER_BATCH_HDR_SIZE + count * AUCTION_INTER_BATCH_ROW_SIZE" in escrow_batch_tx
+char_auction_src = (server / "src/char/int_auction_custom.cpp").read_text(encoding="utf-8", errors="replace")
+char_batch_offs = [
+    int(v) for v in re.findall(r"RFIFO[WBLQ]\(fd,\s*(\d+)\)", body_at(char_auction_src, "void parse_escrow_batch("))
+]
+assert char_batch_offs == [4, 8, 16, 17, 18, 19, 21, 23], char_batch_offs
+assert "AUCTION_INTER_BATCH_HDR_SIZE + i * AUCTION_INTER_BATCH_ROW_SIZE" in char_auction_src
+
 print("PASS: auction IDs (CZ 0x7E20-29, ZC 0x7E30-37), upstream + inter collision scan,")
 print("      handshake/gate wiring, enable default off, DDL present,")
 print("      client request/ZC lengths, variable-page arms, builders, AUCT handshake,")

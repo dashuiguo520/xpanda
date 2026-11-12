@@ -20,12 +20,21 @@
 #define AUCTION_MAX_NAMEID_FILTERS 64
 #define AUCTION_MAX_DURATION_SLOTS 5
 // A batch is one CZ packet and one char-side SQL transaction. Keep the cap
-// small enough that the inter frame (23 + 96 * count) stays well inside the
-// socket FIFO, and equal to the default per-character listing cap.
+// small enough that the inter frame (AUCTION_INTER_BATCH_HDR_SIZE + 96 * count)
+// stays well inside the socket FIFO, and equal to the default per-character
+// listing cap.
 #define AUCTION_MAX_BATCH_ITEMS 20
 #define AUCTION_CZ_BATCH_ROW_SIZE 12
 #define AUCTION_ZC_BATCH_ROW_SIZE 7
 #define AUCTION_INTER_BATCH_ROW_SIZE 96
+// 0x30BA header, 25 bytes:
+//   id.W@0 len.W@2 char_id.L@4 batch_id.Q@8 count.B@16 currency.B@17
+//   duration_h.B@18 fee.W@19 deposit.W@21 cap.B@23 reserved.B@24
+// The 23-byte v2 draft put batch_id.Q@6, whose low word overwrote char_id's
+// high half (150002 became 18930), so the char server could not resolve the
+// seller and answered INTERNAL. Keep char_id and batch_id non-overlapping and
+// bump this constant instead of hand-writing offsets on either side.
+#define AUCTION_INTER_BATCH_HDR_SIZE 25
 // Packed `struct item` wire size (common/mmo.hpp). Bumping this requires a
 // blob_version bump and a migration path (A7 in the design doc).
 #define AUCTION_ITEM_BLOB_SIZE 77

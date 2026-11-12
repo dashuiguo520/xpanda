@@ -3867,27 +3867,27 @@ bool intif_auction_commit(uint64 txid, uint32 auction_id) {
 
 // ===== 拍卖行系统 v2 atomic batch: 开始 =====
 // 0x30BA ESCROW_BATCH_REQ (variable, len.W@2):
-//   char_id.L@4 batch_id.Q@6 count.B@14 currency.B@15 duration_h.B@16
-//   fee_permille.W@17 deposit_permille.W@19 cap.B@21 reserved.B@22
-//   rows@23: { txid.Q price.L buy_now.L blob_version.W blob.77B item_type.B } = 96B
+//   char_id.L@4 batch_id.Q@8 count.B@16 currency.B@17 duration_h.B@18
+//   fee_permille.W@19 deposit_permille.W@21 cap.B@23 reserved.B@24
+//   rows@25: { txid.Q price.L buy_now.L blob_version.W blob.77B item_type.B } = 96B
 bool intif_auction_escrow_batch(uint32 char_id, uint64 batch_id, uint8 currency, uint8 duration_h,
 	uint16 fee_permille, uint16 deposit_permille, uint8 cap, uint8 count, const uint8* rows) {
 	if (CheckForCharServer()) return false;
-	const int32 len = 23 + count * AUCTION_INTER_BATCH_ROW_SIZE;
+	const int32 len = AUCTION_INTER_BATCH_HDR_SIZE + count * AUCTION_INTER_BATCH_ROW_SIZE;
 	WFIFOHEAD(inter_fd, len);
 	WFIFOW(inter_fd, 0) = 0x30BA;
 	WFIFOW(inter_fd, 2) = static_cast<uint16>(len);
 	WFIFOL(inter_fd, 4) = char_id;
-	WFIFOL(inter_fd, 6) = static_cast<uint32>(batch_id & 0xFFFFFFFFu);
-	WFIFOL(inter_fd, 10) = static_cast<uint32>((batch_id >> 32) & 0xFFFFFFFFu);
-	WFIFOB(inter_fd, 14) = count;
-	WFIFOB(inter_fd, 15) = currency;
-	WFIFOB(inter_fd, 16) = duration_h;
-	WFIFOW(inter_fd, 17) = fee_permille;
-	WFIFOW(inter_fd, 19) = deposit_permille;
-	WFIFOB(inter_fd, 21) = cap;
-	WFIFOB(inter_fd, 22) = 0;
-	memcpy(WFIFOP(inter_fd, 23), rows, count * AUCTION_INTER_BATCH_ROW_SIZE);
+	WFIFOL(inter_fd, 8) = static_cast<uint32>(batch_id & 0xFFFFFFFFu);
+	WFIFOL(inter_fd, 12) = static_cast<uint32>((batch_id >> 32) & 0xFFFFFFFFu);
+	WFIFOB(inter_fd, 16) = count;
+	WFIFOB(inter_fd, 17) = currency;
+	WFIFOB(inter_fd, 18) = duration_h;
+	WFIFOW(inter_fd, 19) = fee_permille;
+	WFIFOW(inter_fd, 21) = deposit_permille;
+	WFIFOB(inter_fd, 23) = cap;
+	WFIFOB(inter_fd, 24) = 0;
+	memcpy(WFIFOP(inter_fd, AUCTION_INTER_BATCH_HDR_SIZE), rows, count * AUCTION_INTER_BATCH_ROW_SIZE);
 	WFIFOSET(inter_fd, len);
 	return true;
 }

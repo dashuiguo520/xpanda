@@ -539,13 +539,13 @@ void commit_batch_ack(int32 fd, uint64 batch_id, uint8 result, uint8 reason) {
 // whole batch back, so the map server can safely leave the inventory alone.
 void parse_escrow_batch(int32 fd) {
 	const uint32 char_id = RFIFOL(fd, 4);
-	const uint64 batch_id = RFIFOQ(fd, 6);
-	const uint8 count = RFIFOB(fd, 14);
-	const uint8 currency = RFIFOB(fd, 15);
-	const uint8 duration_h = RFIFOB(fd, 16);
-	const uint16 fee_permille = RFIFOW(fd, 17);
-	const uint16 deposit_permille = RFIFOW(fd, 19);
-	const uint8 cap_byte = RFIFOB(fd, 21);
+	const uint64 batch_id = RFIFOQ(fd, 8);
+	const uint8 count = RFIFOB(fd, 16);
+	const uint8 currency = RFIFOB(fd, 17);
+	const uint8 duration_h = RFIFOB(fd, 18);
+	const uint16 fee_permille = RFIFOW(fd, 19);
+	const uint16 deposit_permille = RFIFOW(fd, 21);
+	const uint8 cap_byte = RFIFOB(fd, 23);
 	const uint8 cap = cap_byte == 0 ? 20 : cap_byte;
 	(void)fee_permille;     // locked per row by the map server, mirrored
 	(void)deposit_permille; // here for wire symmetry with 0x30B3
@@ -594,7 +594,7 @@ void parse_escrow_batch(int32 fd) {
 	}
 	const uint32 expire = static_cast<uint32>(time(nullptr)) + static_cast<uint32>(duration_h) * 3600;
 	for (uint8 i = 0; i < count; ++i) {
-		const int32 base = 23 + i * AUCTION_INTER_BATCH_ROW_SIZE;
+		const int32 base = AUCTION_INTER_BATCH_HDR_SIZE + i * AUCTION_INTER_BATCH_ROW_SIZE;
 		const uint64 txid = RFIFOQ(fd, base);
 		const uint32 price = RFIFOL(fd, base + 8);
 		const uint32 buy_now = RFIFOL(fd, base + 12);
