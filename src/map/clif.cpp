@@ -26726,7 +26726,7 @@ void clif_parse_auction_register(int32 fd, map_session_data* sd) {
 		clif_auction_send_result(*sd, AUCTION_OP_REGISTER, AUCTION_RESULT_FAIL, AUCTION_REASON_INVALID_PRICE, 0, 0);
 		return;
 	}
-	auction_custom::request_register(*sd, RFIFOW(fd, 2), RFIFOW(fd, 4), RFIFOL(fd, 6), RFIFOL(fd, 10), duration_idx, currency);
+	auction_custom::request_register(*sd, server_index(RFIFOW(fd, 2)), RFIFOW(fd, 4), RFIFOL(fd, 6), RFIFOL(fd, 10), duration_idx, currency);
 }
 
 void clif_parse_auction_register_batch(int32 fd, map_session_data* sd) {
@@ -26758,7 +26758,12 @@ void clif_parse_auction_register_batch(int32 fd, map_session_data* sd) {
 	for (uint8 i = 0; i < count; ++i) {
 		const int32 at = 8 + i * AUCTION_CZ_BATCH_ROW_SIZE;
 		auction_custom::RegisterRow row{};
-		row.index = RFIFOW(fd, at);
+		// The CZ index is the client index (server slot + 2); the whole auction
+		// module works on server slots, so convert here once. Skipping this
+		// escrows (and later pc_delitem's) the wrong row: the listing showed a
+		// different item than the one dragged, and the dragged stack stayed in
+		// the bag.
+		row.index = server_index(RFIFOW(fd, at));
 		row.amount = RFIFOW(fd, at + 2);
 		row.price = RFIFOL(fd, at + 4);
 		row.buy_now = RFIFOL(fd, at + 8);

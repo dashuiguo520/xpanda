@@ -375,7 +375,7 @@ bool request_register_batch(map_session_data& sd, const std::vector<RegisterRow>
 			sd.status.char_id, count, static_cast<unsigned long long>(batch_id));
 		return fail(AUCTION_REASON_INTER_UNAVAILABLE, 0);
 	}
-	ShowError("auction batch: escrow sent char_id=%u count=%u batch_id=%llu\n",
+	ShowInfo("auction batch: escrow sent char_id=%u count=%u batch_id=%llu\n",
 		sd.status.char_id, count, static_cast<unsigned long long>(batch_id));
 	pending_batch[batch_id] = pending;
 	return true;
@@ -509,7 +509,7 @@ void on_escrow_batch_ack(int32 fd) {
 	const uint8 fail_row = RFIFOB(fd, 14);
 	const uint8 count = RFIFOB(fd, 15);
 
-	ShowError("auction batch ack: batch_id=%llu result=%u reason=%u fail_row=%u count=%u\n",
+	ShowInfo("auction batch ack: batch_id=%llu result=%u reason=%u fail_row=%u count=%u\n",
 		static_cast<unsigned long long>(batch_id), result, reason, fail_row, count);
 	auto it = pending_batch.find(batch_id);
 	if (it == pending_batch.end()) {

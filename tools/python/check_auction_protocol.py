@@ -196,6 +196,20 @@ char_batch_offs = [
 assert char_batch_offs == [4, 8, 16, 17, 18, 19, 21, 23], char_batch_offs
 assert "AUCTION_INTER_BATCH_HDR_SIZE + i * AUCTION_INTER_BATCH_ROW_SIZE" in char_auction_src
 
+# CZ inventory indices are *client* indices (server slot + 2, see clif.cpp
+# client_index/server_index); the auction module works on server slots. Both
+# register handlers must convert, otherwise the escrow (and the later
+# pc_delitem) lands two rows off: the auction shows a different item than the
+# one dragged and the dragged stack never leaves the bag.
+batch_parse = body_at(clif, "void clif_parse_auction_register_batch(")
+assert "row.index = server_index(RFIFOW(fd, at));" in batch_parse, (
+    "batch register must convert the CZ client index to a server slot"
+)
+single_parse = body_at(clif, "void clif_parse_auction_register(")
+assert "server_index(RFIFOW(fd, 2))" in single_parse, (
+    "single register must convert the CZ client index to a server slot"
+)
+
 print("PASS: auction IDs (CZ 0x7E20-29, ZC 0x7E30-37), upstream + inter collision scan,")
 print("      handshake/gate wiring, enable default off, DDL present,")
 print("      client request/ZC lengths, variable-page arms, builders, AUCT handshake,")

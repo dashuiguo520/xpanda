@@ -550,7 +550,7 @@ void parse_escrow_batch(int32 fd) {
 	(void)fee_permille;     // locked per row by the map server, mirrored
 	(void)deposit_permille; // here for wire symmetry with 0x30B3
 	uint32 auction_ids[AUCTION_MAX_BATCH_ITEMS] = {};
-	ShowError("auction batch escrow recv: char_id=%u batch_id=%llu count=%u currency=%u duration_h=%u cap=%u\n",
+	ShowInfo("auction batch escrow recv: char_id=%u batch_id=%llu count=%u currency=%u duration_h=%u cap=%u\n",
 		char_id, static_cast<unsigned long long>(batch_id), count, currency, duration_h, cap);
 
 	if (count == 0 || count > AUCTION_MAX_BATCH_ITEMS) {
@@ -616,7 +616,7 @@ void parse_escrow_batch(int32 fd) {
 		escrow_batch_ack(fd, batch_id, AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, 0, nullptr, count);
 		return;
 	}
-	ShowError("auction batch escrow OK: inserted %u rows, first auction_id=%u\n", count, auction_ids[0]);
+	ShowInfo("auction batch escrow OK: inserted %u rows, first auction_id=%u\n", count, auction_ids[0]);
 	escrow_batch_ack(fd, batch_id, AUCTION_RESULT_OK, AUCTION_REASON_OK, 0xFF, auction_ids, count);
 }
 
