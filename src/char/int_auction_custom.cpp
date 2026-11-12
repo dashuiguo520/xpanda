@@ -245,12 +245,16 @@ uint64 fee_of(uint32 price, uint16 permille) {
 // owner of the stride. The old `append_row(...); rows_out += row_size;` pair
 // advanced twice and left a zeroed 45-byte hole between every two rows, which
 // the client painted as "Item #0 / x0 / 0 Z / 已结束".
-uint8* append_row(uint8* out, uint32 auction_id, uint32 nameid, uint16 amount, uint8 refine, uint8 type, uint32 price_now, uint32 price_buynow, uint32 expire, uint8 currency, const char* seller, uint8 status, uint8 row_size) {
+uint8* append_row(uint8* out, uint32 auction_id, uint32 nameid, uint16 amount, uint8 refine, uint8 type, uint8 cards, uint8 options, uint32 price_now, uint32 price_buynow, uint32 expire, uint8 currency, const char* seller, uint8 status, uint8 row_size) {
 	memcpy(out, &auction_id, 4); out += 4;
 	memcpy(out, &nameid, 4); out += 4;
 	memcpy(out, &amount, 2); out += 2;
 	*out++ = refine;
 	*out++ = type;
+	// Counts only: the board needs "how many sockets are filled / how many
+	// random options", while the contents ride the detail blob.
+	*out++ = cards;
+	*out++ = options;
 	memcpy(out, &price_now, 4); out += 4;
 	memcpy(out, &price_buynow, 4); out += 4;
 	memcpy(out, &expire, 4); out += 4;
@@ -259,7 +263,7 @@ uint8* append_row(uint8* out, uint32 auction_id, uint32 nameid, uint16 amount, u
 	memset(out, 0, 19);
 	safestrncpy(reinterpret_cast<char*>(out), seller, 19);
 	out += 19;
-	if (row_size >= 46)
+	if (row_size >= 48)
 		*out++ = status;
 	return out;
 }
@@ -280,15 +284,15 @@ void parse_search(int32 fd) {
 	const uint8 nameid_count = std::min<uint8>(RFIFOB(fd, 22), AUCTION_MAX_NAMEID_FILTERS);
 
 	uint16 zc_id = 0x7e31;
-	uint8 row_size = 45;
+	uint8 row_size = AUCTION_SEARCH_ROW_SIZE;
 	std::string where = "`status`='1'";
 	if (scope == AUC_SCOPE_MY_LISTINGS) {
 		zc_id = 0x7e34;
-		row_size = 46;
+		row_size = AUCTION_MY_ROW_SIZE;
 		where = "`seller_char_id`='" + std::to_string(char_id) + "' AND `status` IN (1,2,3,5)";
 	} else if (scope == AUC_SCOPE_MY_BIDS) {
 		zc_id = 0x7e35;
-		row_size = 46;
+		row_size = AUCTION_MY_ROW_SIZE;
 		where = "`top_bidder_char_id`='" + std::to_string(char_id) + "' AND `status`='1'";
 	} else {
 		if (currency != AUCTION_CURRENCY_ANY)
@@ -325,7 +329,7 @@ void parse_search(int32 fd) {
 		default: break;
 	}
 
-	uint8 body[4 + 4 + 2 + 2 + 2 + 1 + 1 + AUCTION_PAGE_SIZE * 46];
+	uint8 body[4 + 4 + 2 + 2 + 2 + 1 + 1 + AUCTION_PAGE_SIZE * AUCTION_MY_ROW_SIZE];
 	memset(body, 0, sizeof(body));
 	uint16 o = 0;
 	body[o++] = 0; // kind 0 page
@@ -363,7 +367,7 @@ void parse_search(int32 fd) {
 	body[row_size_slot] = row_size;
 	uint8* rows_out = body + o;
 	uint8 count = 0;
-	if (SQL_ERROR == Sql_Query(sql_handle, "SELECT `auction_id`,`nameid`,`amount`,`refine`,`type`,`price_now`,`price_buynow`,`expire_time`,`currency`,`seller_name`,`status` FROM `auction_custom` WHERE %s ORDER BY %s LIMIT %u OFFSET %u", where.c_str(), order, AUCTION_PAGE_SIZE, static_cast<uint32>(cur_page) * AUCTION_PAGE_SIZE)) {
+	if (SQL_ERROR == Sql_Query(sql_handle, "SELECT `auction_id`,`nameid`,`amount`,`refine`,`type`,`price_now`,`price_buynow`,`expire_time`,`currency`,`seller_name`,`status`,`card0`,`card1`,`card2`,`card3`,`option_id0`,`option_id1`,`option_id2`,`option_id3`,`option_id4` FROM `auction_custom` WHERE %s ORDER BY %s LIMIT %u OFFSET %u", where.c_str(), order, AUCTION_PAGE_SIZE, static_cast<uint32>(cur_page) * AUCTION_PAGE_SIZE)) {
 		Sql_FreeResult(sql_handle);
 		reply_ack(fd, 0x38B2, body, o);
 		return;
@@ -376,7 +380,18 @@ void parse_search(int32 fd) {
 		char seller[NAME_LENGTH];
 		safestrncpy(seller, col(9), NAME_LENGTH);
 		const uint8 status_byte = static_cast<uint8>(strtoul(col(10), nullptr, 10));
-		rows_out = append_row(rows_out, v[0], v[1], static_cast<uint16>(v[2]), static_cast<uint8>(v[3]), static_cast<uint8>(v[4]), v[5], v[6], v[7], currency_byte, seller, status_byte, row_size);
+		// The board only needs how many sockets are filled and how many random
+		// options are rolled; both are stored as fixed zero-filled slots, so a
+		// zero id means empty. Contents still come with the detail blob.
+		uint8 cards = 0;
+		for (int32 i = 11; i < 15; ++i)
+			if (strtol(col(i), nullptr, 10) != 0)
+				++cards;
+		uint8 options = 0;
+		for (int32 i = 15; i < 20; ++i)
+			if (strtol(col(i), nullptr, 10) != 0)
+				++options;
+		rows_out = append_row(rows_out, v[0], v[1], static_cast<uint16>(v[2]), static_cast<uint8>(v[3]), static_cast<uint8>(v[4]), cards, options, v[5], v[6], v[7], currency_byte, seller, status_byte, row_size);
 		++count;
 	}
 	Sql_FreeResult(sql_handle);

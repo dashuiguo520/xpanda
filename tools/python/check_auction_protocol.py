@@ -109,10 +109,22 @@ for name, value in ids.items():
         assert f"0x{value:04x}u16.to_le_bytes()" in sender, f"Client builder missing: {name}"
     elif value not in variable_zc:
         assert re.search(rf"0x{value:04x} => {size},", protocol), f"Client ZC length mismatch: {name}"
-for value, row in ((0x7E31, 45), (0x7E34, 46), (0x7E35, 46)):
+for value, row in ((0x7E31, 47), (0x7E34, 48), (0x7E35, 48)):
     assert re.search(
         rf"0x{value:04x} if frame\.len\(\) >= 9 && \(frame\.len\(\) - 9\) % {row} == 0", protocol
     ), f"Client variable-page arm missing: {value:04x}"
+# The board badges equipment with fill counts, so the row carries them right
+# after `type`; both ends must agree on the offset and on the server's stride.
+char_impl = (server / "src/char/int_auction_custom.cpp").read_text(
+    encoding="utf-8", errors="replace"
+)
+assert "#define AUCTION_SEARCH_ROW_SIZE 47" in common, "search row must be 47 bytes"
+assert "#define AUCTION_MY_ROW_SIZE 48" in common, "my-listings row must be 48 bytes"
+assert "row_size >= 48" in char_impl, "status moved to 47, so the stride test must follow"
+assert "cards: record[12]" in protocol, "client must read the socket count at 12"
+assert "options: record[13]" in protocol, "client must read the option count at 13"
+assert "`card0`,`card1`,`card2`,`card3`" in char_impl, "char must read the socket slots"
+assert "`option_id0`,`option_id1`,`option_id2`,`option_id3`,`option_id4`" in char_impl
 assert 'bytes.extend_from_slice(b"AUCT");' in sender
 assert 'bytes.extend(2u16.to_le_bytes());' in sender, "client must handshake v2"
 

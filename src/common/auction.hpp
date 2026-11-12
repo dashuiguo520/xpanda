@@ -127,8 +127,14 @@ enum e_auction_notify_event : uint8 {
 
 // Search row layout shared by ZC_AUCTION_SEARCH_RESULT / MY_LISTINGS /
 // MY_BIDS; kept here so the char server can build identical rows.
-#define AUCTION_SEARCH_ROW_SIZE 45
-#define AUCTION_MY_ROW_SIZE 46
+// 47 bytes:
+//   id.L nameid.L amount.W refine.B type.B cards.B options.B
+//   priceNow.L priceBuyNow.L expire.L flags.B currency.B seller.19B
+// `cards`/`options` are counts (not the contents): the board prints them as a
+// badge line for equipment, and the contents still come with the detail blob.
+// MY rows append status.B -> 48.
+#define AUCTION_SEARCH_ROW_SIZE 47
+#define AUCTION_MY_ROW_SIZE 48
 // ===== 拍卖行系统：结束 =====
 
 #endif /* COMMON_AUCTION_HPP */
