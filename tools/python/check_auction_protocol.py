@@ -297,6 +297,35 @@ assert "mail_repair_text" in int_mail_src, (
     "a repaired field must be logged and written back so the client copy matches the row"
 )
 
+# ---- A listing is not the seller's to buy or bid on ---------------------
+# Buying your own listing charged the wallet, paid the proceeds back minus the
+# fee and mailed the item to yourself: a guaranteed loss. The bid path has
+# always rejected it; the buy-now path (quote and confirm) had no check at all,
+# so both phases must reject the seller and say why.
+assert "AUCTION_REASON_OWN_LISTING = 20" in common, (
+    "self-purchase needs its own reason code, not a generic 无权限"
+)
+buy_quote = body_at(char_auction_src, "case AUC_OP_BUY_NOW:")
+assert "`seller_char_id`" in buy_quote, "the buy-now quote must read the seller id"
+assert "seller_id == char_id" in buy_quote, (
+    "the buy-now quote must reject the seller before the map deducts anything"
+)
+buy_confirm = body_at(char_auction_src, "case AUC_OP_BUY_NOW_CONFIRM:")
+assert "row.seller_char_id == char_id" in buy_confirm, (
+    "the buy-now confirm must reject the seller under the settlement lock"
+)
+assert "price != row.price_buynow" in buy_confirm, (
+    "the confirm must settle at the listing's fixed price, not the caller's number"
+)
+assert re.search(
+    r"bidder_char_id == row\.seller_char_id\)\s*\n\s*reason = AUCTION_REASON_OWN_LISTING;",
+    char_auction_src,
+), "the bid path must use the same self-purchase reason"
+client_events = (client / "client/src/events/mod.rs").read_text(encoding="utf-8")
+assert "20 => \"不能对自己的挂单出价或购买\"" in client_events, (
+    "the client must explain reason 20 instead of falling back to 未知原因"
+)
+
 print("PASS: auction IDs (CZ 0x7E20-29, ZC 0x7E30-37), upstream + inter collision scan,")
 print("      handshake/gate wiring, enable default off, DDL present,")
 print("      client request/ZC lengths, variable-page arms, builders, AUCT handshake,")

@@ -782,7 +782,7 @@ void parse_bid(int32 fd) {
 	else if (currency != row.currency)
 		reason = AUCTION_REASON_CURRENCY_MISMATCH;
 	else if (bidder_char_id == row.seller_char_id)
-		reason = AUCTION_REASON_NO_PERMISSION;
+		reason = AUCTION_REASON_OWN_LISTING;
 	else if (row.expire_time <= static_cast<uint32>(time(nullptr)))
 		reason = AUCTION_REASON_ALREADY_ENDED;
 	else if (price <= row.price_now)
@@ -1006,7 +1006,7 @@ void parse_op(int32 fd) {
 		}
 		case AUC_OP_BUY_NOW: {
 			// Quote phase: answer the listing truth without state changes.
-			if (SQL_ERROR == Sql_Query(sql_handle, "SELECT `status`,`currency`,`price_buynow` FROM `auction_custom` WHERE `auction_id`='%u'", auction_id)) {
+			if (SQL_ERROR == Sql_Query(sql_handle, "SELECT `status`,`currency`,`price_buynow`,`seller_char_id` FROM `auction_custom` WHERE `auction_id`='%u'", auction_id)) {
 				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, currency, 0);
 				return;
 			}
@@ -1019,9 +1019,19 @@ void parse_op(int32 fd) {
 			const uint8 row_status = static_cast<uint8>(strtoul(col(0), nullptr, 10));
 			const uint8 row_currency = static_cast<uint8>(strtoul(col(1), nullptr, 10));
 			const uint32 buynow = strtoul(col(2), nullptr, 10);
+			const uint32 seller_id = strtoul(col(3), nullptr, 10);
 			Sql_FreeResult(sql_handle);
 			if (row_status != AUCTION_ST_ACTIVE) {
 				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_ALREADY_ENDED, row_currency, buynow);
+				return;
+			}
+			// Buying your own listing would charge your wallet, pay the
+			// proceeds back to you minus the fee and mail the item to
+			// yourself: a guaranteed loss and a pointless mail pair. The bid
+			// path has always rejected this; buy-now has to as well. Rejected
+			// here, before the map deducts anything.
+			if (seller_id == char_id) {
+				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_OWN_LISTING, row_currency, buynow);
 				return;
 			}
 			if (buynow == 0) {
@@ -1043,8 +1053,8 @@ void parse_op(int32 fd) {
 				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, currency, price);
 				return;
 			}
-			bool ok = SQL_ERROR != Sql_Query(sql_handle, "SELECT `currency`,`fee_permille`,`top_bidder_char_id`,`top_bidder_name`,`price_now`,`seller_char_id`,`seller_name`,`item_blob` FROM `auction_custom` WHERE `auction_id`='%u' AND `status`='1' FOR UPDATE", auction_id);
-			struct { uint8 currency; uint16 fee_permille; uint32 top_bidder_char_id; char top_bidder_name[NAME_LENGTH]; uint32 price_now; uint32 seller_char_id; char seller_name[NAME_LENGTH]; struct item it; } row{};
+			bool ok = SQL_ERROR != Sql_Query(sql_handle, "SELECT `currency`,`fee_permille`,`top_bidder_char_id`,`top_bidder_name`,`price_now`,`seller_char_id`,`seller_name`,`item_blob`,`price_buynow` FROM `auction_custom` WHERE `auction_id`='%u' AND `status`='1' FOR UPDATE", auction_id);
+			struct { uint8 currency; uint16 fee_permille; uint32 top_bidder_char_id; char top_bidder_name[NAME_LENGTH]; uint32 price_now; uint32 seller_char_id; char seller_name[NAME_LENGTH]; struct item it; uint32 price_buynow; } row{};
 			memset(&row, 0, sizeof(row));
 			if (ok && SQL_SUCCESS == Sql_NextRow(sql_handle)) {
 				auto col = [&](int32 i) { char* d = nullptr; size_t l = 0; Sql_GetData(sql_handle, i, &d, &l); return d != nullptr ? d : "0"; };
@@ -1060,6 +1070,7 @@ void parse_op(int32 fd) {
 				Sql_GetData(sql_handle, 7, &blob, &len);
 				if (blob != nullptr && len >= AUCTION_ITEM_BLOB_SIZE)
 					memcpy(&row.it, blob, AUCTION_ITEM_BLOB_SIZE);
+				row.price_buynow = strtoul(col(8), nullptr, 10);
 			} else {
 				ok = false;
 			}
@@ -1067,6 +1078,22 @@ void parse_op(int32 fd) {
 			if (!ok || row.currency != currency || price == 0) {
 				Sql_Query(sql_handle, "ROLLBACK");
 				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_CURRENCY_MISMATCH, row.currency, 0);
+				return;
+			}
+			// A listing is not a player's to buy: reject the seller here too,
+			// under the same lock the settlement uses, so a quote that slipped
+			// through (or a replayed confirm) still cannot pay yourself.
+			if (row.seller_char_id == char_id) {
+				Sql_Query(sql_handle, "ROLLBACK");
+				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_OWN_LISTING, currency, price);
+				return;
+			}
+			// The price comes from the map's quote, but the listing owns the
+			// truth: settling for anything other than the fixed price would let
+			// a stale or forged confirm underpay.
+			if (price != row.price_buynow) {
+				Sql_Query(sql_handle, "ROLLBACK");
+				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_INVALID_PRICE, currency, row.price_buynow);
 				return;
 			}
 			if (SQL_ERROR == Sql_Query(sql_handle, "UPDATE `auction_custom` SET `status`='2', `buyer_char_id`='%u', `buyer_name`='%s' WHERE `auction_id`='%u' AND `status`='1'", char_id, buyer_name, auction_id)) {
