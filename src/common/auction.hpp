@@ -47,6 +47,16 @@ enum e_auction_currency : uint8 {
 	AUCTION_CURRENCY_ANY = 0xFF, // search filter only
 };
 
+// CZ_AUCTION_SEARCH carries one `type` byte. Real values are `e_item_type`
+// (0..12, common/mmo.hpp); 0xFF has always meant "any". A consumable tab needs
+// a group no single item type can express, so 0xFE is a pseudo type that the
+// char server expands into `type IN (0,2,10)` (IT_HEALING, IT_USABLE,
+// IT_DELAYCONSUME). Never store 0xFE in the table: rows keep the real type.
+enum e_auction_type_filter : uint8 {
+	AUCTION_TYPE_CONSUMABLE = 0xFE,
+	AUCTION_TYPE_ANY = 0xFF, // search filter only
+};
+
 enum e_auction_status : uint8 {
 	AUCTION_ST_ESCROWING = 0,
 	AUCTION_ST_ACTIVE,

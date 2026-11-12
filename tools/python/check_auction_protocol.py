@@ -210,8 +210,20 @@ assert "server_index(RFIFOW(fd, 2))" in single_parse, (
     "single register must convert the CZ client index to a server slot"
 )
 
+# Browse type tabs. CZ_AUCTION_SEARCH carries one `type` byte: real item types
+# 0..12, 0xFF = any, and 0xFE = the consumable *group*. The char server must
+# expand that sentinel before the equality filter; a plain `type='254'` matches
+# no row and the tab looks unimplemented.
+assert "AUCTION_TYPE_CONSUMABLE = 0xFE" in common, "consumable type sentinel drifted"
+char_search = body_at(char_auction_src, "void parse_search(")
+assert "type == AUCTION_TYPE_CONSUMABLE" in char_search, (
+    "char search must special-case the consumable group before the equality filter"
+)
+assert "`type` IN (0,2,10)" in char_search, "consumable group lost its item types"
+
 print("PASS: auction IDs (CZ 0x7E20-29, ZC 0x7E30-37), upstream + inter collision scan,")
 print("      handshake/gate wiring, enable default off, DDL present,")
 print("      client request/ZC lengths, variable-page arms, builders, AUCT handshake,")
 print("      inter length tables (char slots aligned to WFIFOSET, map replies variable),")
-print("      v2 atomic batch packets + handshake version 2")
+print("      v2 atomic batch packets + handshake version 2,")
+print("      browse type tabs incl. the 0xFE consumable group")

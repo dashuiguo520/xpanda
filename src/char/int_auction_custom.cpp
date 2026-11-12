@@ -268,7 +268,10 @@ void parse_search(int32 fd) {
 	} else {
 		if (currency != AUCTION_CURRENCY_ANY)
 			where += " AND `currency`='" + std::to_string(currency) + "'";
-		if (type != 0xFF)
+		if (type == AUCTION_TYPE_CONSUMABLE)
+			// One tab, three real item types: potions/usable/delay-consume.
+			where += " AND `type` IN (0,2,10)";
+		else if (type != AUCTION_TYPE_ANY)
 			where += " AND `type`='" + std::to_string(type) + "'";
 		if (refine_max != 0xFF) {
 			where += " AND `refine`>='" + std::to_string(refine_min) + "'";
