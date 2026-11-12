@@ -3925,16 +3925,18 @@ bool intif_auction_bid(map_session_data& sd, uint32 auction_id, uint32 price, ui
 	return true;
 }
 
-bool intif_auction_op(map_session_data* sd, uint8 op, uint32 char_id, uint32 auction_id, uint32 price, uint8 currency) {
+bool intif_auction_op(map_session_data* sd, uint8 op, uint32 char_id, uint32 auction_id, uint32 price, uint8 currency, uint16 amount) {
 	if (CheckForCharServer()) return false;
-	WFIFOHEAD(inter_fd, 16);
+	WFIFOHEAD(inter_fd, 18);
 	WFIFOW(inter_fd, 0) = 0x30B8;
 	WFIFOB(inter_fd, 2) = op;
 	WFIFOL(inter_fd, 3) = char_id;
 	WFIFOL(inter_fd, 7) = auction_id;
 	WFIFOL(inter_fd, 11) = price;
 	WFIFOB(inter_fd, 15) = currency;
-	WFIFOSET(inter_fd, 16);
+	// Units for the buy-now quote/confirm; every other op leaves this 0.
+	WFIFOW(inter_fd, 16) = amount;
+	WFIFOSET(inter_fd, 18);
 	return true;
 }
 

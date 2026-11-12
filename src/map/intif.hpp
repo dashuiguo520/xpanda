@@ -54,7 +54,7 @@ bool intif_auction_escrow_batch(uint32 char_id, uint64 batch_id, uint8 currency,
 	uint16 fee_permille, uint16 deposit_permille, uint8 cap, uint8 count, const uint8* rows);
 bool intif_auction_commit_batch(uint64 batch_id, uint8 count, const uint8* rows);
 bool intif_auction_bid(map_session_data& sd, uint32 auction_id, uint32 price, uint8 currency, uint32 min_increment, uint8 min_increment_percent);
-bool intif_auction_op(map_session_data* sd, uint8 op, uint32 char_id, uint32 auction_id, uint32 price, uint8 currency);
+bool intif_auction_op(map_session_data* sd, uint8 op, uint32 char_id, uint32 auction_id, uint32 price, uint8 currency, uint16 amount = 0);
 bool intif_auction_probe_reply(uint64 txid, uint8 alive);
 bool intif_auction_cash_reply(uint32 char_id, uint32 auction_id, uint8 result);
 // ===== 拍卖行系统：结束 =====

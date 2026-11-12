@@ -944,12 +944,51 @@ bool settle_one(uint32 auction_id) {
 	return true;
 }
 
+// Units bought out of a stacked lot are priced pro rata against the lot total
+// the seller listed it at: N of M units cost total*N/M, and N == M returns the
+// total exactly. A partial purchase writes back the REMAINING total instead of
+// re-deriving a unit price, so buying a lot a few units at a time can never
+// drift by a zeny — the last units pay whatever is left.
+uint32 lot_quote(uint32 total, uint16 units, uint16 want) {
+	if (units == 0 || want == 0)
+		return 0;
+	if (want >= units)
+		return total;
+	return static_cast<uint32>((static_cast<uint64>(total) * want) / units);
+}
+
+// Shrink an ACTIVE listing to the units a partial buy-now left behind. The row
+// keeps its lot semantics: the `amount` column and the packed blob move
+// together (the blob is what the next sale mails, so the two can never
+// disagree), both prices drop by the share that was just paid for, and any
+// standing bid is dropped — the caller refunds that bidder separately because
+// the bid was cast for the whole lot.
+bool update_auction_remainder(uint32 auction_id, uint16 units, uint32 price_now, uint32 price_buynow, const struct item& it) {
+	SqlStmt stmt(*sql_handle);
+	if (SQL_ERROR == stmt.PrepareStr("UPDATE `auction_custom` SET `amount`=?, `price_now`=?, `price_buynow`=?, `item_blob`=?, `top_bidder_char_id`='0', `top_bidder_name`='' WHERE `auction_id`=? AND `status`='1'"))
+		return false;
+	uint16 units16 = units;
+	uint32 now32 = price_now;
+	uint32 buy32 = price_buynow;
+	uint32 id32 = auction_id;
+	uint8 blob[AUCTION_ITEM_BLOB_SIZE];
+	memcpy(blob, &it, AUCTION_ITEM_BLOB_SIZE);
+	stmt.BindParam(0, SQLDT_UINT16, &units16, sizeof(units16));
+	stmt.BindParam(1, SQLDT_UINT32, &now32, sizeof(now32));
+	stmt.BindParam(2, SQLDT_UINT32, &buy32, sizeof(buy32));
+	stmt.BindParam(3, SQLDT_BLOB, blob, AUCTION_ITEM_BLOB_SIZE);
+	stmt.BindParam(4, SQLDT_UINT32, &id32, sizeof(id32));
+	return SQL_ERROR != stmt.Execute();
+}
+
 void parse_op(int32 fd) {
 	const uint8 op = RFIFOB(fd, 2);
 	const uint32 char_id = RFIFOL(fd, 3);
 	const uint32 auction_id = RFIFOL(fd, 7);
 	const uint32 price = RFIFOL(fd, 11);
 	const uint8 currency = RFIFOB(fd, 15);
+	// Units for the buy-now quote/confirm; 0 (or absent) means the whole lot.
+	const uint16 amount = RFIFOW(fd, 16);
 
 	auto ack = [&](uint8 result, uint8 reason, uint8 cur, uint32 now_price) {
 		uint8 body[16];
@@ -1005,8 +1044,11 @@ void parse_op(int32 fd) {
 			break;
 		}
 		case AUC_OP_BUY_NOW: {
-			// Quote phase: answer the listing truth without state changes.
-			if (SQL_ERROR == Sql_Query(sql_handle, "SELECT `status`,`currency`,`price_buynow`,`seller_char_id` FROM `auction_custom` WHERE `auction_id`='%u'", auction_id)) {
+			// Quote phase: answer the listing truth without state changes. The
+			// map asks for `amount` units (0 = the whole lot); the answer is
+			// that many units' share of the lot price, so a partial purchase is
+			// never charged the whole stack.
+			if (SQL_ERROR == Sql_Query(sql_handle, "SELECT `status`,`currency`,`price_buynow`,`seller_char_id`,`amount` FROM `auction_custom` WHERE `auction_id`='%u'", auction_id)) {
 				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, currency, 0);
 				return;
 			}
@@ -1020,6 +1062,7 @@ void parse_op(int32 fd) {
 			const uint8 row_currency = static_cast<uint8>(strtoul(col(1), nullptr, 10));
 			const uint32 buynow = strtoul(col(2), nullptr, 10);
 			const uint32 seller_id = strtoul(col(3), nullptr, 10);
+			const uint16 listed = static_cast<uint16>(strtoul(col(4), nullptr, 10));
 			Sql_FreeResult(sql_handle);
 			if (row_status != AUCTION_ST_ACTIVE) {
 				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_ALREADY_ENDED, row_currency, buynow);
@@ -1034,16 +1077,23 @@ void parse_op(int32 fd) {
 				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_OWN_LISTING, row_currency, buynow);
 				return;
 			}
-			if (buynow == 0) {
+			if (buynow == 0 || listed == 0) {
 				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_INVALID_PRICE, row_currency, buynow);
 				return;
 			}
-			ack(AUCTION_RESULT_OK, AUCTION_REASON_OK, row_currency, buynow);
+			const uint16 want = amount == 0 ? listed : amount;
+			if (want > listed) {
+				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_NOT_ENOUGH_ITEMS, row_currency, buynow);
+				return;
+			}
+			ack(AUCTION_RESULT_OK, AUCTION_REASON_OK, row_currency, lot_quote(buynow, listed, want));
 			break;
 		}
 		case AUC_OP_BUY_NOW_CONFIRM: {
-			// Atomic buy-now: status flip + mails in one transaction. The
-			// wallet deduction already happened on the map (quote price).
+			// Atomic buy-now: the whole lot flips to SOLD, a partial purchase
+			// leaves the unpaid units listed. Mails and the payout ride in the
+			// same transaction; the wallet deduction already happened on the map
+			// (quote price for the same count).
 			char buyer_name[NAME_LENGTH];
 			if (!char_name(char_id, buyer_name, NAME_LENGTH)) {
 				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, currency, price);
@@ -1053,8 +1103,8 @@ void parse_op(int32 fd) {
 				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, currency, price);
 				return;
 			}
-			bool ok = SQL_ERROR != Sql_Query(sql_handle, "SELECT `currency`,`fee_permille`,`top_bidder_char_id`,`top_bidder_name`,`price_now`,`seller_char_id`,`seller_name`,`item_blob`,`price_buynow` FROM `auction_custom` WHERE `auction_id`='%u' AND `status`='1' FOR UPDATE", auction_id);
-			struct { uint8 currency; uint16 fee_permille; uint32 top_bidder_char_id; char top_bidder_name[NAME_LENGTH]; uint32 price_now; uint32 seller_char_id; char seller_name[NAME_LENGTH]; struct item it; uint32 price_buynow; } row{};
+			bool ok = SQL_ERROR != Sql_Query(sql_handle, "SELECT `currency`,`fee_permille`,`top_bidder_char_id`,`top_bidder_name`,`price_now`,`seller_char_id`,`seller_name`,`item_blob`,`price_buynow`,`amount` FROM `auction_custom` WHERE `auction_id`='%u' AND `status`='1' FOR UPDATE", auction_id);
+			struct { uint8 currency; uint16 fee_permille; uint32 top_bidder_char_id; char top_bidder_name[NAME_LENGTH]; uint32 price_now; uint32 seller_char_id; char seller_name[NAME_LENGTH]; struct item it; uint32 price_buynow; uint16 amount; } row{};
 			memset(&row, 0, sizeof(row));
 			if (ok && SQL_SUCCESS == Sql_NextRow(sql_handle)) {
 				auto col = [&](int32 i) { char* d = nullptr; size_t l = 0; Sql_GetData(sql_handle, i, &d, &l); return d != nullptr ? d : "0"; };
@@ -1071,6 +1121,7 @@ void parse_op(int32 fd) {
 				if (blob != nullptr && len >= AUCTION_ITEM_BLOB_SIZE)
 					memcpy(&row.it, blob, AUCTION_ITEM_BLOB_SIZE);
 				row.price_buynow = strtoul(col(8), nullptr, 10);
+				row.amount = static_cast<uint16>(strtoul(col(9), nullptr, 10));
 			} else {
 				ok = false;
 			}
@@ -1088,27 +1139,57 @@ void parse_op(int32 fd) {
 				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_OWN_LISTING, currency, price);
 				return;
 			}
+			// The listing's own count is the truth: the amount column and the
+			// packed blob are written together, so either being empty means a
+			// corrupt row, and asking for more than is left means a stale page.
+			const uint16 listed = row.it.amount;
+			const uint16 want = amount == 0 ? listed : amount;
+			if (listed == 0 || row.amount == 0 || want == 0 || want > listed || want > row.amount) {
+				Sql_Query(sql_handle, "ROLLBACK");
+				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_NOT_ENOUGH_ITEMS, currency, row.price_buynow);
+				return;
+			}
 			// The price comes from the map's quote, but the listing owns the
-			// truth: settling for anything other than the fixed price would let
-			// a stale or forged confirm underpay.
-			if (price != row.price_buynow) {
+			// truth: only this many units' share of the lot price may settle.
+			const uint32 quote = lot_quote(row.price_buynow, listed, want);
+			if (price != quote) {
 				Sql_Query(sql_handle, "ROLLBACK");
-				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_INVALID_PRICE, currency, row.price_buynow);
+				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_INVALID_PRICE, currency, quote);
 				return;
 			}
-			if (SQL_ERROR == Sql_Query(sql_handle, "UPDATE `auction_custom` SET `status`='2', `buyer_char_id`='%u', `buyer_name`='%s' WHERE `auction_id`='%u' AND `status`='1'", char_id, buyer_name, auction_id)) {
-				Sql_Query(sql_handle, "ROLLBACK");
-				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, currency, price);
-				return;
-			}
-			if (Sql_NumRowsAffected(sql_handle) == 0) {
-				Sql_Query(sql_handle, "ROLLBACK");
-				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_ALREADY_SOLD, currency, price);
-				return;
+			const bool whole_lot = want >= listed;
+			if (whole_lot) {
+				if (SQL_ERROR == Sql_Query(sql_handle, "UPDATE `auction_custom` SET `status`='2', `buyer_char_id`='%u', `buyer_name`='%s' WHERE `auction_id`='%u' AND `status`='1'", char_id, buyer_name, auction_id)) {
+					Sql_Query(sql_handle, "ROLLBACK");
+					ack(AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, currency, price);
+					return;
+				}
+				if (Sql_NumRowsAffected(sql_handle) == 0) {
+					Sql_Query(sql_handle, "ROLLBACK");
+					ack(AUCTION_RESULT_FAIL, AUCTION_REASON_ALREADY_SOLD, currency, price);
+					return;
+				}
+			} else {
+				// The lot lives on with the units nobody paid for. A standing bid
+				// was cast for the whole lot and cannot survive the split, so the
+				// row drops it (the bidder is refunded below) and the remaining
+				// units return to the fixed price they were listed at.
+				struct item rest = row.it;
+				rest.amount = static_cast<int16>(listed - want);
+				const uint32 keep_price = row.price_buynow - quote;
+				if (!update_auction_remainder(auction_id, static_cast<uint16>(listed - want), keep_price, keep_price, rest)) {
+					Sql_Query(sql_handle, "ROLLBACK");
+					ack(AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, currency, price);
+					return;
+				}
 			}
 			const uint64 fee = fee_of(price, row.fee_permille);
 			const uint64 seller_gain = price > fee ? price - fee : 0;
-			if (!mail_item(char_id, buyer_name, row.it, "拍卖行一口价成交")) {
+			// Deliver exactly the units that were paid for: a partial sale must
+			// never mail the whole escrowed stack.
+			struct item delivered = row.it;
+			delivered.amount = static_cast<int16>(want);
+			if (!mail_item(char_id, buyer_name, delivered, "拍卖行一口价成交")) {
 				Sql_Query(sql_handle, "ROLLBACK");
 				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, currency, price);
 				return;
@@ -1120,8 +1201,11 @@ void parse_op(int32 fd) {
 					return;
 				}
 			}
-			// A standing top bidder loses the item to the buy-now: refund.
-			if (row.top_bidder_char_id != 0 && row.currency == AUCTION_CURRENCY_ZENY) {
+			// A standing top bidder loses the lot to the buy-now: refund the
+			// whole bid, never a share of it — the bid was cast for a lot that
+			// no longer exists, so a prorated refund would be money lost.
+			const bool refund_bidder = row.top_bidder_char_id != 0;
+			if (refund_bidder && row.currency == AUCTION_CURRENCY_ZENY) {
 				if (!mail_zeny(row.top_bidder_char_id, row.top_bidder_name, static_cast<int32>(row.price_now), "拍卖行出价被超越")) {
 					Sql_Query(sql_handle, "ROLLBACK");
 					ack(AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, currency, price);
@@ -1135,9 +1219,9 @@ void parse_op(int32 fd) {
 			// Post-commit cash payout + notifications.
 			if (row.currency == AUCTION_CURRENCY_CASH)
 				cash_payout(row.seller_char_id, auction_id, static_cast<uint32>(seller_gain));
-			if (row.top_bidder_char_id != 0 && row.currency == AUCTION_CURRENCY_CASH)
+			if (refund_bidder && row.currency == AUCTION_CURRENCY_CASH)
 				cash_payout(row.top_bidder_char_id, auction_id, row.price_now);
-			if (row.top_bidder_char_id != 0)
+			if (refund_bidder)
 				notify_char(row.top_bidder_char_id, AUCTION_NOTIFY_OUTBID, AUCTION_REASON_OK, auction_id, price);
 			notify_char(row.seller_char_id, AUCTION_NOTIFY_SOLD, AUCTION_REASON_OK, auction_id, price);
 			ack(AUCTION_RESULT_OK, AUCTION_REASON_OK, currency, price);

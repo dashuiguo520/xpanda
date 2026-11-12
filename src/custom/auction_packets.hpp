@@ -23,7 +23,9 @@ struct PACKET_CZ_AUCTION_CANCEL { uint16 packetType; uint32 auctionId; } __attri
 DEFINE_PACKET_HEADER(CZ_AUCTION_CANCEL, 0x7e24);
 struct PACKET_CZ_AUCTION_BID { uint16 packetType; uint32 auctionId; uint32 price; } __attribute__((packed));
 DEFINE_PACKET_HEADER(CZ_AUCTION_BID, 0x7e25);
-struct PACKET_CZ_AUCTION_BUY_NOW { uint16 packetType; uint32 auctionId; } __attribute__((packed));
+// amount = units to take out of the listing (0 is read as one). A stacked
+// listing keeps the rest, so a lot is bought in parts like an NPC shop.
+struct PACKET_CZ_AUCTION_BUY_NOW { uint16 packetType; uint32 auctionId; uint16 amount; } __attribute__((packed));
 DEFINE_PACKET_HEADER(CZ_AUCTION_BUY_NOW, 0x7e26);
 struct PACKET_CZ_AUCTION_MY_LISTINGS { uint16 packetType; uint16 page; uint8 flags; uint8 reserved; } __attribute__((packed));
 DEFINE_PACKET_HEADER(CZ_AUCTION_MY_LISTINGS, 0x7e27);
@@ -119,7 +121,7 @@ static_assert(sizeof(PACKET_CZ_AUCTION_DETAIL) == 6);
 static_assert(sizeof(PACKET_CZ_AUCTION_REGISTER) == 16);
 static_assert(sizeof(PACKET_CZ_AUCTION_CANCEL) == 6);
 static_assert(sizeof(PACKET_CZ_AUCTION_BID) == 10);
-static_assert(sizeof(PACKET_CZ_AUCTION_BUY_NOW) == 6);
+static_assert(sizeof(PACKET_CZ_AUCTION_BUY_NOW) == 8);
 static_assert(sizeof(PACKET_CZ_AUCTION_MY_LISTINGS) == 6);
 static_assert(sizeof(PACKET_CZ_AUCTION_MY_BIDS) == 6);
 static_assert(sizeof(PACKET_ZC_AUCTION_OPEN_ACK) == 28);

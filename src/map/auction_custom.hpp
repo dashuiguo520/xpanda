@@ -35,7 +35,7 @@ bool request_register(map_session_data& sd, uint16 index, uint16 amount, uint32 
 bool request_register_batch(map_session_data& sd, const std::vector<RegisterRow>& rows, uint8 duration_idx, uint8 currency);
 bool request_cancel(map_session_data& sd, uint32 auction_id);
 bool request_bid(map_session_data& sd, uint32 auction_id, uint32 price);
-bool request_buy_now(map_session_data& sd, uint32 auction_id);
+bool request_buy_now(map_session_data& sd, uint32 auction_id, uint16 amount);
 bool request_my_listings(map_session_data& sd, uint16 page);
 bool request_my_bids(map_session_data& sd, uint16 page);
 

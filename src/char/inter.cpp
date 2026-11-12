@@ -89,7 +89,7 @@ int32 inter_recv_packet_length[] = {
 	 6, static_cast<int32>(6 + sizeof(s_autoplay_config)),
 	// ===== 挂机系统：结束 =====
 	// ===== 拍卖行系统：开始 =====
-	 151,111, 14,20,  0,11, 16,11, -1,-1,  0, 0,  0, 0,	// 30B0-  Autoplay(B0/B1) + Auction house(B2-B9 fixed; BA/BB v2 batch variable len.W; B6 unused)
+	 151,111, 14,20,  0,11, 18,11, -1,-1,  0, 0,  0, 0,	// 30B0-  Autoplay(B0/B1) + Auction house(B2-B9 fixed; BA/BB v2 batch variable len.W; B6 unused)
 	// ===== 拍卖行系统：结束 =====
 };
 

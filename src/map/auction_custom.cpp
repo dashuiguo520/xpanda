@@ -41,7 +41,8 @@
 // 0x30B5 BID_REQ (20, fixed): cmd.W auction_id.L bidder_char_id.L price.L
 //   currency.B min_increment.L min_increment_percent.B
 // 0x30B7 TXID_PROBE_REPLY (11, fixed): cmd.W txid.Q alive.B
-// 0x30B8 OP_REQ (16, fixed): cmd.W op.B char_id.L auction_id.L price.L currency.B
+// 0x30B8 OP_REQ (18, fixed): cmd.W op.B char_id.L auction_id.L price.L currency.B
+//   amount.W@16 (units for the buy-now quote/confirm; 0 elsewhere)
 //   op: 1 cancel, 2 buy-now quote, 3 settle-due, 4 detail, 5 escrow-abort,
 //       6 buy-now confirm (after the wallet deduction)
 // 0x30B9 CASH_PAYOUT_REPLY (11, fixed): cmd.W char_id.L auction_id.L result.B
@@ -115,10 +116,14 @@ struct PendingOffer {
 	uint32 price;
 	uint8 currency;
 	uint8 operation;
+	uint16 amount; // buy-now: units charged for (0 for bids)
 };
 
 std::unordered_map<uint64, PendingEscrow> pending_escrow;
 std::unordered_map<uint32, PendingOffer> pending_offer; // keyed by char_id
+// Units requested by the in-flight buy-now quote. The quote ack carries the
+// prorated price but not the count, and the confirm needs both.
+std::unordered_map<uint32, uint16> pending_buy_units; // keyed by char_id
 std::unordered_map<uint64, uint32> pending_commit;      // txid -> auction_id
 std::unordered_map<uint64, PendingBatch> pending_batch; // v2: batch_id -> staged rows
 std::unordered_map<uint64, uint64> batch_txid_owner;    // v2: row txid -> batch_id (probe, alive until COMMIT_ACK)
@@ -420,16 +425,23 @@ bool request_bid(map_session_data& sd, uint32 auction_id, uint32 price) {
 	return true;
 }
 
-bool request_buy_now(map_session_data& sd, uint32 auction_id) {
+bool request_buy_now(map_session_data& sd, uint32 auction_id, uint16 amount) {
 	nullpo_retr(false, &sd);
 	if (pending_offer.count(sd.status.char_id) != 0) {
 		send_result(sd, AUCTION_OP_BUY_NOW, AUCTION_RESULT_FAIL, AUCTION_REASON_RATE_LIMITED, auction_id, 0);
 		return false;
 	}
-	// Quote phase: the char server answers the listing currency and price
-	// without changing state; the wallet deduction and the atomic commit
-	// happen in on_op_ack / the confirm op.
-	return intif_auction_op(&sd, AUC_OP_BUY_NOW, sd.status.char_id, auction_id, 0, 0);
+	// Quote phase: the char server answers the listing currency and the price
+	// of `amount` units without changing state; the wallet deduction and the
+	// atomic commit happen in on_op_ack / the confirm op. The quantity travels
+	// to the char server, which owns the prorated price.
+	const uint16 units = amount == 0 ? 1 : amount;
+	pending_buy_units[sd.status.char_id] = units;
+	if (!intif_auction_op(&sd, AUC_OP_BUY_NOW, sd.status.char_id, auction_id, 0, 0, units)) {
+		pending_buy_units.erase(sd.status.char_id);
+		return false;
+	}
+	return true;
 }
 
 // char->map callbacks -------------------------------------------------------
@@ -737,9 +749,13 @@ void on_op_ack(int32 fd) {
 			break;
 		}
 		case AUC_OP_BUY_NOW: {
-			// Quote phase. OK: currency+price_now are the listing truth; the
-			// wallet is deducted here and the atomic confirm goes out. FAIL:
-			// straight reject (ended/sold/unknown listing).
+			// Quote phase. OK: currency+price_now are the price of the units the
+			// player asked for; the wallet is deducted here and the atomic
+			// confirm goes out carrying the same count. FAIL: straight reject
+			// (ended/sold/unknown listing, or more units than the lot holds).
+			const auto units_it = pending_buy_units.find(char_id);
+			const uint16 units = units_it == pending_buy_units.end() ? 1 : units_it->second;
+			pending_buy_units.erase(char_id);
 			map_session_data* sd = map_charid2sd(char_id);
 			if (sd == nullptr || !sd->auction_supported)
 				return;
@@ -751,7 +767,7 @@ void on_op_ack(int32 fd) {
 				send_result(*sd, AUCTION_OP_BUY_NOW, AUCTION_RESULT_FAIL, AUCTION_REASON_INSUFFICIENT_FUNDS, auction_id, price_now);
 				return;
 			}
-			if (!intif_auction_op(sd, AUC_OP_BUY_NOW_CONFIRM, char_id, auction_id, price_now, currency)) {
+			if (!intif_auction_op(sd, AUC_OP_BUY_NOW_CONFIRM, char_id, auction_id, price_now, currency, units)) {
 				credit_price(*sd, currency, price_now);
 				send_result(*sd, AUCTION_OP_BUY_NOW, AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, auction_id, price_now);
 				return;
@@ -760,6 +776,7 @@ void on_op_ack(int32 fd) {
 			offer.price = price_now;
 			offer.currency = currency;
 			offer.operation = AUCTION_OP_BUY_NOW;
+			offer.amount = units;
 			pending_offer[char_id] = offer;
 			break;
 		}

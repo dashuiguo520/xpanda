@@ -26787,7 +26787,9 @@ void clif_parse_auction_bid(int32 fd, map_session_data* sd) {
 void clif_parse_auction_buy_now(int32 fd, map_session_data* sd) {
 	if (!clif_auction_gate(sd, AUCTION_OP_BUY_NOW, true))
 		return;
-	auction_custom::request_buy_now(*sd, RFIFOL(fd, 2));
+	// amount = units to take out of the listing; 0 means "one".
+	const uint16 amount = RFIFOW(fd, 6);
+	auction_custom::request_buy_now(*sd, RFIFOL(fd, 2), amount == 0 ? 1 : amount);
 }
 
 void clif_parse_auction_my_listings(int32 fd, map_session_data* sd) {

@@ -314,8 +314,8 @@ buy_confirm = body_at(char_auction_src, "case AUC_OP_BUY_NOW_CONFIRM:")
 assert "row.seller_char_id == char_id" in buy_confirm, (
     "the buy-now confirm must reject the seller under the settlement lock"
 )
-assert "price != row.price_buynow" in buy_confirm, (
-    "the confirm must settle at the listing's fixed price, not the caller's number"
+assert "price != quote" in buy_confirm, (
+    "the confirm must settle at this many units' share of the fixed price, not the caller's number"
 )
 assert re.search(
     r"bidder_char_id == row\.seller_char_id\)\s*\n\s*reason = AUCTION_REASON_OWN_LISTING;",
@@ -324,6 +324,52 @@ assert re.search(
 client_events = (client / "client/src/events/mod.rs").read_text(encoding="utf-8")
 assert "20 => \"不能对自己的挂单出价或购买\"" in client_events, (
     "the client must explain reason 20 instead of falling back to 未知原因"
+)
+
+# ---- Per-unit listing price + partial buy-now ---------------------------
+# The listing panel now takes a UNIT price and multiplies it by the staged
+# quantity, because the wire/DB carry the lot total the server settles. A
+# stacked buy-now therefore asks how many units to take and must settle only
+# that share: the quote is prorated, the confirm re-derives it under the lock,
+# and the row is written back with the units nobody paid for.
+assert "AUCTION_REASON_NOT_ENOUGH_ITEMS = 21" in common, (
+    "a partial buy-now needs its own reason code"
+)
+assert "uint32 lot_quote(" in char_auction_src, "the prorated price helper is missing"
+assert "bool update_auction_remainder(" in char_auction_src, (
+    "a partial sale must write back the remaining units and prices"
+)
+op_body = body_at(char_auction_src, "void parse_op(")
+assert "RFIFOW(fd, 16)" in op_body, "0x30B8 amount@16 must be read"
+for needle in (
+    "lot_quote(buynow, listed, want)",
+    "AUCTION_REASON_NOT_ENOUGH_ITEMS",
+):
+    assert needle in op_body, f"the buy-now quote is missing {needle}"
+for needle in (
+    "lot_quote(row.price_buynow, listed, want)",
+    "update_auction_remainder(auction_id",
+    "delivered.amount = static_cast<int16>(want)",
+    "if (price != quote)",
+):
+    assert needle in op_body, f"the buy-now confirm is missing {needle}"
+# The inter request grew by the amount word; both ends must agree.
+assert "#define AUCTION_INTER_BATCH_HDR_SIZE 25" in common
+assert re.search(r"WFIFOW\(inter_fd, 16\) = amount;", mapintif), "0x30B8 amount@16 not written"
+assert re.search(r"WFIFOSET\(inter_fd, 18\)", mapintif), "0x30B8 must be 18 bytes"
+# Client side: unit price on input, lot total on the wire, quantity on buy.
+client_auction = (client / "lib/ui-component/src/game/auction_window.rs").read_text(encoding="utf-8")
+assert "fn unit_price(total: u32, amount: u16) -> u32" in client_auction
+assert "checked_mul(u32::from(self.parsed_amount()))" in client_auction, (
+    "the listing panel must send unit * qty as the lot total"
+)
+assert "RequestAuctionBuyNow { auction_id, amount }" in client_auction, (
+    "the buy request must carry the unit count"
+)
+assert "struct BuyDialog" in client_auction, "the quantity box is missing"
+client_sender = (client / "lib/network/src/sender.rs").read_text(encoding="utf-8")
+assert "amount.max(1).to_le_bytes()" in body_at(client_sender, "pub fn build_auction_buy_now_packet("), (
+    "the CZ builder must write the unit count"
 )
 
 print("PASS: auction IDs (CZ 0x7E20-29, ZC 0x7E30-37), upstream + inter collision scan,")
