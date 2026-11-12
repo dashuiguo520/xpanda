@@ -221,7 +221,13 @@ uint64 fee_of(uint32 price, uint16 permille) {
 	return static_cast<uint64>(result) / 1000;
 }
 
-void append_row(uint8*& out, uint32 auction_id, uint32 nameid, uint16 amount, uint8 refine, uint8 type, uint32 price_now, uint32 price_buynow, uint32 expire, uint8 currency, const char* seller, uint8 status, uint8 row_size) {
+// Writes one page row at `out` and returns the cursor for the next row:
+// exactly `row_size` bytes further on. Returning the cursor (instead of
+// taking it by reference and letting the caller step it too) keeps a single
+// owner of the stride. The old `append_row(...); rows_out += row_size;` pair
+// advanced twice and left a zeroed 45-byte hole between every two rows, which
+// the client painted as "Item #0 / x0 / 0 Z / 已结束".
+uint8* append_row(uint8* out, uint32 auction_id, uint32 nameid, uint16 amount, uint8 refine, uint8 type, uint32 price_now, uint32 price_buynow, uint32 expire, uint8 currency, const char* seller, uint8 status, uint8 row_size) {
 	memcpy(out, &auction_id, 4); out += 4;
 	memcpy(out, &nameid, 4); out += 4;
 	memcpy(out, &amount, 2); out += 2;
@@ -237,6 +243,7 @@ void append_row(uint8*& out, uint32 auction_id, uint32 nameid, uint16 amount, ui
 	out += 19;
 	if (row_size >= 46)
 		*out++ = status;
+	return out;
 }
 
 // Handlers --------------------------------------------------------------------
@@ -351,8 +358,7 @@ void parse_search(int32 fd) {
 		char seller[NAME_LENGTH];
 		safestrncpy(seller, col(9), NAME_LENGTH);
 		const uint8 status_byte = static_cast<uint8>(strtoul(col(10), nullptr, 10));
-		append_row(rows_out, v[0], v[1], static_cast<uint16>(v[2]), static_cast<uint8>(v[3]), static_cast<uint8>(v[4]), v[5], v[6], v[7], currency_byte, seller, status_byte, row_size);
-		rows_out += row_size;
+		rows_out = append_row(rows_out, v[0], v[1], static_cast<uint16>(v[2]), static_cast<uint8>(v[3]), static_cast<uint8>(v[4]), v[5], v[6], v[7], currency_byte, seller, status_byte, row_size);
 		++count;
 	}
 	Sql_FreeResult(sql_handle);
