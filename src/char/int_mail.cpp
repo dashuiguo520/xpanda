@@ -80,21 +80,25 @@ int32 mail_fromsql(uint32 char_id, struct mail_data* md)
 	return 1;
 }
 
-/// Warn (with the raw bytes) when a mail field had to be repaired before it was
-/// bound, so the source of the bad text can be found. Silent repair alone would
-/// hide a broken caller.
-static void mail_warn_text_repair(const char* field, const char* raw, size_t raw_len, const std::string& fixed) {
-	if (fixed.size() == raw_len && (raw_len == 0 || std::memcmp(fixed.data(), raw, raw_len) == 0))
-		return;
+/// Warn (with the raw bytes) when a mail field had to be repaired, and copy the
+/// repaired text back into `dst` so the database and the recipient see the same
+/// bytes. Fields that were already valid are left untouched (a plain
+/// `safestrncpy` round-trip could shave a byte off a field that sits exactly on
+/// its length limit). Returns true when a repair happened.
+static bool mail_repair_text(const char* field, char* dst, size_t dst_size, size_t raw_len, const std::string& fixed) {
+	if (fixed.size() == raw_len && (raw_len == 0 || std::memcmp(fixed.data(), dst, raw_len) == 0))
+		return false;
 
 	char hex[3 * 32 + 1] = {};
 	size_t used = 0;
 	for (size_t i = 0; i < raw_len && i < 32; ++i)
-		used += static_cast<size_t>(snprintf(hex + used, sizeof(hex) - used, "%02X ", static_cast<unsigned char>(raw[i])));
+		used += static_cast<size_t>(snprintf(hex + used, sizeof(hex) - used, "%02X ", static_cast<unsigned char>(dst[i])));
 	if (used > 0)
 		hex[used - 1] = '\0';
 
 	ShowWarning("mail: `%s` is not valid in the database codepage and was repaired before insert (%zu bytes: %s)\n", field, raw_len, hex);
+	safestrncpy(dst, fixed.c_str(), dst_size);
+	return true;
 }
 
 /// Stores a single message in the database.
@@ -111,23 +115,20 @@ int32 mail_savemessage(struct mail_message* msg)
 	// ("Incorrect string value: ... for column 'send_name'") and the rollback
 	// takes the attached items with it. `normalize_data_text` leaves valid text
 	// untouched, converts leaked UTF-8 and repairs broken tails; anything it had
-	// to change is logged above so the caller can be fixed.
-	const std::string send_name = normalize_data_text(msg->send_name, strnlen(msg->send_name, NAME_LENGTH));
-	const std::string dest_name = normalize_data_text(msg->dest_name, strnlen(msg->dest_name, NAME_LENGTH));
-	const std::string title = normalize_data_text(msg->title, strnlen(msg->title, MAIL_TITLE_LENGTH));
-	const std::string body = normalize_data_text(msg->body, strnlen(msg->body, MAIL_BODY_LENGTH));
-	mail_warn_text_repair("send_name", msg->send_name, strnlen(msg->send_name, NAME_LENGTH), send_name);
-	mail_warn_text_repair("dest_name", msg->dest_name, strnlen(msg->dest_name, NAME_LENGTH), dest_name);
-	mail_warn_text_repair("title", msg->title, strnlen(msg->title, MAIL_TITLE_LENGTH), title);
-	mail_warn_text_repair("message", msg->body, strnlen(msg->body, MAIL_BODY_LENGTH), body);
-
-	// Keep the copy that goes back to the map (and from there to the client)
-	// identical to what the database accepted, so a repaired field cannot show
-	// up as mojibake in the recipient's mailbox.
-	safestrncpy(msg->send_name, send_name.c_str(), NAME_LENGTH);
-	safestrncpy(msg->dest_name, dest_name.c_str(), NAME_LENGTH);
-	safestrncpy(msg->title, title.c_str(), MAIL_TITLE_LENGTH);
-	safestrncpy(msg->body, body.c_str(), MAIL_BODY_LENGTH);
+	// to change is logged (with the field name and raw bytes) and written back so
+	// the client copy matches the stored one.
+	const size_t send_name_len = strnlen(msg->send_name, NAME_LENGTH);
+	const size_t dest_name_len = strnlen(msg->dest_name, NAME_LENGTH);
+	const size_t title_len = strnlen(msg->title, MAIL_TITLE_LENGTH);
+	const size_t body_len = strnlen(msg->body, MAIL_BODY_LENGTH);
+	const std::string send_name = normalize_data_text(msg->send_name, send_name_len);
+	const std::string dest_name = normalize_data_text(msg->dest_name, dest_name_len);
+	const std::string title = normalize_data_text(msg->title, title_len);
+	const std::string body = normalize_data_text(msg->body, body_len);
+	mail_repair_text("send_name", msg->send_name, NAME_LENGTH, send_name_len, send_name);
+	mail_repair_text("dest_name", msg->dest_name, NAME_LENGTH, dest_name_len, dest_name);
+	mail_repair_text("title", msg->title, MAIL_TITLE_LENGTH, title_len, title);
+	mail_repair_text("message", msg->body, MAIL_BODY_LENGTH, body_len, body);
 
 	if( SQL_ERROR == Sql_QueryStr( sql_handle, "START TRANSACTION" ) ){
 		Sql_ShowDebug( sql_handle );

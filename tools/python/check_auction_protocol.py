@@ -293,8 +293,8 @@ for field in ("send_name", "dest_name", "title", "body"):
 assert "BindParam(0, SQLDT_STRING, const_cast<char*>(send_name.c_str())" in int_mail_src, (
     "the insert must bind the normalised buffer, not the raw struct field"
 )
-assert "mail_warn_text_repair" in int_mail_src, (
-    "a repaired field must be logged so the broken caller can be found"
+assert "mail_repair_text" in int_mail_src, (
+    "a repaired field must be logged and written back so the client copy matches the row"
 )
 
 print("PASS: auction IDs (CZ 0x7E20-29, ZC 0x7E30-37), upstream + inter collision scan,")
