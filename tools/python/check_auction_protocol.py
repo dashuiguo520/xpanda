@@ -166,6 +166,18 @@ mtbl = re.sub(r"//[^\n]*", "", mtbl)
 melems = [e.strip() for e in mtbl.split(",") if e.strip()]
 for slot in range(0xB2, 0xBC):
     assert melems[slot] == "-1", f"map reply table slot 0x38{slot:02X} must be -1 (variable), got {melems[slot]!r}"
+# Every char->map reply identifies the player by char_id. map_id2sd() looks up
+# pc_db by account_id, so using it here returns nullptr and silently drops the
+# receipt (client times out, escrow rows stay at status 0). Guard the fix.
+auction_map_src = (server / "src/map/auction_custom.cpp").read_text(encoding="utf-8", errors="replace")
+auction_map_code = "\n".join(
+    line for line in auction_map_src.splitlines() if not line.lstrip().startswith("//")
+)
+assert not re.search(r"\bmap_id2sd\(", auction_map_code), (
+    "auction_custom.cpp must resolve char_id with map_charid2sd(), not map_id2sd()"
+)
+assert auction_map_code.count("map_charid2sd(") >= 9, "char->map session lookups went missing"
+
 print("PASS: auction IDs (CZ 0x7E20-29, ZC 0x7E30-37), upstream + inter collision scan,")
 print("      handshake/gate wiring, enable default off, DDL present,")
 print("      client request/ZC lengths, variable-page arms, builders, AUCT handshake,")

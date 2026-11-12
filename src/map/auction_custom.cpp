@@ -445,7 +445,11 @@ void on_escrow_ack(int32 fd) {
 	PendingEscrow pending = it->second;
 	pending_escrow.erase(it);
 
-	map_session_data* sd = map_id2sd(pending.char_id);
+	// Every char->map reply identifies the player by char_id, so the lookup
+	// MUST use map_charid2sd (charid_db). map_id2sd indexes pc_db by
+	// account_id: passing a char_id silently returned nullptr and dropped
+	// the whole reply (no client receipt, escrow rows stuck at status 0).
+	map_session_data* sd = map_charid2sd(pending.char_id);
 	if (result != AUCTION_RESULT_OK || sd == nullptr || !sd->auction_supported) {
 		if (sd != nullptr)
 			send_result(*sd, AUCTION_OP_REGISTER, AUCTION_RESULT_FAIL, reason, 0, 0);
@@ -510,7 +514,7 @@ void on_escrow_batch_ack(int32 fd) {
 	PendingBatch pending = it->second;
 	pending_batch.erase(it);
 	const uint8 rows = static_cast<uint8>(pending.rows.size());
-	map_session_data* sd = map_id2sd(pending.char_id);
+	map_session_data* sd = map_charid2sd(pending.char_id);
 	if (result != AUCTION_RESULT_OK || sd == nullptr || !sd->auction_supported) {
 		clear_batch_owner(pending);
 		if (sd != nullptr)
@@ -596,7 +600,7 @@ void on_bid_ack(int32 fd) {
 		return;
 	PendingOffer offer = it->second;
 	pending_offer.erase(it);
-	map_session_data* sd = map_id2sd(char_id);
+	map_session_data* sd = map_charid2sd(char_id);
 	if (sd == nullptr || !sd->auction_supported) {
 		return; // session gone: deduction persisted via logout save; escrow
 		        // row (accepted) or journal (rejected path) keeps the audit.
@@ -628,7 +632,7 @@ void on_bid_ack(int32 fd) {
 void on_search_or_detail(int32 fd) {
 	const uint8 kind = RFIFOB(fd, 4);
 	const uint32 char_id = RFIFOL(fd, 5);
-	map_session_data* sd = map_id2sd(char_id);
+	map_session_data* sd = map_charid2sd(char_id);
 	if (sd == nullptr || !sd->auction_supported || sd->fd <= 0)
 		return;
 	const int32 out_fd = sd->fd;
@@ -685,7 +689,7 @@ void on_op_ack(int32 fd) {
 
 	switch (op) {
 		case AUC_OP_CANCEL: {
-			map_session_data* sd = map_id2sd(char_id);
+			map_session_data* sd = map_charid2sd(char_id);
 			if (sd != nullptr && sd->auction_supported)
 				send_result(*sd, AUCTION_OP_CANCEL, result, reason, auction_id, price_now);
 			break;
@@ -694,7 +698,7 @@ void on_op_ack(int32 fd) {
 			// Quote phase. OK: currency+price_now are the listing truth; the
 			// wallet is deducted here and the atomic confirm goes out. FAIL:
 			// straight reject (ended/sold/unknown listing).
-			map_session_data* sd = map_id2sd(char_id);
+			map_session_data* sd = map_charid2sd(char_id);
 			if (sd == nullptr || !sd->auction_supported)
 				return;
 			if (result != AUCTION_RESULT_OK) {
@@ -723,7 +727,7 @@ void on_op_ack(int32 fd) {
 				return;
 			PendingOffer offer = it->second;
 			pending_offer.erase(it);
-			map_session_data* sd = map_id2sd(char_id);
+			map_session_data* sd = map_charid2sd(char_id);
 			if (sd == nullptr || !sd->auction_supported)
 				return;
 			if (result != AUCTION_RESULT_OK) {
@@ -749,7 +753,7 @@ void on_notify_forward(int32 fd) {
 	const uint8 reason = RFIFOB(fd, 9);
 	const uint32 auction_id = RFIFOL(fd, 10);
 	const uint32 value = RFIFOL(fd, 14);
-	map_session_data* sd = map_id2sd(char_id);
+	map_session_data* sd = map_charid2sd(char_id);
 	if (sd == nullptr || !sd->auction_supported)
 		return;
 	clif_auction_send_notify(*sd, event, reason, auction_id, value);
@@ -767,7 +771,7 @@ void on_cash_payout(int32 fd) {
 	const uint32 char_id = RFIFOL(fd, 4);
 	const uint32 auction_id = RFIFOL(fd, 8);
 	const uint32 amount = RFIFOL(fd, 12);
-	map_session_data* sd = map_id2sd(char_id);
+	map_session_data* sd = map_charid2sd(char_id);
 	if (sd == nullptr || !sd->auction_supported) {
 		// Player left between the char decision and the payout: report
 		// failure so the char server falls back to the offline acc_reg_num
