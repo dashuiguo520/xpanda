@@ -371,8 +371,12 @@ bool request_register_batch(map_session_data& sd, const std::vector<RegisterRow>
 	if (!sent) {
 		for (const BatchSlot& slot : pending.rows)
 			batch_txid_owner.erase(slot.txid);
-		return fail(AUCTION_REASON_INTERNAL, 0);
+		ShowError("auction batch: escrow request NOT sent (char-serv link down), char_id=%u count=%u batch_id=%llu\n",
+			sd.status.char_id, count, static_cast<unsigned long long>(batch_id));
+		return fail(AUCTION_REASON_INTER_UNAVAILABLE, 0);
 	}
+	ShowError("auction batch: escrow sent char_id=%u count=%u batch_id=%llu\n",
+		sd.status.char_id, count, static_cast<unsigned long long>(batch_id));
 	pending_batch[batch_id] = pending;
 	return true;
 }
@@ -505,8 +509,12 @@ void on_escrow_batch_ack(int32 fd) {
 	const uint8 fail_row = RFIFOB(fd, 14);
 	const uint8 count = RFIFOB(fd, 15);
 
+	ShowError("auction batch ack: batch_id=%llu result=%u reason=%u fail_row=%u count=%u\n",
+		static_cast<unsigned long long>(batch_id), result, reason, fail_row, count);
 	auto it = pending_batch.find(batch_id);
 	if (it == pending_batch.end()) {
+		ShowError("auction batch ack: unknown batch_id=%llu (pending dropped), aborting rows\n",
+			static_cast<unsigned long long>(batch_id));
 		// Map restarted mid-handshake: drop every row the char server kept.
 		abort_batch_rows(fd, count, 16);
 		return;
@@ -516,6 +524,8 @@ void on_escrow_batch_ack(int32 fd) {
 	const uint8 rows = static_cast<uint8>(pending.rows.size());
 	map_session_data* sd = map_charid2sd(pending.char_id);
 	if (result != AUCTION_RESULT_OK || sd == nullptr || !sd->auction_supported) {
+		ShowError("auction batch ack: rejected result=%u reason=%u sd=%p supported=%d rows=%u\n",
+			result, reason, static_cast<void*>(sd), sd != nullptr ? sd->auction_supported : -1, rows);
 		clear_batch_owner(pending);
 		if (sd != nullptr)
 			clif_auction_send_register_batch_result(*sd, AUCTION_RESULT_FAIL, reason, fail_row, nullptr, nullptr, nullptr, rows);

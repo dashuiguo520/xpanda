@@ -85,6 +85,7 @@ enum e_auction_reason : uint8 {
 	AUCTION_REASON_CURRENCY_MISMATCH = 16,
 	AUCTION_REASON_BATCH_ROLLED_BACK = 17, // v2: this row was fine, a sibling failed
 	AUCTION_REASON_TOO_MANY_ITEMS = 18,    // v2: batch count out of range
+	AUCTION_REASON_INTER_UNAVAILABLE = 19, // v2: map<->char inter link is down
 };
 
 enum e_auction_notify_event : uint8 {

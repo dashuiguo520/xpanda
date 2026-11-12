@@ -550,12 +550,16 @@ void parse_escrow_batch(int32 fd) {
 	(void)fee_permille;     // locked per row by the map server, mirrored
 	(void)deposit_permille; // here for wire symmetry with 0x30B3
 	uint32 auction_ids[AUCTION_MAX_BATCH_ITEMS] = {};
+	ShowError("auction batch escrow recv: char_id=%u batch_id=%llu count=%u currency=%u duration_h=%u cap=%u\n",
+		char_id, static_cast<unsigned long long>(batch_id), count, currency, duration_h, cap);
 
 	if (count == 0 || count > AUCTION_MAX_BATCH_ITEMS) {
+		ShowError("auction batch escrow FAIL: invalid count=%u\n", count);
 		escrow_batch_ack(fd, batch_id, AUCTION_RESULT_FAIL, AUCTION_REASON_TOO_MANY_ITEMS, 0, nullptr, 0);
 		return;
 	}
 	if (SQL_ERROR == Sql_Query(sql_handle, "START TRANSACTION")) {
+		ShowError("auction batch escrow FAIL: START TRANSACTION\n");
 		escrow_batch_ack(fd, batch_id, AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, 0, nullptr, count);
 		return;
 	}
@@ -568,18 +572,22 @@ void parse_escrow_batch(int32 fd) {
 	}
 	Sql_FreeResult(sql_handle);
 	if (!ok) {
+		ShowError("auction batch escrow FAIL: listing count query\n");
 		Sql_Query(sql_handle, "ROLLBACK");
 		escrow_batch_ack(fd, batch_id, AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, 0, nullptr, count);
 		return;
 	}
 	// The cap must cover the WHOLE batch, not just its first row.
 	if (existing + count > cap) {
+		ShowError("auction batch escrow LISTING_CAP existing=%llu count=%u cap=%u\n",
+			static_cast<unsigned long long>(existing), count, cap);
 		Sql_Query(sql_handle, "ROLLBACK");
 		escrow_batch_ack(fd, batch_id, AUCTION_RESULT_FAIL, AUCTION_REASON_LISTING_CAP, 0, nullptr, count);
 		return;
 	}
 	char seller[NAME_LENGTH];
 	if (!char_name(char_id, seller, NAME_LENGTH)) {
+		ShowError("auction batch escrow FAIL: char_name lookup char_id=%u\n", char_id);
 		Sql_Query(sql_handle, "ROLLBACK");
 		escrow_batch_ack(fd, batch_id, AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, 0, nullptr, count);
 		return;
@@ -596,15 +604,19 @@ void parse_escrow_batch(int32 fd) {
 		memcpy(&it, RFIFOP(fd, base + 18), AUCTION_ITEM_BLOB_SIZE);
 		const uint8 item_type = RFIFOB(fd, base + 95);
 		if (!insert_auction_row(txid, char_id, seller, price, buy_now, currency, expire, it, item_type, blob_version, auction_ids[i])) {
+			ShowError("auction batch escrow FAIL: insert row=%u txid=%llu price=%u buynow=%u\n",
+				i, static_cast<unsigned long long>(txid), price, buy_now);
 			Sql_Query(sql_handle, "ROLLBACK");
 			escrow_batch_ack(fd, batch_id, AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, i, nullptr, count);
 			return;
 		}
 	}
 	if (SQL_ERROR == Sql_Query(sql_handle, "COMMIT")) {
+		ShowError("auction batch escrow FAIL: COMMIT\n");
 		escrow_batch_ack(fd, batch_id, AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, 0, nullptr, count);
 		return;
 	}
+	ShowError("auction batch escrow OK: inserted %u rows, first auction_id=%u\n", count, auction_ids[0]);
 	escrow_batch_ack(fd, batch_id, AUCTION_RESULT_OK, AUCTION_REASON_OK, 0xFF, auction_ids, count);
 }
 
