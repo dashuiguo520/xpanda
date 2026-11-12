@@ -3789,10 +3789,10 @@ bool intif_autoplay_save(uint32 char_id, const s_autoplay_config& config) {
 
 // ===== 拍卖行系统：开始 =====
 // Wire layouts are documented in src/map/auction_custom.cpp.
-bool intif_auction_search(map_session_data& sd, uint8 scope, uint16 page, uint8 currency, uint8 type, uint8 refine_min, uint8 refine_max, uint32 price_min, uint32 price_max, uint8 sort, uint8 nameid_count, const uint16* nameids) {
+bool intif_auction_search(map_session_data& sd, uint8 scope, uint16 page, uint8 currency, uint8 type, uint8 refine_min, uint8 refine_max, uint32 price_min, uint32 price_max, uint8 sort, uint8 nameid_count, const uint16* nameids, uint8 board_kind) {
 	if (CheckForCharServer()) return false;
 	const uint8 count = (nameids != nullptr && nameid_count > AUCTION_MAX_NAMEID_FILTERS) ? AUCTION_MAX_NAMEID_FILTERS : nameid_count;
-	WFIFOHEAD(inter_fd, 151);
+	WFIFOHEAD(inter_fd, 152);
 	WFIFOW(inter_fd, 0) = 0x30B2;
 	WFIFOL(inter_fd, 2) = sd.status.char_id;
 	WFIFOW(inter_fd, 6) = page;
@@ -3808,13 +3808,14 @@ bool intif_auction_search(map_session_data& sd, uint8 scope, uint16 page, uint8 
 	if (count > 0)
 		memcpy(WFIFOP(inter_fd, 23), nameids, count * sizeof(uint16));
 	memset(WFIFOP(inter_fd, 23 + count * sizeof(uint16)), 0, (64 - count) * sizeof(uint16));
-	WFIFOSET(inter_fd, 151);
+	WFIFOB(inter_fd, 151) = board_kind;
+	WFIFOSET(inter_fd, 152);
 	return true;
 }
 
 bool intif_auction_my_page(map_session_data& sd, uint8 scope, uint16 page) {
 	if (CheckForCharServer()) return false;
-	WFIFOHEAD(inter_fd, 151);
+	WFIFOHEAD(inter_fd, 152);
 	WFIFOW(inter_fd, 0) = 0x30B2;
 	WFIFOL(inter_fd, 2) = sd.status.char_id;
 	WFIFOW(inter_fd, 6) = page;
@@ -3828,7 +3829,8 @@ bool intif_auction_my_page(map_session_data& sd, uint8 scope, uint16 page) {
 	WFIFOB(inter_fd, 21) = 0;
 	WFIFOB(inter_fd, 22) = 0;
 	memset(WFIFOP(inter_fd, 23), 0, 128);
-	WFIFOSET(inter_fd, 151);
+	WFIFOB(inter_fd, 151) = AUCTION_KIND_ANY;
+	WFIFOSET(inter_fd, 152);
 	return true;
 }
 

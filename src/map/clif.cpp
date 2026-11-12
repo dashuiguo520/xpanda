@@ -26703,7 +26703,12 @@ void clif_parse_auction_search(int32 fd, map_session_data* sd) {
 		clif_auction_send_result(*sd, AUCTION_OP_SEARCH, AUCTION_RESULT_FAIL, AUCTION_REASON_INVALID_PRICE, 0, 0);
 		return;
 	}
+	pkt.kind = RFIFOB(fd, 146);
 	if (pkt.nameidCount > AUCTION_MAX_NAMEID_FILTERS) {
+		clif_auction_send_result(*sd, AUCTION_OP_SEARCH, AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, 0, 0);
+		return;
+	}
+	if (pkt.kind > AUCTION_KIND_BID) {
 		clif_auction_send_result(*sd, AUCTION_OP_SEARCH, AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, 0, 0);
 		return;
 	}

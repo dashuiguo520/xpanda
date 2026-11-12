@@ -44,7 +44,7 @@ bool intif_autoplay_save(uint32 char_id, const s_autoplay_config& config);
 
 // ===== 拍卖行系统：开始 =====
 struct PACKET_CZ_AUCTION_SEARCH;
-bool intif_auction_search(map_session_data& sd, uint8 scope, uint16 page, uint8 currency, uint8 type, uint8 refine_min, uint8 refine_max, uint32 price_min, uint32 price_max, uint8 sort, uint8 nameid_count, const uint16* nameids);
+bool intif_auction_search(map_session_data& sd, uint8 scope, uint16 page, uint8 currency, uint8 type, uint8 refine_min, uint8 refine_max, uint32 price_min, uint32 price_max, uint8 sort, uint8 nameid_count, const uint16* nameids, uint8 board_kind);
 bool intif_auction_my_page(map_session_data& sd, uint8 scope, uint16 page);
 bool intif_auction_escrow(map_session_data& sd, uint64 txid, uint32 price, uint32 buy_now, uint8 currency, uint8 duration_h, uint16 fee_permille, uint16 deposit_permille, const struct item& it, uint8 item_type, uint8 cap);
 bool intif_auction_commit(uint64 txid, uint32 auction_id);

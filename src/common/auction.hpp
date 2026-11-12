@@ -54,6 +54,18 @@ enum e_auction_currency : uint8 {
 	AUCTION_CURRENCY_ANY = 0xFF, // search filter only
 };
 
+// Which half of the search board a page belongs to. The 定价 board lists only
+// lots with a fixed price (`price_buynow` > 0, legacy two-price rows count as
+// 定价: they settle by buy-out), the 竞价 board only pure bid lots
+// (`price_buynow` = 0). ANY (0) is the filter-free board. The value travels
+// the search request and is echoed in the 0x7E31 page header so the client
+// can file each reply under its own board cache.
+enum e_auction_board_kind : uint8 {
+	AUCTION_KIND_ANY = 0,
+	AUCTION_KIND_BUYNOW = 1,
+	AUCTION_KIND_BID = 2,
+};
+
 // CZ_AUCTION_SEARCH carries one `type` byte. Real values are `e_item_type`
 // (0..12, common/mmo.hpp); 0xFF has always meant "any". A consumable tab needs
 // a group no single item type can express, so 0xFE is a pseudo type that the

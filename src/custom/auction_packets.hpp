@@ -13,7 +13,7 @@
 #endif
 struct PACKET_CZ_AUCTION_OPEN { uint16 packetType; uint32 magic; uint16 protocolVersion; } __attribute__((packed));
 DEFINE_PACKET_HEADER(CZ_AUCTION_OPEN, 0x7e20);
-struct PACKET_CZ_AUCTION_SEARCH { uint16 packetType; uint8 type; uint8 refineMin; uint8 refineMax; uint32 priceMin; uint32 priceMax; uint8 sort; uint8 currency; uint16 page; uint8 nameidCount; uint16 nameids[AUCTION_MAX_NAMEID_FILTERS]; } __attribute__((packed));
+struct PACKET_CZ_AUCTION_SEARCH { uint16 packetType; uint8 type; uint8 refineMin; uint8 refineMax; uint32 priceMin; uint32 priceMax; uint8 sort; uint8 currency; uint16 page; uint8 nameidCount; uint16 nameids[AUCTION_MAX_NAMEID_FILTERS]; uint8 kind; } __attribute__((packed));
 DEFINE_PACKET_HEADER(CZ_AUCTION_SEARCH, 0x7e21);
 struct PACKET_CZ_AUCTION_DETAIL { uint16 packetType; uint32 auctionId; } __attribute__((packed));
 DEFINE_PACKET_HEADER(CZ_AUCTION_DETAIL, 0x7e22);
@@ -116,7 +116,7 @@ DEFINE_PACKET_HEADER(ZC_AUCTION_REGISTER_BATCH_RESULT, 0x7e37);
 #endif
 
 static_assert(sizeof(PACKET_CZ_AUCTION_OPEN) == 8);
-static_assert(sizeof(PACKET_CZ_AUCTION_SEARCH) == 146);
+static_assert(sizeof(PACKET_CZ_AUCTION_SEARCH) == 147);
 static_assert(sizeof(PACKET_CZ_AUCTION_DETAIL) == 6);
 static_assert(sizeof(PACKET_CZ_AUCTION_REGISTER) == 16);
 static_assert(sizeof(PACKET_CZ_AUCTION_CANCEL) == 6);

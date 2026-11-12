@@ -109,9 +109,10 @@ for name, value in ids.items():
         assert f"0x{value:04x}u16.to_le_bytes()" in sender, f"Client builder missing: {name}"
     elif value not in variable_zc:
         assert re.search(rf"0x{value:04x} => {size},", protocol), f"Client ZC length mismatch: {name}"
-for value, row in ((0x7E31, 47), (0x7E34, 48), (0x7E35, 48)):
+# 0x7E31's head is 10 bytes (board-kind echo); the my-pages keep 9.
+for value, row, head in ((0x7E31, 47, 10), (0x7E34, 48, 9), (0x7E35, 48, 9)):
     assert re.search(
-        rf"0x{value:04x} if frame\.len\(\) >= 9 && \(frame\.len\(\) - 9\) % {row} == 0", protocol
+        rf"0x{value:04x} if frame\.len\(\) >= {head} && \(frame\.len\(\) - {head}\) % {row} == 0", protocol
     ), f"Client variable-page arm missing: {value:04x}"
 # The board badges equipment with fill counts, so the row carries them right
 # after `type`; both ends must agree on the offset and on the server's stride.
@@ -382,6 +383,63 @@ assert "struct BuyDialog" in client_auction, "the quantity box is missing"
 client_sender = (client / "lib/network/src/sender.rs").read_text(encoding="utf-8")
 assert "amount.max(1).to_le_bytes()" in body_at(client_sender, "pub fn build_auction_buy_now_packet("), (
     "the CZ builder must write the unit count"
+)
+
+# ---- Board kind: 定价 / 竞价 are two filtered searches --------------------
+# The 定价 board lists only lots with a fixed price (`price_buynow` > 0), the
+# 竞价 board only pure bid lots (`price_buynow` = 0). The kind travels the
+# search request (CZ 147B, inter 152B) and is echoed in the 0x7E31 header
+# (9B head incl. the kind byte, rows at 10) so the client files each reply
+# under its own board cache.
+assert "AUCTION_KIND_BUYNOW = 1" in common and "AUCTION_KIND_BID = 2" in common, (
+    "the board-kind enum is missing"
+)
+search_struct = body_at(headers, "struct PACKET_CZ_AUCTION_SEARCH")
+assert "uint8 kind;" in search_struct, "CZ search must carry the board kind"
+assert "sizeof(PACKET_CZ_AUCTION_SEARCH) == 147" in headers, "CZ search must be 147 bytes"
+clif_search = body_at(clif, "void clif_parse_auction_search(")
+assert "RFIFOB(fd, 146)" in clif_search, "map must read the kind byte at 146"
+assert "pkt.kind > AUCTION_KIND_BID" in clif_search, "map must reject a stray kind"
+assert "pkt.kind" in body_at((server / "src/map/auction_custom.cpp").read_text(encoding="utf-8", errors="replace"), "bool request_search("), (
+    "map must forward the board kind to char"
+)
+assert re.search(r"WFIFOB\(inter_fd, 151\) = board_kind;", mapintif), (
+    "0x30B2 kind byte must be written at 151"
+)
+assert re.search(r"WFIFOSET\(inter_fd, 152\)", mapintif), "0x30B2 must be 152 bytes"
+assert "WFIFOB(inter_fd, 151) = AUCTION_KIND_ANY;" in mapintif, (
+    "the my-page builder must send kind ANY"
+)
+search_body = body_at(char_auction_src, "void parse_search(")
+assert "RFIFOB(fd, 151)" in search_body, "char must read the kind byte at 151"
+assert "`price_buynow`>'0'" in search_body and "`price_buynow`='0'" in search_body, (
+    "the board kind must narrow the SQL by price_buynow"
+)
+# The 0x7E31 reply echoes the kind; the map forwarder relays it and the
+# client files the page under the matching board cache.
+assert "body[kind_slot] = (zc_id == 0x7e31) ? board_kind : AUCTION_KIND_ANY;" in char_auction_src
+map_page = body_at((server / "src/map/auction_custom.cpp").read_text(encoding="utf-8", errors="replace"), "void on_search_or_detail(")
+assert "RFIFOB(fd, 17)" in map_page, "the forwarder must read the kind echo"
+assert "const bool is_board_page = zc_id == 0x7e31;" in map_page, (
+    "only the 0x7E31 head grows the kind byte; my-pages keep 9 bytes"
+)
+assert "WFIFOB(out_fd, 8) = search_kind;" in map_page, "the board page must echo the kind"
+assert "WFIFOB(out_fd, head_size - 1) = count;" in map_page, (
+    "count sits at head_size-1 on both page shapes"
+)
+assert "0x7e21 => 147" in protocol, "client request length must include the kind byte"
+assert "(frame.len() - 10) % 47 == 0" in protocol, "the 0x7E31 head is 10 bytes now"
+assert "kind: frame[8]" in protocol, "the client must parse the kind echo"
+game_state = (client / "lib/game/src/auction.rs").read_text(encoding="utf-8")
+assert "pub bid_search: Option<AuctionPage>" in game_state, (
+    "each board keeps its own page cache"
+)
+client_events_src = (client / "client/src/events/mod.rs").read_text(encoding="utf-8")
+assert "AUCTION_KIND_BID {\n                        self.game.auction.bid_search" in client_events_src.replace("if kind == ragnarok_game::auction::", "if kind == ragnarok_game::auction::"), (
+    "search replies must route by board kind"
+)
+assert "AUCTION_KIND_BID =>" in client_auction or "Tab::Bid => ragnarok_game::auction::AUCTION_KIND_BID" in client_auction, (
+    "the 竞价 tab must search with kind 竞价"
 )
 
 print("PASS: auction IDs (CZ 0x7E20-29, ZC 0x7E30-37), upstream + inter collision scan,")

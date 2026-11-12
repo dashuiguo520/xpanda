@@ -232,7 +232,7 @@ TIMER_FUNC(settle_timer){
 } // namespace
 
 bool request_search(map_session_data& sd, const PACKET_CZ_AUCTION_SEARCH& pkt) {
-	return intif_auction_search(sd, AUC_SCOPE_BOARD, pkt.page, pkt.currency, pkt.type, pkt.refineMin, pkt.refineMax, pkt.priceMin, pkt.priceMax, pkt.sort, pkt.nameidCount, pkt.nameids);
+	return intif_auction_search(sd, AUC_SCOPE_BOARD, pkt.page, pkt.currency, pkt.type, pkt.refineMin, pkt.refineMax, pkt.priceMin, pkt.priceMax, pkt.sort, pkt.nameidCount, pkt.nameids, pkt.kind);
 }
 
 bool request_detail(map_session_data& sd, uint32 auction_id) {
@@ -705,30 +705,40 @@ void on_search_or_detail(int32 fd) {
 		return;
 	}
 	// Page reply: zc_id selects which ZC frame to emit (0x7e31/0x7e34/0x7e35).
+	// Only the 0x7E31 search page grew a board-kind echo (定价 / 竞价) in its
+	// head — the client files the page under its own cache — while the
+	// my-pages keep the original 9-byte head (count at 8, rows at 9).
 	const uint16 zc_id = RFIFOW(fd, 9);
 	const uint16 total_pages = RFIFOW(fd, 11);
 	const uint16 page = RFIFOW(fd, 13);
 	const uint8 count = RFIFOB(fd, 15);
 	const uint8 row_size = RFIFOB(fd, 16);
+	const uint8 search_kind = RFIFOB(fd, 17);
+	const bool is_board_page = zc_id == 0x7e31;
+	const uint8 head_size = is_board_page ? 10 : 9;
 	if (row_size == 0 || count == 0) {
-		WFIFOHEAD(out_fd, 9);
+		WFIFOHEAD(out_fd, head_size);
 		WFIFOW(out_fd, 0) = zc_id;
-		WFIFOW(out_fd, 2) = 9;
+		WFIFOW(out_fd, 2) = head_size;
 		WFIFOW(out_fd, 4) = total_pages;
 		WFIFOW(out_fd, 6) = page;
-		WFIFOB(out_fd, 8) = 0;
-		WFIFOSET(out_fd, 9);
+		if (is_board_page)
+			WFIFOB(out_fd, 8) = search_kind;
+		WFIFOB(out_fd, head_size - 1) = 0;
+		WFIFOSET(out_fd, head_size);
 		return;
 	}
 	const int32 rows_len = count * row_size;
-	const int32 zc_len = 9 + rows_len;
+	const int32 zc_len = head_size + rows_len;
 	WFIFOHEAD(out_fd, zc_len);
 	WFIFOW(out_fd, 0) = zc_id;
 	WFIFOW(out_fd, 2) = static_cast<uint16>(zc_len);
 	WFIFOW(out_fd, 4) = total_pages;
 	WFIFOW(out_fd, 6) = page;
-	WFIFOB(out_fd, 8) = count;
-	memcpy(WFIFOP(out_fd, 9), RFIFOP(fd, 17), rows_len);
+	if (is_board_page)
+		WFIFOB(out_fd, 8) = search_kind;
+	WFIFOB(out_fd, head_size - 1) = count;
+	memcpy(WFIFOP(out_fd, head_size), RFIFOP(fd, 18), rows_len);
 	WFIFOSET(out_fd, zc_len);
 }
 

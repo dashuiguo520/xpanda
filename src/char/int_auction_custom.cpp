@@ -282,6 +282,7 @@ void parse_search(int32 fd) {
 	const uint32 price_max = RFIFOL(fd, 17);
 	const uint8 sort = RFIFOB(fd, 21);
 	const uint8 nameid_count = std::min<uint8>(RFIFOB(fd, 22), AUCTION_MAX_NAMEID_FILTERS);
+	const uint8 board_kind = RFIFOB(fd, 151);
 
 	uint16 zc_id = 0x7e31;
 	uint8 row_size = AUCTION_SEARCH_ROW_SIZE;
@@ -310,6 +311,14 @@ void parse_search(int32 fd) {
 			where += " AND `price_now`>='" + std::to_string(price_min) + "'";
 		if (price_max > 0)
 			where += " AND `price_now`<='" + std::to_string(price_max) + "'";
+		// Board kind: the 定价 board lists only lots with a fixed price, the
+		// 竞价 board only pure bid lots. A lot appears on exactly one board —
+		// `price_buynow` > 0 settles by buy-out (legacy two-price rows count
+		// as 定价), `price_buynow` = 0 is bidding only.
+		if (board_kind == AUCTION_KIND_BUYNOW)
+			where += " AND `price_buynow`>'0'";
+		else if (board_kind == AUCTION_KIND_BID)
+			where += " AND `price_buynow`='0'";
 		if (nameid_count > 0) {
 			std::string ids;
 			for (uint8 i = 0; i < nameid_count; ++i) {
@@ -329,7 +338,7 @@ void parse_search(int32 fd) {
 		default: break;
 	}
 
-	uint8 body[4 + 4 + 2 + 2 + 2 + 1 + 1 + AUCTION_PAGE_SIZE * AUCTION_MY_ROW_SIZE];
+	uint8 body[4 + 4 + 2 + 2 + 2 + 1 + 1 + 1 + AUCTION_PAGE_SIZE * AUCTION_MY_ROW_SIZE];
 	memset(body, 0, sizeof(body));
 	uint16 o = 0;
 	body[o++] = 0; // kind 0 page
@@ -344,6 +353,7 @@ void parse_search(int32 fd) {
 		o += 4; // total_pages zeroed
 		body[o++] = 0; // count
 		body[o++] = row_size;
+		body[o++] = (zc_id == 0x7e31) ? board_kind : AUCTION_KIND_ANY;
 		reply_ack(fd, 0x38B2, body, o);
 		return;
 	}
@@ -363,8 +373,14 @@ void parse_search(int32 fd) {
 	memcpy(body + o, &cur_page, 2); o += 2;
 	const uint16 count_slot = o; o += 1;
 	const uint16 row_size_slot = o; o += 1;
+	// Board-kind echo for the 0x7E31 search page: the client files each reply
+	// under its own board cache (定价 / 竞价), so a slow reply can never paint
+	// rows of one board onto the other. The my-pages (0x7E34/0x7E35) carry
+	// ANY.
+	const uint16 kind_slot = o; o += 1;
 	body[count_slot] = 0;
 	body[row_size_slot] = row_size;
+	body[kind_slot] = (zc_id == 0x7e31) ? board_kind : AUCTION_KIND_ANY;
 	uint8* rows_out = body + o;
 	uint8 count = 0;
 	if (SQL_ERROR == Sql_Query(sql_handle, "SELECT `auction_id`,`nameid`,`amount`,`refine`,`type`,`price_now`,`price_buynow`,`expire_time`,`currency`,`seller_name`,`status`,`card0`,`card1`,`card2`,`card3`,`option_id0`,`option_id1`,`option_id2`,`option_id3`,`option_id4` FROM `auction_custom` WHERE %s ORDER BY %s LIMIT %u OFFSET %u", where.c_str(), order, AUCTION_PAGE_SIZE, static_cast<uint32>(cur_page) * AUCTION_PAGE_SIZE)) {
