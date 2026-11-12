@@ -2,6 +2,7 @@
 
 #include <cstring>
 #include <unordered_map>
+#include <vector>
 
 #include <common/cbasetypes.hpp>
 #include <common/mmo.hpp>
@@ -56,6 +57,17 @@
 // 0x38B8 OP_ACK (variable): len.W op.B@4 char_id.L@5 auction_id.L@9 result.B@13 reason.B@14
 //   currency.B@15 price_now.L@16
 // 0x38B9 CASH_PAYOUT (variable): len.W char_id.L@4 auction_id.L@8 amount.L@12 reason.B@16
+//
+// v2 atomic batch:
+// 0x30BA ESCROW_BATCH_REQ (variable): len.W@2 char_id.L@4 batch_id.Q@6
+//   count.B@14 currency.B@15 duration_h.B@16 fee_permille.W@17
+//   deposit_permille.W@19 cap.B@21 reserved.B@22 rows@23 (96B each:
+//   txid.Q price.L buy_now.L blob_version.W blob.77B item_type.B)
+// 0x38BA ESCROW_BATCH_ACK: batch_id.Q@4 result.B@12 reason.B@13
+//   fail_row.B@14 count.B@15 auction_ids.L[count]@16
+// 0x30BB COMMIT_BATCH_REQ: len.W@2 batch_id.Q@4 count.B@12 rows@16
+//   (12B each: txid.Q auction_id.L)
+// 0x38BB COMMIT_BATCH_ACK: batch_id.Q@4 result.B@12 reason.B@13
 
 namespace auction_custom {
 namespace {
@@ -81,6 +93,21 @@ struct PendingEscrow {
 	uint32 nameid;
 };
 
+// v2 atomic batch: one client packet -> one char-side transaction. `rows`
+// keeps just enough to re-verify and delete the inventory slots after the
+// whole escrow commits; no item moves before that point.
+struct BatchSlot {
+	uint16 index;
+	uint16 amount;
+	uint32 nameid;
+	uint64 txid;
+};
+struct PendingBatch {
+	uint32 char_id;
+	uint64 batch_id;
+	std::vector<BatchSlot> rows;
+};
+
 // One in-flight wallet offer per char (bid or buy-now confirm); holds the
 // currency+amount to re-credit exactly what left on a FAIL ack.
 struct PendingOffer {
@@ -92,6 +119,8 @@ struct PendingOffer {
 std::unordered_map<uint64, PendingEscrow> pending_escrow;
 std::unordered_map<uint32, PendingOffer> pending_offer; // keyed by char_id
 std::unordered_map<uint64, uint32> pending_commit;      // txid -> auction_id
+std::unordered_map<uint64, PendingBatch> pending_batch; // v2: batch_id -> staged rows
+std::unordered_map<uint64, uint64> batch_txid_owner;    // v2: row txid -> batch_id (probe, alive until COMMIT_ACK)
 uint64 txid_counter = 0;
 int32 settle_timer_id = INVALID_TIMER;
 
@@ -101,6 +130,69 @@ uint64 txid_next() {
 
 void send_result(map_session_data& sd, uint8 operation, uint8 result, uint8 reason, uint32 auction_id, uint32 value) {
 	clif_auction_send_result(sd, operation, result, reason, auction_id, value);
+}
+
+// Little-endian wire helpers for the packed inter batch frames (x86 hosts,
+// same representation as the WFIFOL/WFIFOQ builders).
+void put_le32(uint8* dst, uint32 value) { memcpy(dst, &value, sizeof(value)); }
+void put_le64(uint8* dst, uint64 value) { memcpy(dst, &value, sizeof(value)); }
+void put_le16(uint8* dst, uint16 value) { memcpy(dst, &value, sizeof(value)); }
+
+const int32* duration_slots() {
+	static int32 slots[AUCTION_MAX_DURATION_SLOTS] = {};
+	slots[0] = battle_config.auction_duration1;
+	slots[1] = battle_config.auction_duration2;
+	slots[2] = battle_config.auction_duration3;
+	slots[3] = battle_config.auction_duration4;
+	slots[4] = battle_config.auction_duration5;
+	return slots;
+}
+
+// Side-effect-free precheck for one row, shared by the v2 batch path.
+// Returns AUCTION_REASON_OK when the row may be escrowed.
+uint8 validate_listing_row(map_session_data& sd, const RegisterRow& row, uint8 duration_idx, uint8 currency) {
+	if (currency == AUCTION_CURRENCY_CASH && !battle_config.auction_allow_cash)
+		return AUCTION_REASON_INVALID_PRICE;
+	if (row.index >= MAX_INVENTORY || row.amount == 0 || row.amount > MAX_AMOUNT)
+		return AUCTION_REASON_ITEM_NOT_FOUND;
+	const struct item* it = &sd.inventory.u.items_inventory[row.index];
+	if (it->nameid == 0 || it->amount < row.amount)
+		return AUCTION_REASON_ITEM_NOT_FOUND;
+	if (itemdb_exists(it->nameid) == nullptr)
+		return AUCTION_REASON_ITEM_NOT_FOUND;
+	if (battle_config.auction_ban_bound_items && it->bound)
+		return AUCTION_REASON_ITEM_UNTRADEABLE;
+	if (battle_config.auction_ban_rental_items && it->expire_time)
+		return AUCTION_REASON_ITEM_UNTRADEABLE;
+	if (!battle_config.auction_allow_named_items && it->unique_id != 0)
+		return AUCTION_REASON_ITEM_UNTRADEABLE;
+	if (row.price < static_cast<uint32>(battle_config.auction_min_price))
+		return AUCTION_REASON_INVALID_PRICE;
+	if (row.buy_now != 0) {
+		int64 floor64 = 0;
+		const bool overflow = rathena::util::safe_multiplication(static_cast<int64>(row.price), static_cast<int64>(battle_config.auction_buynow_min_ratio), floor64);
+		if (overflow || floor64 < 0 || row.buy_now < static_cast<uint32>(floor64 / 100))
+			return AUCTION_REASON_INVALID_PRICE;
+	}
+	if (duration_idx >= AUCTION_MAX_DURATION_SLOTS || duration_slots()[duration_idx] <= 0)
+		return AUCTION_REASON_INVALID_PRICE;
+	return AUCTION_REASON_OK;
+}
+
+// Abort every escrow row that a batch already created. Only used on an
+// unexpected state divergence (session gone / slot changed between ACK and
+// the inventory delete); the normal failure path never inserted anything.
+void abort_batch_rows(int32 fd, uint8 count, int32 offset) {
+	for (uint8 i = 0; i < count; ++i) {
+		const uint32 auction_id = RFIFOL(fd, offset + i * 4);
+		if (auction_id != 0)
+			intif_auction_op(nullptr, AUC_OP_ESCROW_ABORT, 0, 0, auction_id, 0);
+	}
+}
+
+void clear_batch_owner(const PendingBatch& pending) {
+	for (const BatchSlot& slot : pending.rows)
+		batch_txid_owner.erase(slot.txid);
 }
 
 uint64 read_txid(int32 fd, int32 offset) {
@@ -223,6 +315,68 @@ bool request_register(map_session_data& sd, uint16 index, uint16 amount, uint32 
 	return true;
 }
 
+// v2 atomic batch. Validation is entirely local and side-effect free; only
+// after every row passes do we ask the char server to escrow all N rows in
+// one transaction. A failure at any point produces exactly one batch receipt
+// with all rows marked FAIL, and the inventory is never touched.
+bool request_register_batch(map_session_data& sd, const std::vector<RegisterRow>& rows, uint8 duration_idx, uint8 currency) {
+	nullpo_retr(false, &sd);
+	const uint8 count = static_cast<uint8>(rows.size());
+	auto fail = [&](uint8 reason, uint8 fail_row) {
+		clif_auction_send_register_batch_result(sd, AUCTION_RESULT_FAIL, reason, fail_row, nullptr, nullptr, nullptr, count);
+		return false;
+	};
+	if (count == 0 || count > AUCTION_MAX_BATCH_ITEMS)
+		return fail(AUCTION_REASON_TOO_MANY_ITEMS, 0);
+	// Two rows may not share an inventory slot: pc_delitem would then see a
+	// shifted slot after the first deletion.
+	for (uint8 i = 0; i < count; ++i) {
+		for (uint8 j = 0; j < i; ++j) {
+			if (rows[i].index == rows[j].index)
+				return fail(AUCTION_REASON_ITEM_NOT_FOUND, i);
+		}
+		const uint8 reason = validate_listing_row(sd, rows[i], duration_idx, currency);
+		if (reason != AUCTION_REASON_OK)
+			return fail(reason, i);
+	}
+
+	const uint16 fee_permille = static_cast<uint16>(currency == AUCTION_CURRENCY_CASH ? battle_config.auction_cash_fee_permille : battle_config.auction_fee_permille);
+	const uint16 deposit_permille = static_cast<uint16>(battle_config.auction_deposit_permille);
+	const uint64 batch_id = txid_next();
+	std::vector<uint8> payload(static_cast<size_t>(count) * AUCTION_INTER_BATCH_ROW_SIZE, 0);
+	PendingBatch pending{};
+	pending.char_id = sd.status.char_id;
+	pending.batch_id = batch_id;
+	pending.rows.reserve(count);
+	for (uint8 i = 0; i < count; ++i) {
+		const RegisterRow& row = rows[i];
+		const struct item& original = sd.inventory.u.items_inventory[row.index];
+		struct item blob = original;
+		blob.amount = static_cast<decltype(blob.amount)>(row.amount); // escrow only the offered amount
+		const uint64 txid = txid_next();
+		uint8* p = payload.data() + static_cast<size_t>(i) * AUCTION_INTER_BATCH_ROW_SIZE;
+		put_le64(p, txid);
+		put_le32(p + 8, row.price);
+		put_le32(p + 12, row.buy_now);
+		put_le16(p + 16, static_cast<uint16>(AUCTION_ITEM_BLOB_VERSION));
+		memcpy(p + 18, &blob, AUCTION_ITEM_BLOB_SIZE);
+		p[95] = static_cast<uint8>(itemdb_type(original.nameid));
+		pending.rows.push_back({ row.index, row.amount, original.nameid, txid });
+		batch_txid_owner[txid] = batch_id;
+	}
+	const bool sent = intif_auction_escrow_batch(
+		sd.status.char_id, batch_id, currency,
+		static_cast<uint8>(duration_slots()[duration_idx]), fee_permille, deposit_permille,
+		static_cast<uint8>(battle_config.auction_max_listings), count, payload.data());
+	if (!sent) {
+		for (const BatchSlot& slot : pending.rows)
+			batch_txid_owner.erase(slot.txid);
+		return fail(AUCTION_REASON_INTERNAL, 0);
+	}
+	pending_batch[batch_id] = pending;
+	return true;
+}
+
 bool request_cancel(map_session_data& sd, uint32 auction_id) {
 	return intif_auction_op(&sd, AUC_OP_CANCEL, sd.status.char_id, auction_id, 0, 0);
 }
@@ -336,6 +490,97 @@ void on_commit_ack(int32 fd) {
 			static_cast<unsigned long long>(txid), auction_id, reason);
 	}
 }
+
+// ===== v2 atomic batch ACKs: 开始 =====
+// 0x38BA ESCROW_BATCH_ACK: len.W@2 batch_id.Q@4 result.B@12 reason.B@13
+//   fail_row.B@14 count.B@15 auction_ids.L[count]@16
+void on_escrow_batch_ack(int32 fd) {
+	const uint64 batch_id = read_txid(fd, 4);
+	const uint8 result = RFIFOB(fd, 12);
+	const uint8 reason = RFIFOB(fd, 13);
+	const uint8 fail_row = RFIFOB(fd, 14);
+	const uint8 count = RFIFOB(fd, 15);
+
+	auto it = pending_batch.find(batch_id);
+	if (it == pending_batch.end()) {
+		// Map restarted mid-handshake: drop every row the char server kept.
+		abort_batch_rows(fd, count, 16);
+		return;
+	}
+	PendingBatch pending = it->second;
+	pending_batch.erase(it);
+	const uint8 rows = static_cast<uint8>(pending.rows.size());
+	map_session_data* sd = map_id2sd(pending.char_id);
+	if (result != AUCTION_RESULT_OK || sd == nullptr || !sd->auction_supported) {
+		clear_batch_owner(pending);
+		if (sd != nullptr)
+			clif_auction_send_register_batch_result(*sd, AUCTION_RESULT_FAIL, reason, fail_row, nullptr, nullptr, nullptr, rows);
+		else
+			abort_batch_rows(fd, count, 16);
+		return;
+	}
+	// The char transaction committed all N escrow rows. Re-verify every slot
+	// before deleting anything; a divergence aborts ALL rows and leaves the
+	// inventory exactly as it was.
+	for (uint8 i = 0; i < rows; ++i) {
+		const BatchSlot& slot = pending.rows[i];
+		if (slot.index >= MAX_INVENTORY) {
+			clear_batch_owner(pending);
+			abort_batch_rows(fd, count, 16);
+			clif_auction_send_register_batch_result(*sd, AUCTION_RESULT_FAIL, AUCTION_REASON_ITEM_NOT_FOUND, i, nullptr, nullptr, nullptr, rows);
+			return;
+		}
+		const struct item* inv = &sd->inventory.u.items_inventory[slot.index];
+		if (inv->nameid != slot.nameid || inv->amount < slot.amount) {
+			clear_batch_owner(pending);
+			abort_batch_rows(fd, count, 16);
+			clif_auction_send_register_batch_result(*sd, AUCTION_RESULT_FAIL, AUCTION_REASON_ITEM_NOT_FOUND, i, nullptr, nullptr, nullptr, rows);
+			return;
+		}
+	}
+	std::vector<uint8> commit(static_cast<size_t>(rows) * 12, 0);
+	uint8 row_results[AUCTION_MAX_BATCH_ITEMS] = {};
+	uint8 row_reasons[AUCTION_MAX_BATCH_ITEMS] = {};
+	uint32 auction_ids[AUCTION_MAX_BATCH_ITEMS] = {};
+	for (uint8 i = 0; i < rows; ++i) {
+		const BatchSlot& slot = pending.rows[i];
+		pc_delitem(sd, slot.index, slot.amount, 0, 1, LOG_TYPE_TRADE);
+		auction_ids[i] = RFIFOL(fd, 16 + i * 4);
+		put_le64(commit.data() + static_cast<size_t>(i) * 12, slot.txid);
+		put_le32(commit.data() + static_cast<size_t>(i) * 12 + 8, auction_ids[i]);
+		row_results[i] = AUCTION_RESULT_OK;
+		row_reasons[i] = AUCTION_REASON_OK;
+	}
+	chrif_save(sd, CSAVE_INVENTORY);
+	if (!intif_auction_commit_batch(batch_id, rows, commit.data())) {
+		clear_batch_owner(pending);
+		// Rows stay ESCROWING; the reconcile deletes them and the inventory
+		// reload restores the items (identical window to the single-item path).
+		clif_auction_send_register_batch_result(*sd, AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, 0xFF, nullptr, nullptr, nullptr, rows);
+		return;
+	}
+	// batch_txid_owner stays alive until COMMIT_BATCH_ACK, so the char-side
+	// reconcile probe still sees these txids during the second phase.
+	clif_auction_send_register_batch_result(*sd, AUCTION_RESULT_OK, AUCTION_REASON_OK, 0xFF, row_results, row_reasons, auction_ids, rows);
+}
+
+// 0x38BB COMMIT_BATCH_ACK: len.W@2 batch_id.Q@4 result.B@12 reason.B@13
+void on_commit_batch_ack(int32 fd) {
+	const uint64 batch_id = read_txid(fd, 4);
+	const uint8 result = RFIFOB(fd, 12);
+	const uint8 reason = RFIFOB(fd, 13);
+	for (auto it = batch_txid_owner.begin(); it != batch_txid_owner.end();) {
+		if (it->second == batch_id)
+			it = batch_txid_owner.erase(it);
+		else
+			++it;
+	}
+	if (result != AUCTION_RESULT_OK) {
+		ShowError("auction batch commit failed: batch_id=%llu reason=%u\n",
+			static_cast<unsigned long long>(batch_id), reason);
+	}
+}
+// ===== v2 atomic batch ACKs: 结束 =====
 
 void on_bid_ack(int32 fd) {
 	const uint32 char_id = RFIFOL(fd, 4);
@@ -512,7 +757,9 @@ void on_notify_forward(int32 fd) {
 
 void on_txid_probe(int32 fd) {
 	const uint64 txid = read_txid(fd, 4);
-	const uint8 alive = (pending_escrow.count(txid) != 0 || pending_commit.count(txid) != 0) ? 1 : 0;
+	// A v2 batch row is alive from escrow request until COMMIT_BATCH_ACK.
+	const uint8 alive = (pending_escrow.count(txid) != 0 || pending_commit.count(txid) != 0
+		|| batch_txid_owner.count(txid) != 0) ? 1 : 0;
 	intif_auction_probe_reply(txid, alive);
 }
 
@@ -549,6 +796,8 @@ void do_final_auction_custom(void) {
 	pending_escrow.clear();
 	pending_offer.clear();
 	pending_commit.clear();
+	pending_batch.clear();
+	batch_txid_owner.clear();
 }
 } // namespace auction_custom
 // ===== 拍卖行系统：结束 =====

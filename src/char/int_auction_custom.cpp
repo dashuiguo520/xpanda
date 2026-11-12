@@ -24,6 +24,8 @@
 
 // ===== 拍卖行系统：开始 =====
 // Request layouts are documented in src/map/auction_custom.cpp (authoritative).
+// v2 batch: 0x30BA escrow (one transaction for N rows) / 0x30BB commit,
+// replies 0x38BA / 0x38BB; see the per-handler comments below.
 // ESCROW_REQ (111): cmd.W char_id.L txid.Q price.L buy_now.L currency.B
 //   duration_h.B fee_permille.W deposit_permille.W blob_version.W blob.77B
 //   item_type.B cap.B reserved.2B
@@ -356,6 +358,63 @@ void parse_search(int32 fd) {
 	reply_ack(fd, 0x38B2, body, o + count * row_size);
 }
 
+// Insert one ESCROWING row inside the caller's transaction. The caller owns
+// START TRANSACTION / COMMIT / ROLLBACK; both the single-item escrow and the
+// v2 atomic batch call this exactly once per row.
+bool insert_auction_row(uint64 txid, uint32 char_id, char* seller, uint32 price, uint32 buy_now,
+	uint8 currency, uint32 expire, const struct item& it, uint8 item_type, uint16 blob_version,
+	uint32& out_auction_id) {
+	SqlStmt stmt(*sql_handle);
+	if (SQL_ERROR == stmt.PrepareStr("INSERT INTO `auction_custom` (`escrow_txid`,`seller_char_id`,`seller_name`,`price_now`,`price_buynow`,`currency`,`status`,`expire_time`,`nameid`,`amount`,`refine`,`type`,`card0`,`card1`,`card2`,`card3`,`option_id0`,`option_val0`,`option_parm0`,`option_id1`,`option_val1`,`option_parm1`,`option_id2`,`option_val2`,`option_parm2`,`option_id3`,`option_val3`,`option_parm3`,`option_id4`,`option_val4`,`option_parm4`,`unique_id`,`enchantgrade`,`blob_version`,`item_blob`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"))
+		return false;
+	size_t p = 0;
+	stmt.BindParam(p++, SQLDT_UINT64, &txid, sizeof(txid));
+	stmt.BindParam(p++, SQLDT_UINT32, &char_id, sizeof(char_id));
+	stmt.BindParam(p++, SQLDT_STRING, seller, strlen(seller));
+	stmt.BindParam(p++, SQLDT_UINT32, &price, sizeof(price));
+	stmt.BindParam(p++, SQLDT_UINT32, &buy_now, sizeof(buy_now));
+	stmt.BindParam(p++, SQLDT_UINT8, &currency, sizeof(currency));
+	uint8 status_escrowing = AUCTION_ST_ESCROWING;
+	stmt.BindParam(p++, SQLDT_UINT8, &status_escrowing, sizeof(status_escrowing));
+	stmt.BindParam(p++, SQLDT_UINT32, &expire, sizeof(expire));
+	uint32 nameid32 = it.nameid;
+	stmt.BindParam(p++, SQLDT_UINT32, &nameid32, sizeof(nameid32));
+	uint16 amount16 = it.amount;
+	stmt.BindParam(p++, SQLDT_UINT16, &amount16, sizeof(amount16));
+	uint8 refine8 = static_cast<uint8>(it.refine);
+	stmt.BindParam(p++, SQLDT_UINT8, &refine8, sizeof(refine8));
+	stmt.BindParam(p++, SQLDT_UINT8, &item_type, sizeof(item_type));
+	uint32 cards[4];
+	for (int32 i = 0; i < 4; ++i) cards[i] = it.card[i];
+	stmt.BindParam(p++, SQLDT_UINT32, &cards[0], sizeof(uint32));
+	stmt.BindParam(p++, SQLDT_UINT32, &cards[1], sizeof(uint32));
+	stmt.BindParam(p++, SQLDT_UINT32, &cards[2], sizeof(uint32));
+	stmt.BindParam(p++, SQLDT_UINT32, &cards[3], sizeof(uint32));
+	uint16 opt_id[5];
+	int16 opt_val[5];
+	uint8 opt_parm[5];
+	for (int32 i = 0; i < 5; ++i) {
+		opt_id[i] = it.option[i].id;
+		opt_val[i] = it.option[i].value;
+		opt_parm[i] = it.option[i].param;
+	}
+	for (int32 i = 0; i < 5; ++i) stmt.BindParam(p++, SQLDT_UINT16, &opt_id[i], sizeof(uint16));
+	for (int32 i = 0; i < 5; ++i) stmt.BindParam(p++, SQLDT_INT16, &opt_val[i], sizeof(int16));
+	for (int32 i = 0; i < 5; ++i) stmt.BindParam(p++, SQLDT_UINT8, &opt_parm[i], sizeof(uint8));
+	uint64 unique = it.unique_id;
+	stmt.BindParam(p++, SQLDT_UINT64, &unique, sizeof(unique));
+	uint8 grade = it.enchantgrade;
+	stmt.BindParam(p++, SQLDT_UINT8, &grade, sizeof(grade));
+	stmt.BindParam(p++, SQLDT_UINT16, &blob_version, sizeof(blob_version));
+	uint8 blob_copy[AUCTION_ITEM_BLOB_SIZE];
+	memcpy(blob_copy, &it, AUCTION_ITEM_BLOB_SIZE);
+	stmt.BindParam(p++, SQLDT_BLOB, blob_copy, AUCTION_ITEM_BLOB_SIZE);
+	if (SQL_ERROR == stmt.Execute())
+		return false;
+	out_auction_id = static_cast<uint32>(stmt.LastInsertId());
+	return true;
+}
+
 void escrow_ack(int32 fd, uint64 txid, uint32 auction_id, uint8 result, uint8 reason) {
 	uint8 body[14];
 	memcpy(body, &txid, 8);
@@ -431,61 +490,10 @@ void parse_escrow(int32 fd) {
 		}
 		Sql_FreeResult(sql_handle);
 	}
-	{
-		SqlStmt stmt(*sql_handle);
-		if (SQL_ERROR == stmt.PrepareStr("INSERT INTO `auction_custom` (`escrow_txid`,`seller_char_id`,`seller_name`,`price_now`,`price_buynow`,`currency`,`status`,`expire_time`,`nameid`,`amount`,`refine`,`type`,`card0`,`card1`,`card2`,`card3`,`option_id0`,`option_val0`,`option_parm0`,`option_id1`,`option_val1`,`option_parm1`,`option_id2`,`option_val2`,`option_parm2`,`option_id3`,`option_val3`,`option_parm3`,`option_id4`,`option_val4`,`option_parm4`,`unique_id`,`enchantgrade`,`blob_version`,`item_blob`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")) {
-			Sql_Query(sql_handle, "ROLLBACK");
-			escrow_ack(fd, txid, 0, AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL);
-			return;
-		}
-		size_t p = 0;
-		stmt.BindParam(p++, SQLDT_UINT64, &txid, sizeof(txid));
-		stmt.BindParam(p++, SQLDT_UINT32, &char_id, sizeof(char_id));
-		stmt.BindParam(p++, SQLDT_STRING, seller, strlen(seller));
-		stmt.BindParam(p++, SQLDT_UINT32, &price, sizeof(price));
-		stmt.BindParam(p++, SQLDT_UINT32, &buy_now, sizeof(buy_now));
-		stmt.BindParam(p++, SQLDT_UINT8, &currency, sizeof(currency));
-		uint8 status_escrowing = AUCTION_ST_ESCROWING;
-		stmt.BindParam(p++, SQLDT_UINT8, &status_escrowing, sizeof(status_escrowing));
-		stmt.BindParam(p++, SQLDT_UINT32, &expire, sizeof(expire));
-		uint32 nameid32 = it.nameid;
-		stmt.BindParam(p++, SQLDT_UINT32, &nameid32, sizeof(nameid32));
-		uint16 amount16 = it.amount;
-		stmt.BindParam(p++, SQLDT_UINT16, &amount16, sizeof(amount16));
-		uint8 refine8 = static_cast<uint8>(it.refine);
-		stmt.BindParam(p++, SQLDT_UINT8, &refine8, sizeof(refine8));
-		stmt.BindParam(p++, SQLDT_UINT8, &item_type, sizeof(item_type));
-		uint32 cards[4];
-		for (int32 i = 0; i < 4; ++i) cards[i] = it.card[i];
-		stmt.BindParam(p++, SQLDT_UINT32, &cards[0], sizeof(uint32));
-		stmt.BindParam(p++, SQLDT_UINT32, &cards[1], sizeof(uint32));
-		stmt.BindParam(p++, SQLDT_UINT32, &cards[2], sizeof(uint32));
-		stmt.BindParam(p++, SQLDT_UINT32, &cards[3], sizeof(uint32));
-		uint16 opt_id[5];
-		int16 opt_val[5];
-		uint8 opt_parm[5];
-		for (int32 i = 0; i < 5; ++i) {
-			opt_id[i] = it.option[i].id;
-			opt_val[i] = it.option[i].value;
-			opt_parm[i] = it.option[i].param;
-		}
-		for (int32 i = 0; i < 5; ++i) stmt.BindParam(p++, SQLDT_UINT16, &opt_id[i], sizeof(uint16));
-		for (int32 i = 0; i < 5; ++i) stmt.BindParam(p++, SQLDT_INT16, &opt_val[i], sizeof(int16));
-		for (int32 i = 0; i < 5; ++i) stmt.BindParam(p++, SQLDT_UINT8, &opt_parm[i], sizeof(uint8));
-		uint64 unique = it.unique_id;
-		stmt.BindParam(p++, SQLDT_UINT64, &unique, sizeof(unique));
-		uint8 grade = it.enchantgrade;
-		stmt.BindParam(p++, SQLDT_UINT8, &grade, sizeof(grade));
-		stmt.BindParam(p++, SQLDT_UINT16, &blob_version, sizeof(blob_version));
-		uint8 blob_copy[AUCTION_ITEM_BLOB_SIZE];
-		memcpy(blob_copy, &it, AUCTION_ITEM_BLOB_SIZE);
-		stmt.BindParam(p++, SQLDT_BLOB, blob_copy, AUCTION_ITEM_BLOB_SIZE);
-		if (SQL_ERROR == stmt.Execute()) {
-			Sql_Query(sql_handle, "ROLLBACK");
-			escrow_ack(fd, txid, 0, AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL);
-			return;
-		}
-		auction_id = static_cast<uint32>(stmt.LastInsertId());
+	if (!insert_auction_row(txid, char_id, seller, price, buy_now, currency, expire, it, item_type, blob_version, auction_id)) {
+		Sql_Query(sql_handle, "ROLLBACK");
+		escrow_ack(fd, txid, 0, AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL);
+		return;
 	}
 	if (SQL_ERROR == Sql_Query(sql_handle, "COMMIT")) {
 		escrow_ack(fd, txid, auction_id, AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL);
@@ -493,6 +501,147 @@ void parse_escrow(int32 fd) {
 	}
 	escrow_ack(fd, txid, auction_id, AUCTION_RESULT_OK, AUCTION_REASON_OK);
 }
+
+// ===== v2 atomic batch: 开始 =====
+// 0x30BA ESCROW_BATCH_REQ (variable, len.W@2):
+//   char_id.L@4 batch_id.Q@6 count.B@14 currency.B@15 duration_h.B@16
+//   fee_permille.W@17 deposit_permille.W@19 cap.B@21 reserved.B@22
+//   rows@23 (96B): txid.Q price.L buy_now.L blob_version.W blob.77B item_type.B
+// 0x38BA ESCROW_BATCH_ACK: batch_id.Q@4 result.B@12 reason.B@13
+//   fail_row.B@14 count.B@15 auction_ids.L[count]@16
+// 0x30BB COMMIT_BATCH_REQ: batch_id.Q@4 count.B@12 reserved.3B@13
+//   rows@16 (12B): txid.Q auction_id.L
+// 0x38BB COMMIT_BATCH_ACK: batch_id.Q@4 result.B@12 reason.B@13
+void escrow_batch_ack(int32 fd, uint64 batch_id, uint8 result, uint8 reason, uint8 fail_row,
+	const uint32* auction_ids, uint8 count) {
+	uint8 body[12 + AUCTION_MAX_BATCH_ITEMS * 4] = {};
+	memcpy(body, &batch_id, 8);
+	body[8] = result;
+	body[9] = reason;
+	body[10] = fail_row;
+	body[11] = count;
+	for (uint8 i = 0; i < count; ++i) {
+		const uint32 id = auction_ids != nullptr ? auction_ids[i] : 0;
+		memcpy(body + 12 + i * 4, &id, 4);
+	}
+	reply_ack(fd, 0x38BA, body, 12 + count * 4);
+}
+
+void commit_batch_ack(int32 fd, uint64 batch_id, uint8 result, uint8 reason) {
+	uint8 body[10];
+	memcpy(body, &batch_id, 8);
+	body[8] = result;
+	body[9] = reason;
+	reply_ack(fd, 0x38BB, body, 10);
+}
+
+// All N rows are inserted inside ONE transaction. Any failure rolls the
+// whole batch back, so the map server can safely leave the inventory alone.
+void parse_escrow_batch(int32 fd) {
+	const uint32 char_id = RFIFOL(fd, 4);
+	const uint64 batch_id = RFIFOQ(fd, 6);
+	const uint8 count = RFIFOB(fd, 14);
+	const uint8 currency = RFIFOB(fd, 15);
+	const uint8 duration_h = RFIFOB(fd, 16);
+	const uint16 fee_permille = RFIFOW(fd, 17);
+	const uint16 deposit_permille = RFIFOW(fd, 19);
+	const uint8 cap_byte = RFIFOB(fd, 21);
+	const uint8 cap = cap_byte == 0 ? 20 : cap_byte;
+	(void)fee_permille;     // locked per row by the map server, mirrored
+	(void)deposit_permille; // here for wire symmetry with 0x30B3
+	uint32 auction_ids[AUCTION_MAX_BATCH_ITEMS] = {};
+
+	if (count == 0 || count > AUCTION_MAX_BATCH_ITEMS) {
+		escrow_batch_ack(fd, batch_id, AUCTION_RESULT_FAIL, AUCTION_REASON_TOO_MANY_ITEMS, 0, nullptr, 0);
+		return;
+	}
+	if (SQL_ERROR == Sql_Query(sql_handle, "START TRANSACTION")) {
+		escrow_batch_ack(fd, batch_id, AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, 0, nullptr, count);
+		return;
+	}
+	uint64 existing = 0;
+	bool ok = SQL_ERROR != Sql_Query(sql_handle, "SELECT COUNT(*) FROM `auction_custom` WHERE `seller_char_id`='%u' AND `status` IN (0,1)", char_id);
+	if (ok && SQL_SUCCESS == Sql_NextRow(sql_handle)) {
+		char* data = nullptr; size_t len = 0;
+		Sql_GetData(sql_handle, 0, &data, &len);
+		existing = data != nullptr ? strtoull(data, nullptr, 10) : 0;
+	}
+	Sql_FreeResult(sql_handle);
+	if (!ok) {
+		Sql_Query(sql_handle, "ROLLBACK");
+		escrow_batch_ack(fd, batch_id, AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, 0, nullptr, count);
+		return;
+	}
+	// The cap must cover the WHOLE batch, not just its first row.
+	if (existing + count > cap) {
+		Sql_Query(sql_handle, "ROLLBACK");
+		escrow_batch_ack(fd, batch_id, AUCTION_RESULT_FAIL, AUCTION_REASON_LISTING_CAP, 0, nullptr, count);
+		return;
+	}
+	char seller[NAME_LENGTH];
+	if (!char_name(char_id, seller, NAME_LENGTH)) {
+		Sql_Query(sql_handle, "ROLLBACK");
+		escrow_batch_ack(fd, batch_id, AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, 0, nullptr, count);
+		return;
+	}
+	const uint32 expire = static_cast<uint32>(time(nullptr)) + static_cast<uint32>(duration_h) * 3600;
+	for (uint8 i = 0; i < count; ++i) {
+		const int32 base = 23 + i * AUCTION_INTER_BATCH_ROW_SIZE;
+		const uint64 txid = RFIFOQ(fd, base);
+		const uint32 price = RFIFOL(fd, base + 8);
+		const uint32 buy_now = RFIFOL(fd, base + 12);
+		const uint16 blob_version = RFIFOW(fd, base + 16);
+		struct item it;
+		memset(&it, 0, sizeof(it));
+		memcpy(&it, RFIFOP(fd, base + 18), AUCTION_ITEM_BLOB_SIZE);
+		const uint8 item_type = RFIFOB(fd, base + 95);
+		if (!insert_auction_row(txid, char_id, seller, price, buy_now, currency, expire, it, item_type, blob_version, auction_ids[i])) {
+			Sql_Query(sql_handle, "ROLLBACK");
+			escrow_batch_ack(fd, batch_id, AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, i, nullptr, count);
+			return;
+		}
+	}
+	if (SQL_ERROR == Sql_Query(sql_handle, "COMMIT")) {
+		escrow_batch_ack(fd, batch_id, AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, 0, nullptr, count);
+		return;
+	}
+	escrow_batch_ack(fd, batch_id, AUCTION_RESULT_OK, AUCTION_REASON_OK, 0xFF, auction_ids, count);
+}
+
+// Flip all N ESCROWING rows to ACTIVE in one transaction.
+void parse_commit_batch(int32 fd) {
+	const uint64 batch_id = RFIFOQ(fd, 4);
+	const uint8 count = RFIFOB(fd, 12);
+	if (count == 0 || count > AUCTION_MAX_BATCH_ITEMS) {
+		commit_batch_ack(fd, batch_id, AUCTION_RESULT_FAIL, AUCTION_REASON_TOO_MANY_ITEMS);
+		return;
+	}
+	if (SQL_ERROR == Sql_Query(sql_handle, "START TRANSACTION")) {
+		commit_batch_ack(fd, batch_id, AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL);
+		return;
+	}
+	for (uint8 i = 0; i < count; ++i) {
+		const int32 base = 16 + i * 12;
+		const uint64 txid = RFIFOQ(fd, base);
+		const uint32 auction_id = RFIFOL(fd, base + 8);
+		if (SQL_ERROR == Sql_Query(sql_handle, "UPDATE `auction_custom` SET `status`='1' WHERE `auction_id`='%u' AND `escrow_txid`='%llu' AND `status`='0'", auction_id, static_cast<unsigned long long>(txid))) {
+			Sql_Query(sql_handle, "ROLLBACK");
+			commit_batch_ack(fd, batch_id, AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL);
+			return;
+		}
+		if (Sql_NumRowsAffected(sql_handle) == 0) {
+			Sql_Query(sql_handle, "ROLLBACK");
+			commit_batch_ack(fd, batch_id, AUCTION_RESULT_FAIL, AUCTION_REASON_ALREADY_ENDED);
+			return;
+		}
+	}
+	if (SQL_ERROR == Sql_Query(sql_handle, "COMMIT")) {
+		commit_batch_ack(fd, batch_id, AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL);
+		return;
+	}
+	commit_batch_ack(fd, batch_id, AUCTION_RESULT_OK, AUCTION_REASON_OK);
+}
+// ===== v2 atomic batch: 结束 =====
 
 void commit_ack(int32 fd, uint64 txid, uint32 auction_id, uint8 result, uint8 reason) {
 	uint8 body[14];
@@ -1148,6 +1297,8 @@ int32 inter_auction_custom_parse_frommap(int32 fd) {
 		case 0x30B7: parse_probe_reply(fd); return 1;
 		case 0x30B8: parse_op(fd); return 1;
 		case 0x30B9: parse_cash_reply(fd); return 1;
+		case 0x30BA: parse_escrow_batch(fd); return 1;
+		case 0x30BB: parse_commit_batch(fd); return 1;
 		default: return 0;
 	}
 }

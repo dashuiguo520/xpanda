@@ -29,6 +29,19 @@ struct PACKET_CZ_AUCTION_MY_LISTINGS { uint16 packetType; uint16 page; uint8 fla
 DEFINE_PACKET_HEADER(CZ_AUCTION_MY_LISTINGS, 0x7e27);
 struct PACKET_CZ_AUCTION_MY_BIDS { uint16 packetType; uint16 page; uint8 flags; uint8 reserved; } __attribute__((packed));
 DEFINE_PACKET_HEADER(CZ_AUCTION_MY_BIDS, 0x7e28);
+// v2 atomic batch: variable length, len.W at offset 2. rows are
+// { index.W amount.W price.L buyNow.L } = AUCTION_CZ_BATCH_ROW_SIZE bytes.
+// A single packet carries 1..AUCTION_MAX_BATCH_ITEMS rows; the char server
+// escrows all of them inside one SQL transaction.
+struct PACKET_CZ_AUCTION_REGISTER_BATCH {
+	uint16 packetType;
+	uint16 length;
+	uint8 count;
+	uint8 durationIdx;
+	uint8 currency;
+	uint8 reserved;
+} __attribute__((packed));
+DEFINE_PACKET_HEADER(CZ_AUCTION_REGISTER_BATCH, 0x7e29);
 
 struct PACKET_ZC_AUCTION_OPEN_ACK {
 	uint16 packetType;
@@ -83,6 +96,19 @@ struct PACKET_ZC_AUCTION_NOTIFY {
 	uint32 value;
 } __attribute__((packed));
 DEFINE_PACKET_HEADER(ZC_AUCTION_NOTIFY, 0x7e36);
+// v2 batch receipt: len.W at offset 2, then one 7-byte result per row
+// { rowIndex.B result.B reason.B auctionId.L }. Failure is all-or-nothing:
+// when the batch result is FAIL every row is FAIL, the offending row carries
+// the real reason and its siblings carry AUCTION_REASON_BATCH_ROLLED_BACK.
+struct PACKET_ZC_AUCTION_REGISTER_BATCH_RESULT {
+	uint16 packetType;
+	uint16 length;
+	uint8 result;
+	uint8 reason;
+	uint8 count;
+	uint8 failRow;
+} __attribute__((packed));
+DEFINE_PACKET_HEADER(ZC_AUCTION_REGISTER_BATCH_RESULT, 0x7e37);
 #if !defined(sun) && (!defined(__NETBSD__) || __NetBSD_Version__ >= 600000000)
 #pragma pack(pop)
 #endif

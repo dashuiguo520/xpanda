@@ -13,9 +13,19 @@
 // nostalro-client/docs/auction-house-design-2026-11-11.md.
 
 #define AUCTION_PROTOCOL_MAGIC 0x54435541 // "AUCT" on the wire
-#define AUCTION_PROTOCOL_VERSION 1
+// v2 adds the atomic batch register (0x7e29 / 0x7e37, inter 0x30BA-BB).
+// A v1 client is deliberately gated off by the handshake: an old map server
+// would treat the variable-length 0x7e29 as an unknown fixed packet.
+#define AUCTION_PROTOCOL_VERSION 2
 #define AUCTION_MAX_NAMEID_FILTERS 64
 #define AUCTION_MAX_DURATION_SLOTS 5
+// A batch is one CZ packet and one char-side SQL transaction. Keep the cap
+// small enough that the inter frame (23 + 96 * count) stays well inside the
+// socket FIFO, and equal to the default per-character listing cap.
+#define AUCTION_MAX_BATCH_ITEMS 20
+#define AUCTION_CZ_BATCH_ROW_SIZE 12
+#define AUCTION_ZC_BATCH_ROW_SIZE 7
+#define AUCTION_INTER_BATCH_ROW_SIZE 96
 // Packed `struct item` wire size (common/mmo.hpp). Bumping this requires a
 // blob_version bump and a migration path (A7 in the design doc).
 #define AUCTION_ITEM_BLOB_SIZE 77
@@ -47,6 +57,7 @@ enum e_auction_operation : uint8 {
 	AUCTION_OP_BUY_NOW,
 	AUCTION_OP_MY_LISTINGS,
 	AUCTION_OP_MY_BIDS,
+	AUCTION_OP_REGISTER_BATCH = 10, // v2: one packet / one transaction for N rows
 };
 
 enum e_auction_result : uint8 {
@@ -72,6 +83,8 @@ enum e_auction_reason : uint8 {
 	AUCTION_REASON_DEPOSIT_TOO_LOW = 14,
 	AUCTION_REASON_BID_TOO_LOW = 15,
 	AUCTION_REASON_CURRENCY_MISMATCH = 16,
+	AUCTION_REASON_BATCH_ROLLED_BACK = 17, // v2: this row was fine, a sibling failed
+	AUCTION_REASON_TOO_MANY_ITEMS = 18,    // v2: batch count out of range
 };
 
 enum e_auction_notify_event : uint8 {

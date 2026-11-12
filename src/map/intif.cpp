@@ -57,7 +57,7 @@ static const int32 packet_len_table[] = {
 	-1,-1, 7, 3,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0,  0, 0, //0x3890  Homunculus [albator]
 	-1,-1, 8, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0,  0, 0, //0x38A0  Clans
 	// ===== 挂机系统：开始 =====
-	static_cast<int32>(7 + sizeof(s_autoplay_config)),11,-1,-1, -1,-1,-1,-1, -1,-1,0,0, 0,0,0,0, //0x38B0 Autoplay / Auction house (all auction replies variable len.W)
+	static_cast<int32>(7 + sizeof(s_autoplay_config)),11,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, 0,0,0,0, //0x38B0 Autoplay / Auction house (B2-B9 + v2 batch BA/BB variable len.W)
 	// ===== 挂机系统：结束 =====
 };
 
@@ -3865,6 +3865,52 @@ bool intif_auction_commit(uint64 txid, uint32 auction_id) {
 	return true;
 }
 
+// ===== 拍卖行系统 v2 atomic batch: 开始 =====
+// 0x30BA ESCROW_BATCH_REQ (variable, len.W@2):
+//   char_id.L@4 batch_id.Q@6 count.B@14 currency.B@15 duration_h.B@16
+//   fee_permille.W@17 deposit_permille.W@19 cap.B@21 reserved.B@22
+//   rows@23: { txid.Q price.L buy_now.L blob_version.W blob.77B item_type.B } = 96B
+bool intif_auction_escrow_batch(uint32 char_id, uint64 batch_id, uint8 currency, uint8 duration_h,
+	uint16 fee_permille, uint16 deposit_permille, uint8 cap, uint8 count, const uint8* rows) {
+	if (CheckForCharServer()) return false;
+	const int32 len = 23 + count * AUCTION_INTER_BATCH_ROW_SIZE;
+	WFIFOHEAD(inter_fd, len);
+	WFIFOW(inter_fd, 0) = 0x30BA;
+	WFIFOW(inter_fd, 2) = static_cast<uint16>(len);
+	WFIFOL(inter_fd, 4) = char_id;
+	WFIFOL(inter_fd, 6) = static_cast<uint32>(batch_id & 0xFFFFFFFFu);
+	WFIFOL(inter_fd, 10) = static_cast<uint32>((batch_id >> 32) & 0xFFFFFFFFu);
+	WFIFOB(inter_fd, 14) = count;
+	WFIFOB(inter_fd, 15) = currency;
+	WFIFOB(inter_fd, 16) = duration_h;
+	WFIFOW(inter_fd, 17) = fee_permille;
+	WFIFOW(inter_fd, 19) = deposit_permille;
+	WFIFOB(inter_fd, 21) = cap;
+	WFIFOB(inter_fd, 22) = 0;
+	memcpy(WFIFOP(inter_fd, 23), rows, count * AUCTION_INTER_BATCH_ROW_SIZE);
+	WFIFOSET(inter_fd, len);
+	return true;
+}
+
+// 0x30BB COMMIT_BATCH_REQ (variable, len.W@2):
+//   batch_id.Q@4 count.B@12 reserved.3B@13
+//   rows@16: { txid.Q auction_id.L } = 12B
+bool intif_auction_commit_batch(uint64 batch_id, uint8 count, const uint8* rows) {
+	if (CheckForCharServer()) return false;
+	const int32 len = 16 + count * 12;
+	WFIFOHEAD(inter_fd, len);
+	WFIFOW(inter_fd, 0) = 0x30BB;
+	WFIFOW(inter_fd, 2) = static_cast<uint16>(len);
+	WFIFOL(inter_fd, 4) = static_cast<uint32>(batch_id & 0xFFFFFFFFu);
+	WFIFOL(inter_fd, 8) = static_cast<uint32>((batch_id >> 32) & 0xFFFFFFFFu);
+	WFIFOB(inter_fd, 12) = count;
+	memset(WFIFOP(inter_fd, 13), 0, 3);
+	memcpy(WFIFOP(inter_fd, 16), rows, count * 12);
+	WFIFOSET(inter_fd, len);
+	return true;
+}
+// ===== 拍卖行系统 v2 atomic batch: 结束 =====
+
 bool intif_auction_bid(map_session_data& sd, uint32 auction_id, uint32 price, uint8 currency, uint32 min_increment, uint8 min_increment_percent) {
 	if (CheckForCharServer()) return false;
 	WFIFOHEAD(inter_fd, 20);
@@ -3924,6 +3970,14 @@ static void intif_parse_auction_escrow_ack(int32 fd) {
 
 static void intif_parse_auction_commit_ack(int32 fd) {
 	auction_custom::on_commit_ack(fd);
+}
+
+static void intif_parse_auction_escrow_batch_ack(int32 fd) {
+	auction_custom::on_escrow_batch_ack(fd);
+}
+
+static void intif_parse_auction_commit_batch_ack(int32 fd) {
+	auction_custom::on_commit_batch_ack(fd);
 }
 
 static void intif_parse_auction_bid_ack(int32 fd) {
@@ -4114,6 +4168,8 @@ int32 intif_parse(int32 fd)
 	case 0x38B7:	intif_parse_auction_txid_probe(fd); break;
 	case 0x38B8:	intif_parse_auction_op_ack(fd); break;
 	case 0x38B9:	intif_parse_auction_cash_payout(fd); break;
+	case 0x38BA:	intif_parse_auction_escrow_batch_ack(fd); break;
+	case 0x38BB:	intif_parse_auction_commit_batch_ack(fd); break;
 	// ===== 拍卖行系统：结束 =====
 
 	default:

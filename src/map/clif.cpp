@@ -10,6 +10,7 @@
 #include <cstring>
 #include <ctime>
 #include <unordered_set>
+#include <vector>
 
 #include <common/cbasetypes.hpp>
 #include <common/conf.hpp>
@@ -26602,6 +26603,45 @@ void clif_auction_send_notify(map_session_data& sd, uint8 event, uint8 reason, u
 	WFIFOSET(fd, sizeof(packet));
 }
 
+// ===== v2 atomic batch: 开始 =====
+static_assert(sizeof(PACKET_CZ_AUCTION_REGISTER_BATCH) == 8, "batch CZ header drifted");
+static_assert(sizeof(PACKET_ZC_AUCTION_REGISTER_BATCH_RESULT) == 8, "batch ZC header drifted");
+static_assert(AUCTION_CZ_BATCH_ROW_SIZE == 12 && AUCTION_ZC_BATCH_ROW_SIZE == 7, "batch row layout drifted");
+
+void clif_auction_send_register_batch_result(map_session_data& sd, uint8 result, uint8 reason, uint8 fail_row,
+	const uint8* row_results, const uint8* row_reasons, const uint32* auction_ids, uint8 count) {
+	if (!sd.auction_supported || sd.fd == 0)
+		return;
+	const int32 fd = sd.fd;
+	const uint8 rows = count > AUCTION_MAX_BATCH_ITEMS ? static_cast<uint8>(AUCTION_MAX_BATCH_ITEMS) : count;
+	const int32 len = 8 + rows * AUCTION_ZC_BATCH_ROW_SIZE;
+	WFIFOHEAD(fd, len);
+	WFIFOW(fd, 0) = HEADER_ZC_AUCTION_REGISTER_BATCH_RESULT;
+	WFIFOW(fd, 2) = static_cast<uint16>(len);
+	WFIFOB(fd, 4) = result;
+	WFIFOB(fd, 5) = reason;
+	WFIFOB(fd, 6) = rows;
+	WFIFOB(fd, 7) = fail_row;
+	for (uint8 i = 0; i < rows; ++i) {
+		const int32 at = 8 + i * AUCTION_ZC_BATCH_ROW_SIZE;
+		WFIFOB(fd, at) = i;
+		if (result != AUCTION_RESULT_OK) {
+			// All-or-nothing: a failed batch never leaves a partially
+			// escrowed row behind, so every row reports FAIL. The offending
+			// row carries the real reason; siblings say "rolled back".
+			WFIFOB(fd, at + 1) = AUCTION_RESULT_FAIL;
+			WFIFOB(fd, at + 2) = i == fail_row ? reason : AUCTION_REASON_BATCH_ROLLED_BACK;
+			WFIFOL(fd, at + 3) = 0;
+		} else {
+			WFIFOB(fd, at + 1) = row_results != nullptr ? row_results[i] : AUCTION_RESULT_OK;
+			WFIFOB(fd, at + 2) = row_reasons != nullptr ? row_reasons[i] : AUCTION_REASON_OK;
+			WFIFOL(fd, at + 3) = auction_ids != nullptr ? auction_ids[i] : 0;
+		}
+	}
+	WFIFOSET(fd, len);
+}
+// ===== v2 atomic batch: 结束 =====
+
 // Capability + permission gate shared by the business operations. Returns
 // false (after an optional receipt) when the request must not proceed.
 static bool clif_auction_gate(map_session_data* sd, uint8 operation, bool reply) {
@@ -26687,6 +26727,44 @@ void clif_parse_auction_register(int32 fd, map_session_data* sd) {
 		return;
 	}
 	auction_custom::request_register(*sd, RFIFOW(fd, 2), RFIFOW(fd, 4), RFIFOL(fd, 6), RFIFOL(fd, 10), duration_idx, currency);
+}
+
+void clif_parse_auction_register_batch(int32 fd, map_session_data* sd) {
+	// One packet, N rows. The map side validates everything it can locally
+	// before asking the char server for the all-or-nothing SQL transaction;
+	// no inventory item is touched until that transaction reports OK.
+	const uint16 length = RFIFOW(fd, 2);
+	if (length < 8 || length > 8 + AUCTION_MAX_BATCH_ITEMS * AUCTION_CZ_BATCH_ROW_SIZE
+		|| (length - 8) % AUCTION_CZ_BATCH_ROW_SIZE != 0) {
+		if (sd != nullptr)
+			clif_auction_send_register_batch_result(*sd, AUCTION_RESULT_FAIL, AUCTION_REASON_TOO_MANY_ITEMS, 0, nullptr, nullptr, nullptr, 0);
+		return;
+	}
+	const uint8 count = RFIFOB(fd, 4);
+	if (!clif_auction_gate(sd, AUCTION_OP_REGISTER_BATCH, true))
+		return;
+	if (count == 0 || count > AUCTION_MAX_BATCH_ITEMS || length != 8 + count * AUCTION_CZ_BATCH_ROW_SIZE) {
+		clif_auction_send_register_batch_result(*sd, AUCTION_RESULT_FAIL, AUCTION_REASON_TOO_MANY_ITEMS, 0, nullptr, nullptr, nullptr, count);
+		return;
+	}
+	const uint8 duration_idx = RFIFOB(fd, 5);
+	const uint8 currency = RFIFOB(fd, 6);
+	if (currency > AUCTION_CURRENCY_CASH || duration_idx >= AUCTION_MAX_DURATION_SLOTS) {
+		clif_auction_send_register_batch_result(*sd, AUCTION_RESULT_FAIL, AUCTION_REASON_INVALID_PRICE, 0, nullptr, nullptr, nullptr, count);
+		return;
+	}
+	std::vector<auction_custom::RegisterRow> rows;
+	rows.reserve(count);
+	for (uint8 i = 0; i < count; ++i) {
+		const int32 at = 8 + i * AUCTION_CZ_BATCH_ROW_SIZE;
+		auction_custom::RegisterRow row{};
+		row.index = RFIFOW(fd, at);
+		row.amount = RFIFOW(fd, at + 2);
+		row.price = RFIFOL(fd, at + 4);
+		row.buy_now = RFIFOL(fd, at + 8);
+		rows.push_back(row);
+	}
+	auction_custom::request_register_batch(*sd, rows, duration_idx, currency);
 }
 
 void clif_parse_auction_cancel(int32 fd, map_session_data* sd) {

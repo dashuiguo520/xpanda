@@ -22,7 +22,8 @@ ids = {
         r"DEFINE_PACKET_HEADER\((\w+), (0x[0-9a-f]+)\)", headers
     )
 }
-assert set(ids.values()) == set(range(0x7E20, 0x7E29)) | set(range(0x7E30, 0x7E37)), ids
+# v2 added CZ 0x7E29 (atomic batch) and ZC 0x7E37 (batch receipt).
+assert set(ids.values()) == set(range(0x7E20, 0x7E2A)) | set(range(0x7E30, 0x7E38)), ids
 
 # Upstream declarations must not reuse our project-local client IDs.
 for path in (server / "src").rglob("*.hpp"):
@@ -51,7 +52,7 @@ clif = (server / "src/map/clif.cpp").read_text(encoding="utf-8")
 session = (server / "src/map/pc.hpp").read_text(encoding="utf-8")
 assert "bool auction_supported = false;" in session
 handlers = re.findall(r"void (clif_parse_auction_\w+)\(", clif)
-assert len(handlers) == 9 and len(set(handlers)) == 9, handlers
+assert len(handlers) == 10 and len(set(handlers)) == 10, handlers
 
 
 def body_at(source, needle):
@@ -84,7 +85,10 @@ conf = (server / "conf/battle/auction.conf").read_text(encoding="utf-8")
 assert re.search(r"^auction_enable:\s*0", conf, re.M)
 common = (server / "src/common/auction.hpp").read_text(encoding="utf-8")
 assert "AUCTION_PROTOCOL_MAGIC 0x54435541" in common  # "AUCT" on the wire
-assert "AUCTION_PROTOCOL_VERSION 1" in common
+assert "AUCTION_PROTOCOL_VERSION 2" in common  # v2 = atomic batch support
+assert "AUCTION_MAX_BATCH_ITEMS 20" in common
+assert "AUCTION_OP_REGISTER_BATCH = 10" in common
+assert "AUCTION_REASON_BATCH_ROLLED_BACK = 17" in common
 assert re.search(r"MAX_PACKET_DB\s*=\s*0x7E3F", (server / "src/map/clif.hpp").read_text(encoding="utf-8"))
 ddl = (server / "sql-files/auction_custom.sql").read_text(encoding="utf-8", errors="replace")
 assert "CREATE TABLE" in ddl and "auction_custom" in ddl and "auction_bid_journal" in ddl
@@ -110,6 +114,20 @@ for value, row in ((0x7E31, 45), (0x7E34, 46), (0x7E35, 46)):
         rf"0x{value:04x} if frame\.len\(\) >= 9 && \(frame\.len\(\) - 9\) % {row} == 0", protocol
     ), f"Client variable-page arm missing: {value:04x}"
 assert 'bytes.extend_from_slice(b"AUCT");' in sender
+assert 'bytes.extend(2u16.to_le_bytes());' in sender, "client must handshake v2"
+
+# v2 batch packets are variable-length: no fixed row in either length table,
+# but both sides must have an explicit variable-length arm (outgoing early
+# return, incoming len.W reader, decode arm and whitelist entry).
+for needle in (
+    "if id == 0x7e29 {",
+    "0x7e37 => {",
+    "0x7e37 if frame.len() >= 8 && (frame.len() - 8) % 7 == 0",
+    "| 0x7e37",
+):
+    assert needle in protocol, f"Client v2 batch wire arm missing: {needle}"
+assert "0x7e29u16.to_le_bytes()" in sender, "CZ batch builder missing"
+assert "build_auction_register_batch_packet" in sender
 
 # Inter length tables: the map->char entries must land at the right indices in
 # char's inter_recv_packet_length (rows are positional; a misaligned row
@@ -140,13 +158,16 @@ for fn, slot in builders.items():
         f"inter length table slot 0x30{slot:02X} = {elems[slot]!r} but {fn} sends {size}"
     )
 assert elems[0xB6] == "0", "0x30B6 is unused and must stay 0"
+# v2 batch inter frames are variable (len.W at offset 2) on both directions.
+assert elems[0xBA] == "-1" and elems[0xBB] == "-1", "0x30BA/BB must be variable"
 mapintif = (server / "src/map/intif.cpp").read_text(encoding="utf-8", errors="replace")
 mtbl = re.search(r"packet_len_table\[\] = \{(.*?)\};", mapintif, re.S).group(1)
 mtbl = re.sub(r"//[^\n]*", "", mtbl)
 melems = [e.strip() for e in mtbl.split(",") if e.strip()]
-for slot in range(0xB2, 0xBA):
+for slot in range(0xB2, 0xBC):
     assert melems[slot] == "-1", f"map reply table slot 0x38{slot:02X} must be -1 (variable), got {melems[slot]!r}"
-print("PASS: auction IDs (CZ 0x7E20-28, ZC 0x7E30-36), upstream + inter collision scan,")
+print("PASS: auction IDs (CZ 0x7E20-29, ZC 0x7E30-37), upstream + inter collision scan,")
 print("      handshake/gate wiring, enable default off, DDL present,")
 print("      client request/ZC lengths, variable-page arms, builders, AUCT handshake,")
-print("      inter length tables (char slots aligned to WFIFOSET, map replies variable)")
+print("      inter length tables (char slots aligned to WFIFOSET, map replies variable),")
+print("      v2 atomic batch packets + handshake version 2")

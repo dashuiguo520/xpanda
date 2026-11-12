@@ -48,6 +48,11 @@ bool intif_auction_search(map_session_data& sd, uint8 scope, uint16 page, uint8 
 bool intif_auction_my_page(map_session_data& sd, uint8 scope, uint16 page);
 bool intif_auction_escrow(map_session_data& sd, uint64 txid, uint32 price, uint32 buy_now, uint8 currency, uint8 duration_h, uint16 fee_permille, uint16 deposit_permille, const struct item& it, uint8 item_type, uint8 cap);
 bool intif_auction_commit(uint64 txid, uint32 auction_id);
+// v2 atomic batch: `rows` is a pre-packed inter buffer owned by
+// auction_custom.cpp (96B/row for escrow, 12B/row for commit).
+bool intif_auction_escrow_batch(uint32 char_id, uint64 batch_id, uint8 currency, uint8 duration_h,
+	uint16 fee_permille, uint16 deposit_permille, uint8 cap, uint8 count, const uint8* rows);
+bool intif_auction_commit_batch(uint64 batch_id, uint8 count, const uint8* rows);
 bool intif_auction_bid(map_session_data& sd, uint32 auction_id, uint32 price, uint8 currency, uint32 min_increment, uint8 min_increment_percent);
 bool intif_auction_op(map_session_data* sd, uint8 op, uint32 char_id, uint32 auction_id, uint32 price, uint8 currency);
 bool intif_auction_probe_reply(uint64 txid, uint8 alive);
