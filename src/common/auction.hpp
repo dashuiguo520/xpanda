@@ -126,6 +126,7 @@ enum e_auction_reason : uint8 {
 	AUCTION_REASON_INTER_UNAVAILABLE = 19, // v2: map<->char inter link is down
 	AUCTION_REASON_OWN_LISTING = 20,       // the seller cannot bid on or buy it back
 	AUCTION_REASON_NOT_ENOUGH_ITEMS = 21,  // asked for more units than the lot still holds
+	AUCTION_REASON_EXCEEDS_BUYNOW = 22,    // a bid at/above the buy-out price is pointless
 };
 
 enum e_auction_notify_event : uint8 {

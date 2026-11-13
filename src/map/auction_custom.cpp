@@ -8,6 +8,7 @@
 #include <common/cbasetypes.hpp>
 #include <common/mmo.hpp>
 #include <common/nullpo.hpp>
+#include <common/random.hpp>
 #include <common/showmsg.hpp>
 #include <common/socket.hpp>
 #include <common/timer.hpp>
@@ -117,21 +118,66 @@ struct PendingOffer {
 	uint8 currency;
 	uint8 operation;
 	uint16 amount; // buy-now: units charged for (0 for bids)
+	int32 tick;    // when the wallet left: stale offers are refunded (no ack)
+};
+
+// Units requested by the in-flight buy-now quote. The quote ack carries the
+// prorated price but not the count, and the confirm needs both.
+struct PendingBuyQuote {
+	uint16 units;
+	int32 tick;
 };
 
 std::unordered_map<uint64, PendingEscrow> pending_escrow;
 std::unordered_map<uint32, PendingOffer> pending_offer; // keyed by char_id
-// Units requested by the in-flight buy-now quote. The quote ack carries the
-// prorated price but not the count, and the confirm needs both.
-std::unordered_map<uint32, uint16> pending_buy_units; // keyed by char_id
-std::unordered_map<uint64, uint32> pending_commit;      // txid -> auction_id
+std::unordered_map<uint32, PendingBuyQuote> pending_buy_units; // keyed by char_id
+// Commit handoffs keep their txid "alive" for the char reconcile probe; the
+// tick lets the settle tick retire a handoff whose COMMIT(_ACK) was lost —
+// otherwise the probe would answer alive forever and the ESCROWING row
+// would hold a board slot permanently (audit P1-3).
+struct TrackedCommit { uint32 auction_id; int32 tick; };
+std::unordered_map<uint64, TrackedCommit> pending_commit; // txid -> commit in flight
+struct TrackedBatchRow { uint64 batch_id; int32 tick; };
+std::unordered_map<uint64, TrackedBatchRow> batch_txid_owner; // v2: row txid -> batch (probe, alive until COMMIT_BATCH_ACK)
 std::unordered_map<uint64, PendingBatch> pending_batch; // v2: batch_id -> staged rows
-std::unordered_map<uint64, uint64> batch_txid_owner;    // v2: row txid -> batch_id (probe, alive until COMMIT_ACK)
 uint64 txid_counter = 0;
 int32 settle_timer_id = INVALID_TIMER;
 
+// Per-character timestamps for the battle-configured rate limits
+// (auction_{search,register,bid}_interval). Those knobs existed in
+// battle.cpp with no reader, so a client could spam searches (two table
+// scans per packet) and stack that with the money exploits (audit P1-2).
+struct RateState {
+	int32 search_tick;
+	int32 register_tick;
+	int32 bid_tick;
+};
+std::unordered_map<uint32, RateState> rate_state; // keyed by char_id
+
 uint64 txid_next() {
 	return (static_cast<uint64>(time(nullptr)) << 20) | (txid_counter++ & 0xFFFFF);
+}
+
+// One universal money ceiling (audit P0-1): both wallets are int32-backed and
+// casting a u32 price above INT_MAX to int32 flips its sign — a rejected
+// pc_paycash(-1) still ADDED one #CASHPOINT and persisted it, making every
+// oversized bid a free point. Any amount outside (0, MAX_ZENY] is refused
+// before a wallet is touched; the char server owns the per-currency rules.
+bool auction_price_valid(uint32 price) {
+	return price > 0 && price <= static_cast<uint32>(MAX_ZENY);
+}
+
+// Advance/observe one rate-limit window. The tick is written on every call,
+// so a flood is throttled by the first packet: subsequent ones inside the
+// window are answered with AUCTION_REASON_RATE_LIMITED.
+bool rate_gate(int32& last_tick, int32 interval_ms) {
+	const int32 now = gettick();
+	if (last_tick != 0 && DIFF_TICK(now, last_tick) < interval_ms) {
+		last_tick = now; // sliding window: a flood never expires its debt
+		return false;
+	}
+	last_tick = now;
+	return true;
 }
 
 void send_result(map_session_data& sd, uint8 operation, uint8 result, uint8 reason, uint32 auction_id, uint32 value) {
@@ -158,6 +204,11 @@ const int32* duration_slots() {
 // Returns AUCTION_REASON_OK when the row may be escrowed.
 uint8 validate_listing_row(map_session_data& sd, const RegisterRow& row, uint8 duration_idx, uint8 currency) {
 	if (currency == AUCTION_CURRENCY_CASH && !battle_config.auction_allow_cash)
+		return AUCTION_REASON_INVALID_PRICE;
+	// Both wire prices are lot totals and both must survive the int32 wallet
+	// cast later (bid/buy deductions): an oversized listing would be
+	// unsellable at best and money-corrupting at worst (audit P0-1).
+	if (!auction_price_valid(row.price) || (row.buy_now != 0 && !auction_price_valid(row.buy_now)))
 		return AUCTION_REASON_INVALID_PRICE;
 	if (row.index >= MAX_INVENTORY || row.amount == 0 || row.amount > MAX_AMOUNT)
 		return AUCTION_REASON_ITEM_NOT_FOUND;
@@ -209,29 +260,93 @@ uint64 read_txid(int32 fd, int32 offset) {
 }
 
 // Deduct one price unit in the given currency; false when the wallet cannot
-// cover it. credit_price re-credits exactly what left.
+// cover it. credit_price re-credits exactly what left. The bid path's zeny-
+// first currency guess (A11) stays: with the amounts validated above, a
+// failed guess can no longer leave a side effect behind.
 bool deduct_price(map_session_data& sd, uint8 currency, uint32 price) {
+	if (!auction_price_valid(price))
+		return false;
 	if (currency == AUCTION_CURRENCY_CASH)
 		return pc_paycash(&sd, static_cast<int32>(price), 0, LOG_TYPE_TRADE) >= 0;
 	return pc_payzeny(&sd, static_cast<int32>(price), LOG_TYPE_TRADE) == 0;
 }
 
 void credit_price(map_session_data& sd, uint8 currency, uint32 price) {
+	if (!auction_price_valid(price))
+		return;
 	if (currency == AUCTION_CURRENCY_CASH)
 		pc_getcash(&sd, static_cast<int32>(price), 0, LOG_TYPE_TRADE);
 	else
 		pc_getzeny(&sd, static_cast<int32>(price), LOG_TYPE_TRADE);
 }
 
+// Ack answers are sub-second in practice; anything still pending after a
+// minute means the inter packet or the link was lost, and the session stays
+// locked out of bids/buys until it is cleared (audit P2-5).
+#define AUCTION_OFFER_STALE_MS (60 * 1000)
+
 // Map-side settle tick: asks the char server to run the atomic due-settlement
-// transaction (ADR A4). The map never touches settlement data itself.
+// transaction (ADR A4), and reaps stale wallet offers so a dropped inter ack
+// can never lock a character out of the auction forever.
 TIMER_FUNC(settle_timer){
+	const int32 now = gettick();
+	for (auto it = pending_offer.begin(); it != pending_offer.end();) {
+		if (DIFF_TICK(now, it->second.tick) < AUCTION_OFFER_STALE_MS) {
+			++it;
+			continue;
+		}
+		const PendingOffer offer = it->second;
+		const uint32 char_id = it->first;
+		pending_offer.erase(it++);
+		map_session_data* sd = map_charid2sd(char_id);
+		if (sd != nullptr && sd->auction_supported) {
+			// Give the wallet back what it charged; the char-side bid journal
+			// keeps the audit trail for anything that did land.
+			credit_price(*sd, offer.currency, offer.price);
+			send_result(*sd, offer.operation == AUCTION_OP_BUY_NOW ? AUCTION_OP_BUY_NOW : AUCTION_OP_BID,
+				AUCTION_RESULT_FAIL, AUCTION_REASON_INTER_UNAVAILABLE, 0, 0);
+		} else {
+			ShowError("auction: stale offer dropped without refund (session gone), char_id=%u price=%u currency=%u\n",
+				char_id, offer.price, offer.currency);
+		}
+	}
+	for (auto it = pending_buy_units.begin(); it != pending_buy_units.end();) {
+		if (DIFF_TICK(now, it->second.tick) >= AUCTION_OFFER_STALE_MS)
+			it = pending_buy_units.erase(it);
+		else
+			++it;
+	}
+	// Retire commit handoffs whose ack never came: keeping the txid alive
+	// forever would make every reconcile probe answer "alive" and strand the
+	// ESCROWING row on the board cap (audit P1-3).
+	for (auto it = pending_commit.begin(); it != pending_commit.end();) {
+		if (DIFF_TICK(now, it->second.tick) >= AUCTION_OFFER_STALE_MS) {
+			ShowError("auction: commit handoff timed out, txid=%llu auction_id=%u\n",
+				static_cast<unsigned long long>(it->first), it->second.auction_id);
+			it = pending_commit.erase(it);
+		} else {
+			++it;
+		}
+	}
+	for (auto it = batch_txid_owner.begin(); it != batch_txid_owner.end();) {
+		if (DIFF_TICK(now, it->second.tick) >= AUCTION_OFFER_STALE_MS)
+			it = batch_txid_owner.erase(it);
+		else
+			++it;
+	}
 	intif_auction_op(nullptr, AUC_OP_SETTLE_DUE, 0, 0, 0, 0);
 	return 0;
 }
 } // namespace
 
 bool request_search(map_session_data& sd, const PACKET_CZ_AUCTION_SEARCH& pkt) {
+	{
+		RateState& rate = rate_state[sd.status.char_id];
+		if (!rate_gate(rate.search_tick, battle_config.auction_search_interval)) {
+			send_result(sd, AUCTION_OP_SEARCH, AUCTION_RESULT_FAIL, AUCTION_REASON_RATE_LIMITED, 0, 0);
+			return false;
+		}
+	}
 	return intif_auction_search(sd, AUC_SCOPE_BOARD, pkt.page, pkt.currency, pkt.type, pkt.refineMin, pkt.refineMax, pkt.priceMin, pkt.priceMax, pkt.sort, pkt.nameidCount, pkt.nameids, pkt.kind);
 }
 
@@ -249,7 +364,20 @@ bool request_my_bids(map_session_data& sd, uint16 page) {
 
 bool request_register(map_session_data& sd, uint16 index, uint16 amount, uint32 price, uint32 buy_now, uint8 duration_idx, uint8 currency) {
 	nullpo_retr(false, &sd);
+	{
+		RateState& rate = rate_state[sd.status.char_id];
+		if (!rate_gate(rate.register_tick, battle_config.auction_register_interval)) {
+			send_result(sd, AUCTION_OP_REGISTER, AUCTION_RESULT_FAIL, AUCTION_REASON_RATE_LIMITED, 0, 0);
+			return false;
+		}
+	}
 	if (currency == AUCTION_CURRENCY_CASH && !battle_config.auction_allow_cash) {
+		send_result(sd, AUCTION_OP_REGISTER, AUCTION_RESULT_FAIL, AUCTION_REASON_INVALID_PRICE, 0, 0);
+		return false;
+	}
+	// Lot totals must survive the int32 wallet casts on the bid/buy paths
+	// (audit P0-1); anything over the zeny ceiling is refused up front.
+	if (!auction_price_valid(price) || (buy_now != 0 && !auction_price_valid(buy_now))) {
 		send_result(sd, AUCTION_OP_REGISTER, AUCTION_RESULT_FAIL, AUCTION_REASON_INVALID_PRICE, 0, 0);
 		return false;
 	}
@@ -334,6 +462,11 @@ bool request_register_batch(map_session_data& sd, const std::vector<RegisterRow>
 	};
 	if (count == 0 || count > AUCTION_MAX_BATCH_ITEMS)
 		return fail(AUCTION_REASON_TOO_MANY_ITEMS, 0);
+	{
+		RateState& rate = rate_state[sd.status.char_id];
+		if (!rate_gate(rate.register_tick, battle_config.auction_register_interval))
+			return fail(AUCTION_REASON_RATE_LIMITED, 0);
+	}
 	// Two rows may not share an inventory slot: pc_delitem would then see a
 	// shifted slot after the first deletion.
 	for (uint8 i = 0; i < count; ++i) {
@@ -368,7 +501,7 @@ bool request_register_batch(map_session_data& sd, const std::vector<RegisterRow>
 		memcpy(p + 18, &blob, AUCTION_ITEM_BLOB_SIZE);
 		p[95] = static_cast<uint8>(itemdb_type(original.nameid));
 		pending.rows.push_back({ row.index, row.amount, original.nameid, txid });
-		batch_txid_owner[txid] = batch_id;
+		batch_txid_owner[txid] = TrackedBatchRow{ batch_id, gettick() };
 	}
 	const bool sent = intif_auction_escrow_batch(
 		sd.status.char_id, batch_id, currency,
@@ -393,7 +526,16 @@ bool request_cancel(map_session_data& sd, uint32 auction_id) {
 
 bool request_bid(map_session_data& sd, uint32 auction_id, uint32 price) {
 	nullpo_retr(false, &sd);
-	if (price == 0) {
+	{
+		RateState& rate = rate_state[sd.status.char_id];
+		if (!rate_gate(rate.bid_tick, battle_config.auction_bid_interval)) {
+			send_result(sd, AUCTION_OP_BID, AUCTION_RESULT_FAIL, AUCTION_REASON_RATE_LIMITED, auction_id, 0);
+			return false;
+		}
+	}
+	// A price outside (0, MAX_ZENY] would flip sign on the wallet cast — the
+	// P0-1 exploit — so it is refused before any wallet is touched.
+	if (!auction_price_valid(price)) {
 		send_result(sd, AUCTION_OP_BID, AUCTION_RESULT_FAIL, AUCTION_REASON_INVALID_PRICE, auction_id, 0);
 		return false;
 	}
@@ -421,13 +563,18 @@ bool request_bid(map_session_data& sd, uint32 auction_id, uint32 price) {
 	offer.price = price;
 	offer.currency = currency;
 	offer.operation = AUCTION_OP_BID;
+	offer.tick = gettick();
 	pending_offer[sd.status.char_id] = offer;
 	return true;
 }
 
 bool request_buy_now(map_session_data& sd, uint32 auction_id, uint16 amount) {
 	nullpo_retr(false, &sd);
-	if (pending_offer.count(sd.status.char_id) != 0) {
+	// One wallet operation per char at a time: an in-flight offer (bid or
+	// buy-now confirm) OR an unanswered quote both block a new buy-now. The
+	// old code let two quotes overlap, and the second confirm ack then found
+	// no matching offer — the deduction was never re-credited (audit P2-1).
+	if (pending_offer.count(sd.status.char_id) != 0 || pending_buy_units.count(sd.status.char_id) != 0) {
 		send_result(sd, AUCTION_OP_BUY_NOW, AUCTION_RESULT_FAIL, AUCTION_REASON_RATE_LIMITED, auction_id, 0);
 		return false;
 	}
@@ -436,7 +583,7 @@ bool request_buy_now(map_session_data& sd, uint32 auction_id, uint16 amount) {
 	// atomic commit happen in on_op_ack / the confirm op. The quantity travels
 	// to the char server, which owns the prorated price.
 	const uint16 units = amount == 0 ? 1 : amount;
-	pending_buy_units[sd.status.char_id] = units;
+	pending_buy_units[sd.status.char_id] = PendingBuyQuote{ units, gettick() };
 	if (!intif_auction_op(&sd, AUC_OP_BUY_NOW, sd.status.char_id, auction_id, 0, 0, units)) {
 		pending_buy_units.erase(sd.status.char_id);
 		return false;
@@ -488,12 +635,19 @@ void on_escrow_ack(int32 fd) {
 	// which only happens after COMMIT when the save already ran.
 	// `pc_delitem` returns 0 on success and 1 on failure (pc.hpp), so the
 	// success test is `== 0` — the negated form logged every *successful*
-	// deletion as an error and stayed silent on real ones.
-	if (pc_delitem(sd, pending.index, pending.amount, 0, 1, LOG_TYPE_TRADE) != 0)
-		ShowError("auction: pc_delitem failed char_id=%u index=%u amount=%u\n",
-			sd->status.char_id, pending.index, pending.amount);
+	// deletion as an error and stayed silent on real ones. A failed deletion
+	// must ABORT the escrow: committing with the stack still in the bag is
+	// exactly the duplication window (audit P2-6), while the reconcile-safe
+	// delete keeps the item with the player.
+	if (pc_delitem(sd, pending.index, pending.amount, 0, 1, LOG_TYPE_TRADE) != 0) {
+		ShowError("auction: pc_delitem failed, aborting escrow char_id=%u index=%u amount=%u auction_id=%u\n",
+			sd->status.char_id, pending.index, pending.amount, auction_id);
+		intif_auction_op(nullptr, AUC_OP_ESCROW_ABORT, 0, 0, auction_id, 0);
+		send_result(*sd, AUCTION_OP_REGISTER, AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, 0, 0);
+		return;
+	}
 	chrif_save(sd, CSAVE_INVENTORY);
-	pending_commit[txid] = auction_id;
+	pending_commit[txid] = TrackedCommit{ auction_id, gettick() };
 	if (!intif_auction_commit(txid, auction_id)) {
 		pending_commit.erase(txid);
 		// Inter link down: the removal is already persisted; the row stays
@@ -624,7 +778,7 @@ void on_commit_batch_ack(int32 fd) {
 	const uint8 result = RFIFOB(fd, 12);
 	const uint8 reason = RFIFOB(fd, 13);
 	for (auto it = batch_txid_owner.begin(); it != batch_txid_owner.end();) {
-		if (it->second == batch_id)
+		if (it->second.batch_id == batch_id)
 			it = batch_txid_owner.erase(it);
 		else
 			++it;
@@ -764,13 +918,21 @@ void on_op_ack(int32 fd) {
 			// confirm goes out carrying the same count. FAIL: straight reject
 			// (ended/sold/unknown listing, or more units than the lot holds).
 			const auto units_it = pending_buy_units.find(char_id);
-			const uint16 units = units_it == pending_buy_units.end() ? 1 : units_it->second;
+			const uint16 units = units_it == pending_buy_units.end() ? 1 : units_it->second.units;
 			pending_buy_units.erase(char_id);
 			map_session_data* sd = map_charid2sd(char_id);
 			if (sd == nullptr || !sd->auction_supported)
 				return;
 			if (result != AUCTION_RESULT_OK) {
 				send_result(*sd, AUCTION_OP_BUY_NOW, AUCTION_RESULT_FAIL, reason, auction_id, price_now);
+				return;
+			}
+			// Another wallet operation raced in ahead of this quote (a bid sent
+			// between the quote and its ack). Refuse without deducting: two
+			// in-flight offers would make a later confirm ack match the wrong
+			// one and strand the deduction (audit P2-1).
+			if (pending_offer.count(char_id) != 0) {
+				send_result(*sd, AUCTION_OP_BUY_NOW, AUCTION_RESULT_FAIL, AUCTION_REASON_RATE_LIMITED, auction_id, price_now);
 				return;
 			}
 			if (!deduct_price(*sd, currency, price_now)) {
@@ -787,13 +949,18 @@ void on_op_ack(int32 fd) {
 			offer.currency = currency;
 			offer.operation = AUCTION_OP_BUY_NOW;
 			offer.amount = units;
+			offer.tick = gettick();
 			pending_offer[char_id] = offer;
 			break;
 		}
 		case AUC_OP_BUY_NOW_CONFIRM: {
 			auto it = pending_offer.find(char_id);
-			if (it == pending_offer.end())
+			if (it == pending_offer.end()) {
+				// With one-offer-per-char this is only reachable on a stale ack
+				// racing the offer reap; the deduction was refunded there.
+				ShowError("auction buy-now confirm: no matching offer, char_id=%u auction_id=%u\n", char_id, auction_id);
 				return;
+			}
 			PendingOffer offer = it->second;
 			pending_offer.erase(it);
 			map_session_data* sd = map_charid2sd(char_id);
@@ -848,7 +1015,9 @@ void on_cash_payout(int32 fd) {
 		intif_auction_cash_reply(char_id, auction_id, 0);
 		return;
 	}
-	if (pc_getcash(sd, static_cast<int32>(amount), 0, LOG_TYPE_TRADE) < 0) {
+	// A zero/oversized amount must fall back to the char side instead of being
+	// "delivered" as a no-op payout (audit P0-4 / P2-4).
+	if (!auction_price_valid(amount) || pc_getcash(sd, static_cast<int32>(amount), 0, LOG_TYPE_TRADE) < 0) {
 		intif_auction_cash_reply(char_id, auction_id, 0);
 		return;
 	}
@@ -858,6 +1027,10 @@ void on_cash_payout(int32 fd) {
 
 void do_init_auction_custom(void) {
 	add_timer_func_list(settle_timer, "auction_custom_settle_timer");
+	// A same-second restart would reuse txids (time<<20 | counter): seed the
+	// counter from the RNG so a fresh process cannot collide with the ids its
+	// predecessor handed out within the same wall-clock second (audit P2-5).
+	txid_counter = rnd() % 0x100000;
 	settle_timer_id = add_timer_interval(gettick() + 1000, settle_timer, 0, 0, battle_config.auction_settle_scan_interval);
 }
 
@@ -868,9 +1041,11 @@ void do_final_auction_custom(void) {
 	}
 	pending_escrow.clear();
 	pending_offer.clear();
+	pending_buy_units.clear();
 	pending_commit.clear();
 	pending_batch.clear();
 	batch_txid_owner.clear();
+	rate_state.clear();
 }
 } // namespace auction_custom
 // ===== 拍卖行系统：结束 =====

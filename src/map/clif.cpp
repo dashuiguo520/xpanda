@@ -26565,6 +26565,8 @@ void clif_auction_send_open_ack(map_session_data& sd, uint8 result, uint8 reason
 	packet.max_listings = static_cast<uint16>(battle_config.auction_max_listings);
 	packet.min_increment = static_cast<uint32>(battle_config.auction_min_increment);
 	packet.cash_balance = static_cast<uint32>(sd.cashPoints);
+	// The client mirrors the server's bid floor exactly (audit P1-5).
+	packet.min_increment_percent = static_cast<uint8>(battle_config.auction_min_increment_percent);
 	WFIFOHEAD(fd, sizeof(packet));
 	memcpy(WFIFOP(fd, 0), &packet, sizeof(packet));
 	WFIFOSET(fd, sizeof(packet));

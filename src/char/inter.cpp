@@ -1489,9 +1489,6 @@ int32 inter_parse_frommap(int32 fd)
 		  || inter_achievement_parse_frommap(fd)
 		  // ===== 挂机系统：开始 =====
 		  || inter_autoplay_parse_frommap(fd)
-		  // ===== 拍卖行系统：开始 =====
-		  || inter_auction_custom_parse_frommap(fd)
-		  // ===== 拍卖行系统：结束 =====
 		  // ===== 挂机系统：结束 =====
 		   )
 			break;

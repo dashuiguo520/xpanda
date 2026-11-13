@@ -50,7 +50,12 @@ CREATE TABLE IF NOT EXISTS `auction_custom` (
   KEY `idx_expire` (`status`, `expire_time`),
   KEY `idx_seller` (`seller_char_id`, `status`),
   KEY `idx_bidder` (`top_bidder_char_id`, `status`),
-  KEY `idx_txid` (`escrow_txid`, `status`)
+  KEY `idx_txid` (`escrow_txid`, `status`),
+  -- 板块浏览覆盖索引（审计 P3 性能项：type 过滤 + price_buynow/expire 排序
+  -- 原本走 idx_search 之外的 filesort）。存量库需手工执行：
+  -- ALTER TABLE `auction_custom`
+  --   ADD KEY `idx_board` (`status`, `type`, `price_now`, `price_buynow`, `expire_time`);
+  KEY `idx_board` (`status`, `type`, `price_now`, `price_buynow`, `expire_time`)
 ) ENGINE=InnoDB;
 
 -- 出价流水（ADR §9.2 解法一的对账兜底：竞拍扣款与 char 端受理之间的崩溃

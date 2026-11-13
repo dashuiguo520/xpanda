@@ -58,6 +58,11 @@ struct PACKET_ZC_AUCTION_OPEN_ACK {
 	uint16 max_listings;
 	uint32 min_increment;
 	uint32 cash_balance;
+	// v3 hint (audit P1-5): the bid floor is
+	//   price_now + max(min_increment, price_now * min_increment_percent / 1000)
+	// on the LOT total. Without the percent the client underestimated the
+	// floor for expensive lots and every hint bid answered BID_TOO_LOW.
+	uint8 min_increment_percent;
 } __attribute__((packed));
 DEFINE_PACKET_HEADER(ZC_AUCTION_OPEN_ACK, 0x7e30);
 // Variable pages: len.W total_pages.W page.W count.B { row }.
@@ -124,7 +129,7 @@ static_assert(sizeof(PACKET_CZ_AUCTION_BID) == 10);
 static_assert(sizeof(PACKET_CZ_AUCTION_BUY_NOW) == 8);
 static_assert(sizeof(PACKET_CZ_AUCTION_MY_LISTINGS) == 6);
 static_assert(sizeof(PACKET_CZ_AUCTION_MY_BIDS) == 6);
-static_assert(sizeof(PACKET_ZC_AUCTION_OPEN_ACK) == 28);
+static_assert(sizeof(PACKET_ZC_AUCTION_OPEN_ACK) == 29);
 static_assert(sizeof(PACKET_ZC_AUCTION_PAGE_HEADER) == 9);
 static_assert(sizeof(PACKET_ZC_AUCTION_DETAIL) == 126);
 // The inter 0x38B2 kind-1 reply ships this exact body size; the map server

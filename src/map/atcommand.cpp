@@ -9452,7 +9452,11 @@ ACMD_FUNC(points){
 	} else {
 		if (-value > sd->kafraPoints) //By command, if cash < value, force it to remove all
 			value = -sd->kafraPoints;
-		if( (ret=pc_paycash(sd, 0, -value, LOG_TYPE_COMMAND)) >= 0){
+		// Removing kafra points only: pass the total as both price and points.
+		// The old (0, -value) form made cash = price-points negative, which
+		// pc_paycash charged against the CASH wallet instead (cashPoints -=
+		// cash == +points) — @points -100 silently granted 100 #CASHPOINTS.
+		if( (ret=pc_paycash(sd, -value, -value, LOG_TYPE_COMMAND)) >= 0){
 			sprintf(output, msg_txt(sd,411), ret, sd->kafraPoints); // Removed %d kafra points. Total %d points.
 			clif_messagecolor(sd, color_table[COLOR_LIGHT_GREEN], output, false, SELF);
 		}

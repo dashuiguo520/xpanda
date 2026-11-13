@@ -101,9 +101,13 @@ static bool mail_repair_text(const char* field, char* dst, size_t dst_size, size
 	return true;
 }
 
-/// Stores a single message in the database.
-/// Returns the message's ID if successful (or 0 if it fails).
-int32 mail_savemessage(struct mail_message* msg)
+/// Stores a single message in the database inside the CALLER's transaction.
+/// This variant never issues START TRANSACTION / COMMIT / ROLLBACK itself:
+/// MySQL implicitly commits any open transaction on START TRANSACTION, so a
+/// nested call would silently sever the caller's atomicity and commit the
+/// auction state flip without its delivery mails (audit P0-2). Returns the
+/// message's ID if successful (or 0 if it fails; the caller owns rollback).
+static int32 mail_savemessage_in_tx(struct mail_message* msg)
 {
 	StringBuf buf;
 	SqlStmt stmt{ *sql_handle };
@@ -130,11 +134,6 @@ int32 mail_savemessage(struct mail_message* msg)
 	mail_repair_text("title", msg->title, MAIL_TITLE_LENGTH, title_len, title);
 	mail_repair_text("message", msg->body, MAIL_BODY_LENGTH, body_len, body);
 
-	if( SQL_ERROR == Sql_QueryStr( sql_handle, "START TRANSACTION" ) ){
-		Sql_ShowDebug( sql_handle );
-		return 0;
-	}
-
 	// build message save query
 	StringBuf_Init(&buf);
 	StringBuf_Printf(&buf, "INSERT INTO `%s` (`send_name`, `send_id`, `dest_name`, `dest_id`, `title`, `message`, `time`, `status`, `zeny`,`type`", schema_config.mail_db);
@@ -150,7 +149,6 @@ int32 mail_savemessage(struct mail_message* msg)
 	||  SQL_SUCCESS != stmt.Execute() )
 	{
 		SqlStmt_ShowDebug(stmt);
-		Sql_QueryStr( sql_handle, "ROLLBACK" );
 		return msg->id = 0;
 	} else
 		msg->id = (int32)stmt.LastInsertId();
@@ -191,15 +189,29 @@ int32 mail_savemessage(struct mail_message* msg)
 	if( found && SQL_ERROR == Sql_QueryStr(sql_handle, StringBuf_Value(&buf)) ){
 		Sql_ShowDebug(sql_handle);
 		msg->id = 0;
-		Sql_QueryStr( sql_handle, "ROLLBACK" );
-	}
-
-	if( msg->id && SQL_ERROR == Sql_QueryStr( sql_handle, "COMMIT" ) ){
-		Sql_ShowDebug( sql_handle );
-		return 0;
 	}
 
 	return msg->id;
+}
+
+/// Stores a single message in the database, managing its own transaction.
+/// Returns the message's ID if successful (or 0 if it fails).
+int32 mail_savemessage(struct mail_message* msg)
+{
+	if( SQL_ERROR == Sql_QueryStr( sql_handle, "START TRANSACTION" ) ){
+		Sql_ShowDebug( sql_handle );
+		return 0;
+	}
+	const int32 id = mail_savemessage_in_tx(msg);
+	if( id == 0 ){
+		Sql_QueryStr( sql_handle, "ROLLBACK" );
+		return 0;
+	}
+	if( SQL_ERROR == Sql_QueryStr( sql_handle, "COMMIT" ) ){
+		Sql_ShowDebug( sql_handle );
+		return 0;
+	}
+	return id;
 }
 
 /// Retrieves a single message from the database.
@@ -701,7 +713,8 @@ void mapif_parse_Mail_send(int32 fd)
 	mapif_Mail_new(&msg); // notify recipient
 }
 
-bool mail_sendmail(int32 send_id, const char* send_name, int32 dest_id, const char* dest_name, const char* title, const char* body, int32 zeny, struct item *item, int32 amount)
+/// Shared builder behind mail_sendmail / mail_sendmail_in_tx.
+static bool mail_sendmail_common(int32 send_id, const char* send_name, int32 dest_id, const char* dest_name, const char* title, const char* body, int32 zeny, struct item *item, int32 amount, bool in_tx)
 {
 	struct mail_message msg;
 	memset(&msg, 0, sizeof(struct mail_message));
@@ -724,12 +737,28 @@ bool mail_sendmail(int32 send_id, const char* send_name, int32 dest_id, const ch
 	msg.timestamp = time(nullptr);
 	msg.type = MAIL_INBOX_NORMAL;
 
-	if( !mail_savemessage(&msg) ){
+	if( in_tx ? mail_savemessage_in_tx(&msg) == 0 : !mail_savemessage(&msg) ){
 		return false;
 	}
 
 	mapif_Mail_new(&msg);
 	return true;
+}
+
+bool mail_sendmail(int32 send_id, const char* send_name, int32 dest_id, const char* dest_name, const char* title, const char* body, int32 zeny, struct item *item, int32 amount)
+{
+	return mail_sendmail_common(send_id, send_name, dest_id, dest_name, title, body, zeny, item, amount, false);
+}
+
+/// mail_sendmail variant for callers that already run inside an open
+/// transaction (auction settlement): the mail rows join the caller's
+/// transaction and are committed or rolled back together with the auction
+/// state flip (A4 / audit P0-2). The recipient notification still goes out
+/// immediately; a later rollback only leaves a harmless stale indicator that
+/// the next mailbox refresh corrects.
+bool mail_sendmail_in_tx(int32 send_id, const char* send_name, int32 dest_id, const char* dest_name, const char* title, const char* body, int32 zeny, struct item *item, int32 amount)
+{
+	return mail_sendmail_common(send_id, send_name, dest_id, dest_name, title, body, zeny, item, amount, true);
 }
 
 void mapif_Mail_receiver_send( int32 fd, int32 requesting_char_id, int32 char_id, int32 class_, int32 base_level, const char* name ){

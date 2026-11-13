@@ -5947,9 +5947,21 @@ int32 pc_paycash(map_session_data *sd, int32 price, int32 points, e_log_pick_typ
 	int32 cash;
 	nullpo_retr(-1,sd);
 
+	// A malformed wallet request must fail before any state changes: the old
+	// flow ran `sd->cashPoints -= cash` with cash<0, which ADDED points and
+	// persisted them via pc_setaccountreg before returning -1 (an auction price
+	// of 0xFFFFFFFF truncated to int32 turned every rejected bid into free
+	// cash). Callers must pass price >= points >= 0; a zero total is refused
+	// because it can only move nothing.
+	if( price < 0 || points < 0 || (price == 0 && points == 0) || price < points )
+		return -1;
+
 	points = cap_value(points, 0, MAX_KAFRAPOINT); //prevent command UB
 
 	cash = price-points;
+
+	if( cash < 0 )
+		return -1;
 
 	if( sd->cashPoints < cash || sd->kafraPoints < points )
 	{

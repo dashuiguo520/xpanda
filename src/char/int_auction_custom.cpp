@@ -45,10 +45,11 @@
 // offline ones (A12), with the 0x30B9 reply driving the fallback.
 //
 // All multi-write operations run inside explicit transactions on the shared
-// sql_handle (int_autoplay.cpp precedent); mail_sendmail inserts on the same
-// handle and therefore joins the transaction atomically (A4). Binary item
-// blobs travel through SqlStmt bound parameters (SQLDT_BLOB), never through
-// printf-style SQL.
+// sql_handle (int_autoplay.cpp precedent). Mail helpers use
+// mail_sendmail_in_tx, which joins the CALLER's transaction — the plain
+// mail_sendmail manages its own and its START TRANSACTION would implicitly
+// commit the outer one (audit P0-2). Binary item blobs travel through SqlStmt
+// bound parameters (SQLDT_BLOB), never through printf-style SQL.
 
 namespace {
 constexpr uint32 AUCTION_PAGE_SIZE = 20;
@@ -56,6 +57,11 @@ constexpr uint32 AUCTION_ESCROW_RECLAIM_TIMEOUT = 600;        // seconds
 constexpr uint32 AUCTION_RECONCILE_INTERVAL = 60 * 60 * 1000; // 1h
 constexpr uint32 AUCTION_RECONCILE_FIRST_DELAY = 30 * 1000;   // wait for map links
 constexpr uint32 AUCTION_PAYOUT_REPLY_TIMEOUT = 10;           // seconds
+// The reap timer runs at the verdict timeout, not at the reconcile period:
+// with the old 1h interval a dead map's payout sat in limbo for an hour,
+// and a late reply after the fallback had a huge window to double-credit
+// (audit P0-4).
+constexpr uint32 AUCTION_PAYOUT_REAP_INTERVAL = AUCTION_PAYOUT_REPLY_TIMEOUT * 1000;
 
 enum e_auction_inter_op : uint8 {
 	AUC_OP_CANCEL = 1,
@@ -77,14 +83,22 @@ struct PendingPayout { // 0x38B9 handoff awaiting the 0x30B9 verdict
 	uint32 amount;
 	uint32 account_id;
 	time_t sent;
+	bool reaped; // the timeout fallback already wrote the wallet
 };
-std::unordered_map<uint32, PendingPayout> pending_payouts; // keyed by char_id
+// Keyed by (char_id, auction_id): a char_id alone would collapse a seller's
+// concurrent settlements into one entry and pay out the wrong lot (audit
+// P0-4). Both ids are uint32, so the pair packs into one uint64.
+uint64 payout_key(uint32 char_id, uint32 auction_id) {
+	return (static_cast<uint64>(char_id) << 32) | auction_id;
+}
+std::unordered_map<uint64, PendingPayout> pending_payouts;
 
 struct ProbeRow { // reconcile rows waiting for their txid probe verdict
 	uint32 auction_id;
 	uint32 seller_char_id;
 	uint32 account_id;
 	uint64 unique_id;
+	time_t sent;
 };
 std::unordered_map<uint64, ProbeRow> reconcile_probes;
 
@@ -138,7 +152,10 @@ int32 mapfd_for_char(uint32 char_id) {
 
 // Offline cash write (A12). Never used for online players: the map keeps a
 // cached copy and would overwrite this on the next account-reg save.
-bool acc_cash_add(uint32 account_id, int64 amount) {
+// `out_value` (optional) receives the resulting balance so the 0x7E36
+// notification can carry it — the wire semantics of event 6 are "new
+// balance", and the map's online path already sends sd->cashPoints.
+bool acc_cash_add(uint32 account_id, int64 amount, int64* out_value = nullptr) {
 	if (SQL_ERROR == Sql_Query(sql_handle, "SELECT `value` FROM `acc_reg_num` WHERE `account_id`='%u' AND `key`='#CASHPOINTS' AND `index`='0'", account_id))
 		return false;
 	int64 current = 0;
@@ -149,10 +166,14 @@ bool acc_cash_add(uint32 account_id, int64 amount) {
 	}
 	Sql_FreeResult(sql_handle);
 	const int64 target = current + amount;
-	if (target < 0)
+	// Cap at the wallet ceiling: sd->cashPoints is int32, so a legacy row
+	// priced above INT_MAX must not wrap the stored value (audit P2-4).
+	if (target < 0 || target > static_cast<int64>(MAX_CASHPOINT))
 		return false;
 	if (SQL_ERROR == Sql_Query(sql_handle, "INSERT INTO `acc_reg_num` (`account_id`,`key`,`index`,`value`) VALUES ('%u','#CASHPOINTS','0','%lld') ON DUPLICATE KEY UPDATE `value`='%lld'", account_id, static_cast<long long>(target), static_cast<long long>(target)))
 		return false;
+	if (out_value != nullptr)
+		*out_value = target;
 	return true;
 }
 
@@ -190,19 +211,57 @@ void cash_payout(uint32 char_id, uint32 auction_id, uint32 amount) {
 		pending.amount = amount;
 		pending.account_id = account_id_of(char_id);
 		pending.sent = time(nullptr);
-		pending_payouts[char_id] = pending;
+		pending.reaped = false;
+		pending_payouts[payout_key(char_id, auction_id)] = pending;
 		return;
 	}
 	const uint32 account_id = account_id_of(char_id);
-	if (account_id == 0 || !acc_cash_add(static_cast<int64>(account_id), static_cast<int64>(amount))) {
+	int64 new_value = 0;
+	if (account_id == 0 || !acc_cash_add(static_cast<int64>(account_id), static_cast<int64>(amount), &new_value)) {
 		ShowError("auction cash payout failed: char_id=%u auction_id=%u amount=%u\n", char_id, auction_id, amount);
 		return;
 	}
-	notify_char(char_id, AUCTION_NOTIFY_CASH_CHANGED, AUCTION_REASON_OK, auction_id, amount);
+	// Event 6 carries the resulting balance, matching the map's online path.
+	notify_char(char_id, AUCTION_NOTIFY_CASH_CHANGED, AUCTION_REASON_OK, auction_id, static_cast<uint32>(new_value));
 }
 
-// Mail helpers: mail_sendmail inserts on the shared sql_handle, so inside an
-// open transaction the mail rows join the auction writes atomically (A4).
+// Single settlement entry for both the 0x30B9 verdict and the reap timeout,
+// so a payout is written exactly once per lot from THIS process (audit
+// P0-4): map applied -> nothing to do; map failed/timed out -> the offline
+// write plus the balance notification. A verdict that arrives after the reap
+// finds the reaped marker and is dropped with a warning (the map's own late
+// write cannot be undone in-process; a durable ledger would be needed to
+// close that window fully).
+void payout_resolve(uint32 char_id, uint32 auction_id, bool map_applied) {
+	auto it = pending_payouts.find(payout_key(char_id, auction_id));
+	if (it == pending_payouts.end())
+		return; // verdict already consumed, or nothing was ever pending
+	PendingPayout& pending = it->second;
+	if (pending.reaped) {
+		// The timeout fallback already credited the wallet; the late verdict
+		// must not trigger a second write.
+		if (map_applied)
+			ShowWarning("auction cash payout: late verdict after reap, possible double credit, char_id=%u auction_id=%u amount=%u\n", char_id, auction_id, pending.amount);
+		pending_payouts.erase(it);
+		return;
+	}
+	if (map_applied) {
+		pending_payouts.erase(it);
+		return;
+	}
+	const uint32 account_id = account_id_of(char_id);
+	int64 new_value = 0;
+	if (account_id == 0 || !acc_cash_add(static_cast<int64>(account_id), static_cast<int64>(pending.amount), &new_value)) {
+		ShowError("auction cash payout fallback failed: char_id=%u auction_id=%u amount=%u\n", char_id, auction_id, pending.amount);
+		return;
+	}
+	pending.reaped = true; // wallet credited: a late verdict must not re-add
+	notify_char(char_id, AUCTION_NOTIFY_CASH_CHANGED, AUCTION_REASON_OK, auction_id, static_cast<uint32>(new_value));
+}
+
+// Mail helpers: mail_sendmail_in_tx joins the CALLER's transaction (A4 /
+// audit P0-2). The plain mail_sendmail manages its own transaction and its
+// START TRANSACTION would implicitly commit the auction writes around it.
 //
 // Source literals in this file are UTF-8; the SQL connection and the game client
 // both speak the server's data codepage (GBK here). Handing the raw UTF-8 bytes
@@ -214,20 +273,29 @@ static std::string data_text(const char* utf8) {
 	return utf8 == nullptr ? std::string() : convert_utf8_file_content(utf8, std::strlen(utf8));
 }
 
+// Mail zeny is an int32 column and mail_zeny silently skips non-positive
+// amounts, so a legacy row priced above INT_MAX would make its seller wait
+// forever for a payout that never comes. Clamp at the zeny ceiling instead
+// (audit P2-4); rows priced that high cannot be paid by any wallet anyway
+// once the map-side upper bound is in force.
+int32 zeny_mail_amount(uint64 value) {
+	return static_cast<int32>(std::min<uint64>(value, MAX_ZENY));
+}
+
 bool mail_zeny(uint32 dest_char_id, const char* dest_name, int32 zeny, const char* title) {
 	if (zeny <= 0)
 		return true;
 	const std::string sender = data_text("拍卖行");
 	const std::string subject = data_text(title);
 	const std::string body = data_text("拍卖行结算");
-	return mail_sendmail(0, sender.c_str(), dest_char_id, dest_name, subject.c_str(), body.c_str(), zeny, nullptr, 0) ? true : false;
+	return mail_sendmail_in_tx(0, sender.c_str(), dest_char_id, dest_name, subject.c_str(), body.c_str(), zeny, nullptr, 0) ? true : false;
 }
 
 bool mail_item(uint32 dest_char_id, const char* dest_name, const struct item& it, const char* title) {
 	const std::string sender = data_text("拍卖行");
 	const std::string subject = data_text(title);
 	const std::string body = data_text("拍卖行交付");
-	return mail_sendmail(0, sender.c_str(), dest_char_id, dest_name, subject.c_str(), body.c_str(), 0, &const_cast<struct item&>(it), 1) ? true : false;
+	return mail_sendmail_in_tx(0, sender.c_str(), dest_char_id, dest_name, subject.c_str(), body.c_str(), 0, &const_cast<struct item&>(it), 1) ? true : false;
 }
 
 uint64 fee_of(uint32 price, uint16 permille) {
@@ -307,10 +375,15 @@ void parse_search(int32 fd) {
 			where += " AND `refine`>='" + std::to_string(refine_min) + "'";
 			where += " AND `refine`<='" + std::to_string(refine_max) + "'";
 		}
+		// Price filters run on the price the board displays: the 定价 board
+		// shows price_buynow, the 竞价 board the standing price_now. Filtering
+		// one column while displaying the other silently dropped rows (audit
+		// P2-3).
+		const char* price_column = board_kind == AUCTION_KIND_BUYNOW ? "`price_buynow`" : "`price_now`";
 		if (price_min > 0)
-			where += " AND `price_now`>='" + std::to_string(price_min) + "'";
+			where += std::string(" AND ") + price_column + ">='" + std::to_string(price_min) + "'";
 		if (price_max > 0)
-			where += " AND `price_now`<='" + std::to_string(price_max) + "'";
+			where += std::string(" AND ") + price_column + "<='" + std::to_string(price_max) + "'";
 		// Board kind: the 定价 board lists only lots with a fixed price, the
 		// 竞价 board only pure bid lots. A lot appears on exactly one board —
 		// `price_buynow` > 0 settles by buy-out (legacy two-price rows count
@@ -330,11 +403,14 @@ void parse_search(int32 fd) {
 			where += ids.empty() ? " AND 0" : " AND `nameid` IN (" + ids + ")";
 		}
 	}
-	const char* order = "`price_now` ASC";
+	// auction_id is the stable secondary key everywhere: ties (equal prices)
+	// must not reshuffle between pages, or pagination repeats and drops rows
+	// (audit P2-3).
+	const char* order = "`price_now` ASC, `auction_id` ASC";
 	switch (sort) {
-		case 1: order = "`price_now` DESC"; break;
-		case 2: order = "`expire_time` ASC"; break;
-		case 3: order = "`price_buynow` DESC, `price_now` ASC"; break;
+		case 1: order = "`price_now` DESC, `auction_id` ASC"; break;
+		case 2: order = "`expire_time` ASC, `auction_id` ASC"; break;
+		case 3: order = "`price_buynow` DESC, `price_now` ASC, `auction_id` ASC"; break;
 		default: break;
 	}
 
@@ -418,12 +494,15 @@ void parse_search(int32 fd) {
 
 // Insert one ESCROWING row inside the caller's transaction. The caller owns
 // START TRANSACTION / COMMIT / ROLLBACK; both the single-item escrow and the
-// v2 atomic batch call this exactly once per row.
+// v2 atomic batch call this exactly once per row. fee/deposit permille are
+// locked per row at register time: without the columns the INSERT fell back
+// to the table defaults and every settlement charged 0‰ regardless of
+// auction.conf (audit P1-1).
 bool insert_auction_row(uint64 txid, uint32 char_id, char* seller, uint32 price, uint32 buy_now,
-	uint8 currency, uint32 expire, const struct item& it, uint8 item_type, uint16 blob_version,
-	uint32& out_auction_id) {
+	uint8 currency, uint16 fee_permille, uint16 deposit_permille, uint32 expire, const struct item& it,
+	uint8 item_type, uint16 blob_version, uint32& out_auction_id) {
 	SqlStmt stmt(*sql_handle);
-	if (SQL_ERROR == stmt.PrepareStr("INSERT INTO `auction_custom` (`escrow_txid`,`seller_char_id`,`seller_name`,`price_now`,`price_buynow`,`currency`,`status`,`expire_time`,`nameid`,`amount`,`refine`,`type`,`card0`,`card1`,`card2`,`card3`,`option_id0`,`option_val0`,`option_parm0`,`option_id1`,`option_val1`,`option_parm1`,`option_id2`,`option_val2`,`option_parm2`,`option_id3`,`option_val3`,`option_parm3`,`option_id4`,`option_val4`,`option_parm4`,`unique_id`,`enchantgrade`,`blob_version`,`item_blob`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"))
+	if (SQL_ERROR == stmt.PrepareStr("INSERT INTO `auction_custom` (`escrow_txid`,`seller_char_id`,`seller_name`,`price_now`,`price_buynow`,`currency`,`status`,`fee_permille`,`deposit_permille`,`expire_time`,`nameid`,`amount`,`refine`,`type`,`card0`,`card1`,`card2`,`card3`,`option_id0`,`option_val0`,`option_parm0`,`option_id1`,`option_val1`,`option_parm1`,`option_id2`,`option_val2`,`option_parm2`,`option_id3`,`option_val3`,`option_parm3`,`option_id4`,`option_val4`,`option_parm4`,`unique_id`,`enchantgrade`,`blob_version`,`item_blob`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"))
 		return false;
 	size_t p = 0;
 	stmt.BindParam(p++, SQLDT_UINT64, &txid, sizeof(txid));
@@ -434,6 +513,10 @@ bool insert_auction_row(uint64 txid, uint32 char_id, char* seller, uint32 price,
 	stmt.BindParam(p++, SQLDT_UINT8, &currency, sizeof(currency));
 	uint8 status_escrowing = AUCTION_ST_ESCROWING;
 	stmt.BindParam(p++, SQLDT_UINT8, &status_escrowing, sizeof(status_escrowing));
+	uint16 fee16 = fee_permille;
+	uint16 deposit16 = deposit_permille;
+	stmt.BindParam(p++, SQLDT_UINT16, &fee16, sizeof(fee16));
+	stmt.BindParam(p++, SQLDT_UINT16, &deposit16, sizeof(deposit16));
 	stmt.BindParam(p++, SQLDT_UINT32, &expire, sizeof(expire));
 	uint32 nameid32 = it.nameid;
 	stmt.BindParam(p++, SQLDT_UINT32, &nameid32, sizeof(nameid32));
@@ -548,7 +631,7 @@ void parse_escrow(int32 fd) {
 		}
 		Sql_FreeResult(sql_handle);
 	}
-	if (!insert_auction_row(txid, char_id, seller, price, buy_now, currency, expire, it, item_type, blob_version, auction_id)) {
+	if (!insert_auction_row(txid, char_id, seller, price, buy_now, currency, fee_permille, deposit_permille, expire, it, item_type, blob_version, auction_id)) {
 		Sql_Query(sql_handle, "ROLLBACK");
 		escrow_ack(fd, txid, 0, AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL);
 		return;
@@ -605,14 +688,19 @@ void parse_escrow_batch(int32 fd) {
 	const uint16 deposit_permille = RFIFOW(fd, 21);
 	const uint8 cap_byte = RFIFOB(fd, 23);
 	const uint8 cap = cap_byte == 0 ? 20 : cap_byte;
-	(void)fee_permille;     // locked per row by the map server, mirrored
-	(void)deposit_permille; // here for wire symmetry with 0x30B3
 	uint32 auction_ids[AUCTION_MAX_BATCH_ITEMS] = {};
 	ShowInfo("auction batch escrow recv: char_id=%u batch_id=%llu count=%u currency=%u duration_h=%u cap=%u\n",
 		char_id, static_cast<unsigned long long>(batch_id), count, currency, duration_h, cap);
 
 	if (count == 0 || count > AUCTION_MAX_BATCH_ITEMS) {
 		ShowError("auction batch escrow FAIL: invalid count=%u\n", count);
+		escrow_batch_ack(fd, batch_id, AUCTION_RESULT_FAIL, AUCTION_REASON_TOO_MANY_ITEMS, 0, nullptr, 0);
+		return;
+	}
+	// Variable-length frame: the declared length must match the row count, or
+	// the per-row reads below walk past the buffer (audit P3).
+	if (RFIFOW(fd, 2) != AUCTION_INTER_BATCH_HDR_SIZE + static_cast<uint32>(count) * AUCTION_INTER_BATCH_ROW_SIZE) {
+		ShowError("auction batch escrow FAIL: len=%u does not match count=%u\n", RFIFOW(fd, 2), count);
 		escrow_batch_ack(fd, batch_id, AUCTION_RESULT_FAIL, AUCTION_REASON_TOO_MANY_ITEMS, 0, nullptr, 0);
 		return;
 	}
@@ -661,7 +749,7 @@ void parse_escrow_batch(int32 fd) {
 		memset(&it, 0, sizeof(it));
 		memcpy(&it, RFIFOP(fd, base + 18), AUCTION_ITEM_BLOB_SIZE);
 		const uint8 item_type = RFIFOB(fd, base + 95);
-		if (!insert_auction_row(txid, char_id, seller, price, buy_now, currency, expire, it, item_type, blob_version, auction_ids[i])) {
+		if (!insert_auction_row(txid, char_id, seller, price, buy_now, currency, fee_permille, deposit_permille, expire, it, item_type, blob_version, auction_ids[i])) {
 			ShowError("auction batch escrow FAIL: insert row=%u txid=%llu price=%u buynow=%u\n",
 				i, static_cast<unsigned long long>(txid), price, buy_now);
 			Sql_Query(sql_handle, "ROLLBACK");
@@ -683,6 +771,11 @@ void parse_commit_batch(int32 fd) {
 	const uint64 batch_id = RFIFOQ(fd, 4);
 	const uint8 count = RFIFOB(fd, 12);
 	if (count == 0 || count > AUCTION_MAX_BATCH_ITEMS) {
+		commit_batch_ack(fd, batch_id, AUCTION_RESULT_FAIL, AUCTION_REASON_TOO_MANY_ITEMS);
+		return;
+	}
+	// Variable-length frame: declared length must match the row count (audit P3).
+	if (RFIFOW(fd, 2) != 16 + static_cast<uint32>(count) * 12) {
 		commit_batch_ack(fd, batch_id, AUCTION_RESULT_FAIL, AUCTION_REASON_TOO_MANY_ITEMS);
 		return;
 	}
@@ -816,6 +909,10 @@ void parse_bid(int32 fd) {
 		reason = AUCTION_REASON_OWN_LISTING;
 	else if (row.expire_time <= static_cast<uint32>(time(nullptr)))
 		reason = AUCTION_REASON_ALREADY_ENDED;
+	else if (row.price_buynow != 0 && price >= row.price_buynow)
+		// A bid at or above the buy-out is pointless: the lot settles by
+		// buy-out at that price, so the money is better spent there (audit P2-3).
+		reason = AUCTION_REASON_EXCEEDS_BUYNOW;
 	else if (price <= row.price_now)
 		reason = AUCTION_REASON_BID_TOO_LOW;
 	else if (price < row.price_now + std::max<uint64>(min_increment, fee_of(row.price_now, static_cast<uint16>(min_increment_percent * 10))))
@@ -833,8 +930,12 @@ void parse_bid(int32 fd) {
 		return;
 	}
 	// Optimistic guard: only a row still at the observed state accepts the
-	// new price; racing transactions lose the update and are rejected.
-	if (SQL_ERROR == Sql_Query(sql_handle, "UPDATE `auction_custom` SET `price_now`='%u', `top_bidder_char_id`='%u', `top_bidder_name`='%s' WHERE `auction_id`='%u' AND `status`='1' AND `price_now`='%u' AND `top_bidder_char_id`='%u'", price, bidder_char_id, bidder_name, auction_id, row.price_now, row.top_bidder_char_id)) {
+	// new price; racing transactions lose the update and are rejected. The
+	// display name is escaped: it comes from the char table, but a quote in a
+	// name would otherwise terminate the SQL string (audit P3).
+	char escaped_bidder[(NAME_LENGTH) * 2 + 1];
+	Sql_EscapeString(sql_handle, escaped_bidder, bidder_name);
+	if (SQL_ERROR == Sql_Query(sql_handle, "UPDATE `auction_custom` SET `price_now`='%u', `top_bidder_char_id`='%u', `top_bidder_name`='%s' WHERE `auction_id`='%u' AND `status`='1' AND `price_now`='%u' AND `top_bidder_char_id`='%u'", price, bidder_char_id, escaped_bidder, auction_id, row.price_now, row.top_bidder_char_id)) {
 		Sql_Query(sql_handle, "ROLLBACK");
 		uint8 body[19];
 		memcpy(body, &bidder_char_id, 4);
@@ -863,7 +964,7 @@ void parse_bid(int32 fd) {
 	Sql_Query(sql_handle, "INSERT INTO `auction_bid_journal` (`auction_id`,`bidder_char_id`,`price`,`currency`,`created_at`) VALUES ('%u','%u','%u','%u','%u')", auction_id, bidder_char_id, price, currency, static_cast<uint32>(time(nullptr)));
 	// Refund the previous top bidder inside the same transaction (zeny path).
 	if (row.top_bidder_char_id != 0 && row.currency == AUCTION_CURRENCY_ZENY) {
-		if (!mail_zeny(row.top_bidder_char_id, row.top_bidder_name, static_cast<int32>(row.price_now), "拍卖行出价被超越"))
+		if (!mail_zeny(row.top_bidder_char_id, row.top_bidder_name, zeny_mail_amount(row.price_now), "拍卖行出价被超越"))
 			ShowError("auction outbid refund mail failed: char_id=%u auction_id=%u price=%u\n", row.top_bidder_char_id, auction_id, row.price_now);
 	}
 	const bool committed = SQL_ERROR != Sql_Query(sql_handle, "COMMIT");
@@ -948,7 +1049,7 @@ bool settle_one(uint32 auction_id) {
 			return false;
 		}
 		if (row.currency == AUCTION_CURRENCY_ZENY) {
-			if (!mail_zeny(row.seller_char_id, row.seller_name, static_cast<int32>(seller_gain), "拍卖行成交款")) {
+			if (!mail_zeny(row.seller_char_id, row.seller_name, zeny_mail_amount(seller_gain), "拍卖行成交款")) {
 				Sql_Query(sql_handle, "ROLLBACK");
 				return false;
 			}
@@ -963,12 +1064,14 @@ bool settle_one(uint32 auction_id) {
 	if (SQL_ERROR == Sql_Query(sql_handle, "COMMIT")) {
 		return false;
 	}
-	// Post-commit notifications and cash payout (A12 async path).
+	// Post-commit notifications and cash payout (A12 async path). The payout
+	// amount is capped at the wallet ceiling: a legacy row priced above
+	// INT_MAX must not wrap acc_cash_add (audit P2-4).
 	if (row.top_bidder_char_id != 0) {
 		notify_char(row.seller_char_id, AUCTION_NOTIFY_SOLD, AUCTION_REASON_OK, auction_id, row.price_now);
 		notify_char(row.top_bidder_char_id, AUCTION_NOTIFY_DELIVERED, AUCTION_REASON_OK, auction_id, row.price_now);
 		if (row.currency == AUCTION_CURRENCY_CASH)
-			cash_payout(row.seller_char_id, auction_id, static_cast<uint32>(seller_gain));
+			cash_payout(row.seller_char_id, auction_id, static_cast<uint32>(std::min<uint64>(seller_gain, MAX_CASHPOINT)));
 	} else {
 		notify_char(row.seller_char_id, AUCTION_NOTIFY_EXPIRED, AUCTION_REASON_OK, auction_id, 0);
 	}
@@ -985,7 +1088,10 @@ uint32 lot_quote(uint32 total, uint16 units, uint16 want) {
 		return 0;
 	if (want >= units)
 		return total;
-	return static_cast<uint32>((static_cast<uint64>(total) * want) / units);
+	// Integer division of a tiny total can floor to zero, which the wallet
+	// and the confirm both refuse — the units would be unpurchasable forever.
+	// One unit of currency is the smallest honest price (audit P2-4).
+	return std::max<uint32>(1, static_cast<uint32>((static_cast<uint64>(total) * want) / units));
 }
 
 // Shrink an ACTIVE listing to the units a partial buy-now left behind. The row
@@ -1035,22 +1141,33 @@ void parse_op(int32 fd) {
 
 	switch (op) {
 		case AUC_OP_CANCEL: {
-			// Cancel only before any bid: top_bidder_char_id must be 0.
+			// Cancel only before any bid: top_bidder_char_id must be 0. The
+			// status flip and the return mail share one transaction: the old
+			// order (flip first, mail after) left a mailbox-full or SQL error
+			// holding the item forever at status 5 (audit P0-3).
+			if (SQL_ERROR == Sql_Query(sql_handle, "START TRANSACTION")) {
+				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, currency, 0);
+				return;
+			}
 			if (SQL_ERROR == Sql_Query(sql_handle, "UPDATE `auction_custom` SET `status`='5' WHERE `auction_id`='%u' AND `seller_char_id`='%u' AND `status`='1' AND `top_bidder_char_id`='0'", auction_id, char_id)) {
+				Sql_Query(sql_handle, "ROLLBACK");
 				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, currency, 0);
 				return;
 			}
 			if (Sql_NumRowsAffected(sql_handle) == 0) {
+				Sql_Query(sql_handle, "ROLLBACK");
 				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_ALREADY_ENDED, currency, 0);
 				return;
 			}
 			// Return the escrowed item via mail (works with a full inventory).
 			char seller[NAME_LENGTH];
 			if (!char_name(char_id, seller, NAME_LENGTH)) {
+				Sql_Query(sql_handle, "ROLLBACK");
 				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, currency, 0);
 				return;
 			}
 			if (SQL_ERROR == Sql_Query(sql_handle, "SELECT `item_blob` FROM `auction_custom` WHERE `auction_id`='%u' AND `status`='5'", auction_id)) {
+				Sql_Query(sql_handle, "ROLLBACK");
 				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, currency, 0);
 				return;
 			}
@@ -1068,6 +1185,11 @@ void parse_op(int32 fd) {
 			}
 			Sql_FreeResult(sql_handle);
 			if (!have_item || !mail_item(char_id, seller, it, "拍卖行下架退回")) {
+				Sql_Query(sql_handle, "ROLLBACK");
+				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, currency, 0);
+				return;
+			}
+			if (SQL_ERROR == Sql_Query(sql_handle, "COMMIT")) {
 				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, currency, 0);
 				return;
 			}
@@ -1079,7 +1201,7 @@ void parse_op(int32 fd) {
 			// map asks for `amount` units (0 = the whole lot); the answer is
 			// that many units' share of the lot price, so a partial purchase is
 			// never charged the whole stack.
-			if (SQL_ERROR == Sql_Query(sql_handle, "SELECT `status`,`currency`,`price_buynow`,`seller_char_id`,`amount` FROM `auction_custom` WHERE `auction_id`='%u'", auction_id)) {
+			if (SQL_ERROR == Sql_Query(sql_handle, "SELECT `status`,`currency`,`price_buynow`,`seller_char_id`,`amount`,`expire_time` FROM `auction_custom` WHERE `auction_id`='%u'", auction_id)) {
 				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, currency, 0);
 				return;
 			}
@@ -1094,8 +1216,11 @@ void parse_op(int32 fd) {
 			const uint32 buynow = strtoul(col(2), nullptr, 10);
 			const uint32 seller_id = strtoul(col(3), nullptr, 10);
 			const uint16 listed = static_cast<uint16>(strtoul(col(4), nullptr, 10));
+			const uint32 expire_time = strtoul(col(5), nullptr, 10);
 			Sql_FreeResult(sql_handle);
-			if (row_status != AUCTION_ST_ACTIVE) {
+			// Expired lots are settled by the scan within 30s; until then they
+			// must not quote as purchasable (audit P2-2).
+			if (row_status != AUCTION_ST_ACTIVE || expire_time <= static_cast<uint32>(time(nullptr))) {
 				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_ALREADY_ENDED, row_currency, buynow);
 				return;
 			}
@@ -1134,10 +1259,18 @@ void parse_op(int32 fd) {
 				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, currency, price);
 				return;
 			}
-			bool ok = SQL_ERROR != Sql_Query(sql_handle, "SELECT `currency`,`fee_permille`,`top_bidder_char_id`,`top_bidder_name`,`price_now`,`seller_char_id`,`seller_name`,`item_blob`,`price_buynow`,`amount` FROM `auction_custom` WHERE `auction_id`='%u' AND `status`='1' FOR UPDATE", auction_id);
+			bool ok = SQL_ERROR != Sql_Query(sql_handle, "SELECT `currency`,`fee_permille`,`top_bidder_char_id`,`top_bidder_name`,`price_now`,`seller_char_id`,`seller_name`,`item_blob`,`price_buynow`,`amount` FROM `auction_custom` WHERE `auction_id`='%u' AND `status`='1' AND `expire_time`>UNIX_TIMESTAMP() FOR UPDATE", auction_id);
 			struct { uint8 currency; uint16 fee_permille; uint32 top_bidder_char_id; char top_bidder_name[NAME_LENGTH]; uint32 price_now; uint32 seller_char_id; char seller_name[NAME_LENGTH]; struct item it; uint32 price_buynow; uint16 amount; } row{};
 			memset(&row, 0, sizeof(row));
-			if (ok && SQL_SUCCESS == Sql_NextRow(sql_handle)) {
+			if (!ok) {
+				// No lockable ACTIVE, unexpired row: the lot ended (or sold)
+				// between the quote and the confirm. Distinct from the currency
+				// check below so a stale page reads honestly (audit P2-2).
+				Sql_Query(sql_handle, "ROLLBACK");
+				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_ALREADY_ENDED, currency, price);
+				return;
+			}
+			if (SQL_SUCCESS == Sql_NextRow(sql_handle)) {
 				auto col = [&](int32 i) { char* d = nullptr; size_t l = 0; Sql_GetData(sql_handle, i, &d, &l); return d != nullptr ? d : "0"; };
 				row.currency = static_cast<uint8>(strtoul(col(0), nullptr, 10));
 				row.fee_permille = static_cast<uint16>(strtoul(col(1), nullptr, 10));
@@ -1159,7 +1292,7 @@ void parse_op(int32 fd) {
 			Sql_FreeResult(sql_handle);
 			if (!ok || row.currency != currency || price == 0) {
 				Sql_Query(sql_handle, "ROLLBACK");
-				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_CURRENCY_MISMATCH, row.currency, 0);
+				ack(AUCTION_RESULT_FAIL, ok ? AUCTION_REASON_CURRENCY_MISMATCH : AUCTION_REASON_ALREADY_ENDED, ok ? row.currency : currency, 0);
 				return;
 			}
 			// A listing is not a player's to buy: reject the seller here too,
@@ -1189,8 +1322,10 @@ void parse_op(int32 fd) {
 				return;
 			}
 			const bool whole_lot = want >= listed;
+			char escaped_buyer[(NAME_LENGTH) * 2 + 1];
+			Sql_EscapeString(sql_handle, escaped_buyer, buyer_name);
 			if (whole_lot) {
-				if (SQL_ERROR == Sql_Query(sql_handle, "UPDATE `auction_custom` SET `status`='2', `buyer_char_id`='%u', `buyer_name`='%s' WHERE `auction_id`='%u' AND `status`='1'", char_id, buyer_name, auction_id)) {
+				if (SQL_ERROR == Sql_Query(sql_handle, "UPDATE `auction_custom` SET `status`='2', `buyer_char_id`='%u', `buyer_name`='%s' WHERE `auction_id`='%u' AND `status`='1'", char_id, escaped_buyer, auction_id)) {
 					Sql_Query(sql_handle, "ROLLBACK");
 					ack(AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, currency, price);
 					return;
@@ -1226,7 +1361,7 @@ void parse_op(int32 fd) {
 				return;
 			}
 			if (row.currency == AUCTION_CURRENCY_ZENY) {
-				if (!mail_zeny(row.seller_char_id, row.seller_name, static_cast<int32>(seller_gain), "拍卖行成交款")) {
+				if (!mail_zeny(row.seller_char_id, row.seller_name, zeny_mail_amount(seller_gain), "拍卖行成交款")) {
 					Sql_Query(sql_handle, "ROLLBACK");
 					ack(AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, currency, price);
 					return;
@@ -1237,7 +1372,7 @@ void parse_op(int32 fd) {
 			// no longer exists, so a prorated refund would be money lost.
 			const bool refund_bidder = row.top_bidder_char_id != 0;
 			if (refund_bidder && row.currency == AUCTION_CURRENCY_ZENY) {
-				if (!mail_zeny(row.top_bidder_char_id, row.top_bidder_name, static_cast<int32>(row.price_now), "拍卖行出价被超越")) {
+				if (!mail_zeny(row.top_bidder_char_id, row.top_bidder_name, zeny_mail_amount(row.price_now), "拍卖行出价被超越")) {
 					Sql_Query(sql_handle, "ROLLBACK");
 					ack(AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, currency, price);
 					return;
@@ -1247,11 +1382,12 @@ void parse_op(int32 fd) {
 				ack(AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, currency, price);
 				return;
 			}
-			// Post-commit cash payout + notifications.
+			// Post-commit cash payout + notifications; amounts capped at the
+			// wallet ceiling for legacy rows priced above INT_MAX (audit P2-4).
 			if (row.currency == AUCTION_CURRENCY_CASH)
-				cash_payout(row.seller_char_id, auction_id, static_cast<uint32>(seller_gain));
+				cash_payout(row.seller_char_id, auction_id, static_cast<uint32>(std::min<uint64>(seller_gain, MAX_CASHPOINT)));
 			if (refund_bidder && row.currency == AUCTION_CURRENCY_CASH)
-				cash_payout(row.top_bidder_char_id, auction_id, row.price_now);
+				cash_payout(row.top_bidder_char_id, auction_id, static_cast<uint32>(std::min<uint64>(row.price_now, MAX_CASHPOINT)));
 			if (refund_bidder)
 				notify_char(row.top_bidder_char_id, AUCTION_NOTIFY_OUTBID, AUCTION_REASON_OK, auction_id, price);
 			notify_char(row.seller_char_id, AUCTION_NOTIFY_SOLD, AUCTION_REASON_OK, auction_id, price);
@@ -1334,83 +1470,11 @@ void parse_op(int32 fd) {
 
 // Reconcile -------------------------------------------------------------------
 
-// Periodic pass: (1) RETURN_PENDING rows get their return mail and close;
-// (2) stale ESCROWING rows are probed (txid liveness) and either deleted
-// (item still with the player / non-named safe default) or queued for the
-// return mail (named item proven gone from the inventory, A6).
-TIMER_FUNC(reconcile_timer){
-	// (1) RETURN_PENDING -> mail + CLOSED
-	if (SQL_ERROR == Sql_Query(sql_handle, "SELECT `auction_id`,`seller_char_id`,`seller_name`,`item_blob` FROM `auction_custom` WHERE `status`='3'")) {
-		Sql_FreeResult(sql_handle);
-	} else {
-		while (SQL_SUCCESS == Sql_NextRow(sql_handle)) {
-			auto col = [&](int32 i) { char* d = nullptr; size_t l = 0; Sql_GetData(sql_handle, i, &d, &l); return d != nullptr ? d : "0"; };
-			const uint32 auction_id = strtoul(col(0), nullptr, 10);
-			const uint32 seller_char_id = strtoul(col(1), nullptr, 10);
-			char seller[NAME_LENGTH];
-			safestrncpy(seller, col(2), NAME_LENGTH);
-			size_t len = 0;
-			char* blob = nullptr;
-			Sql_GetData(sql_handle, 3, &blob, &len);
-			struct item it;
-			memset(&it, 0, sizeof(it));
-			if (blob != nullptr && len >= AUCTION_ITEM_BLOB_SIZE)
-				memcpy(&it, blob, AUCTION_ITEM_BLOB_SIZE);
-			char_name(seller_char_id, seller, NAME_LENGTH);
-			if (mail_item(seller_char_id, seller, it, "拍卖行退回")) {
-				Sql_Query(sql_handle, "UPDATE `auction_custom` SET `status`='4' WHERE `auction_id`='%u'", auction_id);
-				notify_char(seller_char_id, AUCTION_NOTIFY_RETURNED, AUCTION_REASON_OK, auction_id, 0);
-			}
-		}
-		Sql_FreeResult(sql_handle);
-	}
-	// (2) Stale ESCROWING rows -> probe the owning map server (txid liveness).
-	const uint32 cutoff = static_cast<uint32>(time(nullptr)) - AUCTION_ESCROW_RECLAIM_TIMEOUT;
-	if (SQL_ERROR == Sql_Query(sql_handle, "SELECT `auction_id`,`escrow_txid`,`seller_char_id`,`unique_id` FROM `auction_custom` WHERE `status`='0' AND `expire_time`!='0' AND `expire_time`<='%u'", cutoff + 3600)) {
-		Sql_FreeResult(sql_handle);
-		return 0;
-	}
-	while (SQL_SUCCESS == Sql_NextRow(sql_handle)) {
-		auto col = [&](int32 i) { char* d = nullptr; size_t l = 0; Sql_GetData(sql_handle, i, &d, &l); return d != nullptr ? d : "0"; };
-		ProbeRow row{};
-		row.auction_id = strtoul(col(0), nullptr, 10);
-		const uint64 txid = strtoull(col(1), nullptr, 10);
-		row.seller_char_id = strtoul(col(2), nullptr, 10);
-		row.account_id = account_id_of(row.seller_char_id);
-		row.unique_id = strtoull(col(3), nullptr, 10);
-		if (reconcile_probes.count(txid) != 0)
-			continue;
-		// Rows created by an already-running flow are protected by the
-		// creation time (expire_time was set at insert = creation).
-		const int32 mapfd = mapfd_for_char(row.seller_char_id);
-		// Probe regardless of the seller's own presence: the map that owns
-		// the pending escrow state is the one this map server list holds.
-		if (mapfd < 0) {
-			// No map server for this player: fall through to the safe default
-			// after the probe timeout via the next pass.
-			reconcile_probes[txid] = row;
-			continue;
-		}
-		uint8 body[8];
-		memcpy(body, &txid, 8);
-		reply_ack(mapfd, 0x38B7, body, 8);
-		reconcile_probes[txid] = row;
-	}
-	Sql_FreeResult(sql_handle);
-	return 0;
-}
-
-void parse_probe_reply(int32 fd) {
-	const uint64 txid = RFIFOQ(fd, 2);
-	const uint8 alive = RFIFOB(fd, 10);
-	auto it = reconcile_probes.find(txid);
-	if (it == reconcile_probes.end())
-		return;
-	ProbeRow row = it->second;
-	reconcile_probes.erase(it);
-	if (alive) {
-		return; // still in flight on a live map server: leave it alone
-	}
+// Resolve a probe whose map never answered (or answered "not alive"): named
+// items are checked against the inventory table, which answers exactly
+// whether the player still holds them; non-named items take the delete safe
+// default (the item comes back with the inventory reload, A6).
+void resolve_dead_escrow(const ProbeRow& row) {
 	if (row.unique_id != 0) {
 		// Named item: the inventory table answers exactly whether the player
 		// still holds it (crash before delitem) or not (crash after save).
@@ -1438,35 +1502,139 @@ void parse_probe_reply(int32 fd) {
 	Sql_Query(sql_handle, "DELETE FROM `auction_custom` WHERE `auction_id`='%u' AND `status`='0'", row.auction_id);
 }
 
+// Periodic pass: (0) probe entries past their timeout resolve as dead; (1)
+// RETURN_PENDING rows get their return mail and close; (2) stale ESCROWING
+// rows are probed (txid liveness) and either deleted (item still with the
+// player / non-named safe default) or queued for the return mail (named item
+// proven gone from the inventory, A6).
+TIMER_FUNC(reconcile_timer){
+	// (0) A probe that stayed unanswered for the reclaim timeout is resolved
+	// exactly like a "not alive" verdict: a live map answers within seconds,
+	// so silence means the packet or the map was lost. Without this the entry
+	// sat forever (and with it the ESCROWING row, holding a board slot —
+	// audit P1-3).
+	const time_t probe_now = time(nullptr);
+	for (auto it = reconcile_probes.begin(); it != reconcile_probes.end();) {
+		if (it->second.sent + AUCTION_ESCROW_RECLAIM_TIMEOUT > probe_now) {
+			++it;
+			continue;
+		}
+		const ProbeRow row = it->second;
+		reconcile_probes.erase(it++);
+		resolve_dead_escrow(row);
+	}
+	// (1) RETURN_PENDING -> mail + CLOSED, one transaction per row so a crash
+	// between the mail insert and the status flip cannot re-send the item on
+	// the next pass (audit P0-3).
+	if (SQL_ERROR == Sql_Query(sql_handle, "SELECT `auction_id`,`seller_char_id`,`seller_name`,`item_blob` FROM `auction_custom` WHERE `status`='3'")) {
+		Sql_FreeResult(sql_handle);
+	} else {
+		while (SQL_SUCCESS == Sql_NextRow(sql_handle)) {
+			auto col = [&](int32 i) { char* d = nullptr; size_t l = 0; Sql_GetData(sql_handle, i, &d, &l); return d != nullptr ? d : "0"; };
+			const uint32 auction_id = strtoul(col(0), nullptr, 10);
+			const uint32 seller_char_id = strtoul(col(1), nullptr, 10);
+			char seller[NAME_LENGTH];
+			safestrncpy(seller, col(2), NAME_LENGTH);
+			size_t len = 0;
+			char* blob = nullptr;
+			Sql_GetData(sql_handle, 3, &blob, &len);
+			struct item it;
+			memset(&it, 0, sizeof(it));
+			if (blob != nullptr && len >= AUCTION_ITEM_BLOB_SIZE)
+				memcpy(&it, blob, AUCTION_ITEM_BLOB_SIZE);
+			char_name(seller_char_id, seller, NAME_LENGTH);
+			if (SQL_ERROR == Sql_Query(sql_handle, "START TRANSACTION"))
+				continue;
+			if (mail_item(seller_char_id, seller, it, "拍卖行退回")
+				&& SQL_ERROR != Sql_Query(sql_handle, "UPDATE `auction_custom` SET `status`='4' WHERE `auction_id`='%u' AND `status`='3'", auction_id)
+				&& Sql_NumRowsAffected(sql_handle) != 0
+				&& SQL_ERROR != Sql_Query(sql_handle, "COMMIT")) {
+				notify_char(seller_char_id, AUCTION_NOTIFY_RETURNED, AUCTION_REASON_OK, auction_id, 0);
+			} else {
+				Sql_Query(sql_handle, "ROLLBACK");
+			}
+		}
+		Sql_FreeResult(sql_handle);
+	}
+	// (2) Stale ESCROWING rows -> probe the owning map server (txid liveness).
+	// The creation time travels in the txid's high bits (time << 20 | counter),
+	// so `escrow_txid DIV 1048576` is the wall-clock second the row was made.
+	// The old condition compared expire_time (= creation + duration, at least
+	// +12h) against now+3000 and was therefore never true before expiry,
+	// which stranded every stuck ESCROWING row on the board cap forever
+	// (audit P1-3).
+	const uint32 cutoff = static_cast<uint32>(time(nullptr)) - AUCTION_ESCROW_RECLAIM_TIMEOUT;
+	if (SQL_ERROR == Sql_Query(sql_handle, "SELECT `auction_id`,`escrow_txid`,`seller_char_id`,`unique_id` FROM `auction_custom` WHERE `status`='0' AND (`escrow_txid` DIV 1048576) <= '%u'", cutoff)) {
+		Sql_FreeResult(sql_handle);
+		return 0;
+	}
+	while (SQL_SUCCESS == Sql_NextRow(sql_handle)) {
+		auto col = [&](int32 i) { char* d = nullptr; size_t l = 0; Sql_GetData(sql_handle, i, &d, &l); return d != nullptr ? d : "0"; };
+		ProbeRow row{};
+		row.auction_id = strtoul(col(0), nullptr, 10);
+		const uint64 txid = strtoull(col(1), nullptr, 10);
+		row.seller_char_id = strtoul(col(2), nullptr, 10);
+		row.account_id = account_id_of(row.seller_char_id);
+		row.unique_id = strtoull(col(3), nullptr, 10);
+		row.sent = time(nullptr);
+		if (reconcile_probes.count(txid) != 0)
+			continue;
+		const int32 mapfd = mapfd_for_char(row.seller_char_id);
+		// Probe regardless of the seller's own presence: the map that owns
+		// the pending escrow state is the one this map server list holds. A
+		// seller with no map link queues the row for the probe timeout above
+		// instead of parking it forever (audit P1-3).
+		if (mapfd < 0) {
+			reconcile_probes[txid] = row;
+			continue;
+		}
+		uint8 body[8];
+		memcpy(body, &txid, 8);
+		reply_ack(mapfd, 0x38B7, body, 8);
+		reconcile_probes[txid] = row;
+	}
+	Sql_FreeResult(sql_handle);
+	return 0;
+}
+
+void parse_probe_reply(int32 fd) {
+	const uint64 txid = RFIFOQ(fd, 2);
+	const uint8 alive = RFIFOB(fd, 10);
+	auto it = reconcile_probes.find(txid);
+	if (it == reconcile_probes.end())
+		return;
+	ProbeRow row = it->second;
+	reconcile_probes.erase(it);
+	if (alive) {
+		return; // still in flight on a live map server: leave it alone
+	}
+	resolve_dead_escrow(row);
+}
+
 void parse_cash_reply(int32 fd) {
 	const uint32 char_id = RFIFOL(fd, 2);
 	const uint32 auction_id = RFIFOL(fd, 6);
 	const uint8 result = RFIFOB(fd, 10);
-	auto it = pending_payouts.find(char_id);
-	if (it == pending_payouts.end())
-		return;
-	PendingPayout pending = it->second;
-	pending_payouts.erase(it);
-	if (result == 1)
-		return; // map applied the payout
-	if (!acc_cash_add(static_cast<int64>(pending.account_id), static_cast<int64>(pending.amount))) {
-		ShowError("auction cash payout fallback failed: char_id=%u auction_id=%u amount=%u\n", char_id, auction_id, pending.amount);
-		return;
-	}
-	notify_char(char_id, AUCTION_NOTIFY_CASH_CHANGED, AUCTION_REASON_OK, auction_id, pending.amount);
+	// The verdict names its lot: a stale reply for another auction must not
+	// consume a pending handoff (audit P0-4).
+	payout_resolve(char_id, auction_id, result == 1);
 }
 
 TIMER_FUNC(payout_reap_timer){
 	const time_t now = time(nullptr);
 	for (auto it = pending_payouts.begin(); it != pending_payouts.end();) {
 		// Handoffs that never got a verdict fall back to the offline write;
-		// the map is presumed dead (a live map always answers).
-		if (it->second.sent + AUCTION_PAYOUT_REPLY_TIMEOUT < now) {
-			acc_cash_add(static_cast<int64>(it->second.account_id), static_cast<int64>(it->second.amount));
-			it = pending_payouts.erase(it);
-		} else {
-			++it;
+		// the entry stays with its reaped marker so a late verdict cannot
+		// trigger a second write (audit P0-4).
+		if (!it->second.reaped && it->second.sent + AUCTION_PAYOUT_REPLY_TIMEOUT < now) {
+			const uint32 reap_char_id = static_cast<uint32>((it->first >> 32) & 0xFFFFFFFFu);
+			payout_resolve(reap_char_id, it->second.auction_id, false);
 		}
+		// Reaped entries linger only for the late-verdict grace window.
+		if (it->second.reaped && it->second.sent + 600 < now)
+			it = pending_payouts.erase(it);
+		else
+			++it;
 	}
 }
 
@@ -1495,7 +1663,7 @@ void int_auction_custom_init(void) {
 	add_timer_func_list(reconcile_timer_entry, "auction_reconcile_timer");
 	add_timer_func_list(payout_reap_timer, "auction_payout_reap_timer");
 	reconcile_timer_id = add_timer_interval(gettick() + AUCTION_RECONCILE_FIRST_DELAY, reconcile_timer_entry, 0, 0, AUCTION_RECONCILE_INTERVAL);
-	add_timer_interval(gettick() + AUCTION_RECONCILE_FIRST_DELAY, payout_reap_timer, 0, 0, AUCTION_RECONCILE_INTERVAL);
+	add_timer_interval(gettick() + AUCTION_RECONCILE_FIRST_DELAY, payout_reap_timer, 0, 0, AUCTION_PAYOUT_REAP_INTERVAL);
 }
 
 void int_auction_custom_final(void) {
