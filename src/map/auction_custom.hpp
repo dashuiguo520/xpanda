@@ -50,6 +50,7 @@ void on_op_ack(int32 fd);
 void on_notify_forward(int32 fd);
 void on_txid_probe(int32 fd);
 void on_cash_payout(int32 fd);
+void on_listing_counts(uint32 char_id, uint32 listings, uint32 bids);
 
 void do_init_auction_custom(void);
 void do_final_auction_custom(void);

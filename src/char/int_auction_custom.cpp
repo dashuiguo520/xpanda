@@ -1470,6 +1470,37 @@ void parse_op(int32 fd) {
 
 // Reconcile -------------------------------------------------------------------
 
+// 0x30BC LISTING_COUNTS_REQ (6, fixed): cmd.W char_id.L
+// 0x38BC LISTING_COUNTS (variable, len.W@2): char_id.L@4 listings.L@8 bids.L@12
+// The open handshake's count round trip (audit P3): my_listings follows the
+// same rule as the escrow cap (status IN (0,1)), my_bids counts the standing
+// top bids. On SQL failure the counts go out as zero instead of stalling the
+// handshake.
+void parse_listing_counts(int32 fd) {
+	const uint32 char_id = RFIFOL(fd, 2);
+	uint32 listings = 0;
+	uint32 bids = 0;
+	if (SQL_ERROR != Sql_Query(sql_handle,
+		"SELECT"
+		" (SELECT COUNT(*) FROM `auction_custom` WHERE `seller_char_id`='%u' AND `status` IN (0,1)) AS listings,"
+		" (SELECT COUNT(*) FROM `auction_custom` WHERE `top_bidder_char_id`='%u' AND `status`='1') AS bids",
+		char_id, char_id)) {
+		if (SQL_SUCCESS == Sql_NextRow(sql_handle)) {
+			char* data = nullptr; size_t len = 0;
+			Sql_GetData(sql_handle, 0, &data, &len);
+			listings = data != nullptr ? strtoul(data, nullptr, 10) : 0;
+			Sql_GetData(sql_handle, 1, &data, &len);
+			bids = data != nullptr ? strtoul(data, nullptr, 10) : 0;
+		}
+	}
+	Sql_FreeResult(sql_handle);
+	uint8 body[12];
+	memcpy(body, &char_id, 4);
+	memcpy(body + 4, &listings, 4);
+	memcpy(body + 8, &bids, 4);
+	reply_ack(fd, 0x38BC, body, 12);
+}
+
 // Resolve a probe whose map never answered (or answered "not alive"): named
 // items are checked against the inventory table, which answers exactly
 // whether the player still holds them; non-named items take the delete safe
@@ -1655,6 +1686,7 @@ int32 inter_auction_custom_parse_frommap(int32 fd) {
 		case 0x30B9: parse_cash_reply(fd); return 1;
 		case 0x30BA: parse_escrow_batch(fd); return 1;
 		case 0x30BB: parse_commit_batch(fd); return 1;
+		case 0x30BC: parse_listing_counts(fd); return 1;
 		default: return 0;
 	}
 }

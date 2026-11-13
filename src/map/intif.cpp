@@ -57,7 +57,7 @@ static const int32 packet_len_table[] = {
 	-1,-1, 7, 3,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0,  0, 0, //0x3890  Homunculus [albator]
 	-1,-1, 8, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0,  0, 0, //0x38A0  Clans
 	// ===== 挂机系统：开始 =====
-	static_cast<int32>(7 + sizeof(s_autoplay_config)),11,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, 0,0,0,0, //0x38B0 Autoplay / Auction house (B2-B9 + v2 batch BA/BB variable len.W)
+	static_cast<int32>(7 + sizeof(s_autoplay_config)),11,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,0,0,0, //0x38B0 Autoplay / Auction house (B2-B9 + v2 batch BA/BB + BC variable len.W)
 	// ===== 挂机系统：结束 =====
 };
 
@@ -3964,6 +3964,16 @@ bool intif_auction_cash_reply(uint32 char_id, uint32 auction_id, uint8 result) {
 	return true;
 }
 
+// 0x30BC LISTING_COUNTS_REQ (6, fixed): cmd.W char_id.L
+bool intif_auction_listing_counts(uint32 char_id) {
+	if (CheckForCharServer()) return false;
+	WFIFOHEAD(inter_fd, 6);
+	WFIFOW(inter_fd, 0) = 0x30BC;
+	WFIFOL(inter_fd, 2) = char_id;
+	WFIFOSET(inter_fd, 6);
+	return true;
+}
+
 static void intif_parse_auction_search(int32 fd) {
 	auction_custom::on_search_or_detail(fd);
 }
@@ -3998,6 +4008,11 @@ static void intif_parse_auction_txid_probe(int32 fd) {
 
 static void intif_parse_auction_op_ack(int32 fd) {
 	auction_custom::on_op_ack(fd);
+}
+
+// 0x38BC LISTING_COUNTS (variable, len.W@2): char_id.L@4 listings.L@8 bids.L@12
+static void intif_parse_auction_listing_counts(int32 fd) {
+	auction_custom::on_listing_counts(RFIFOL(fd, 4), RFIFOL(fd, 8), RFIFOL(fd, 12));
 }
 
 static void intif_parse_auction_cash_payout(int32 fd) {
@@ -4174,6 +4189,7 @@ int32 intif_parse(int32 fd)
 	case 0x38B9:	intif_parse_auction_cash_payout(fd); break;
 	case 0x38BA:	intif_parse_auction_escrow_batch_ack(fd); break;
 	case 0x38BB:	intif_parse_auction_commit_batch_ack(fd); break;
+	case 0x38BC:	intif_parse_auction_listing_counts(fd); break;
 	// ===== 拍卖行系统：结束 =====
 
 	default:

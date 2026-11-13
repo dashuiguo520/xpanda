@@ -57,6 +57,9 @@ bool intif_auction_bid(map_session_data& sd, uint32 auction_id, uint32 price, ui
 bool intif_auction_op(map_session_data* sd, uint8 op, uint32 char_id, uint32 auction_id, uint32 price, uint8 currency, uint16 amount = 0);
 bool intif_auction_probe_reply(uint64 txid, uint8 alive);
 bool intif_auction_cash_reply(uint32 char_id, uint32 auction_id, uint8 result);
+// Asks the char server for the account's live listing/bid counts; the 0x38BC
+// reply completes the open handshake with real my_listings/my_bids.
+bool intif_auction_listing_counts(uint32 char_id);
 // ===== 拍卖行系统：结束 =====
 // ===== 挂机系统：结束 =====
 int32 intif_request_registry(map_session_data *sd, int32 flag);

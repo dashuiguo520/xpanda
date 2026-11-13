@@ -26539,7 +26539,7 @@ bool clif_auction_capability(const map_session_data& sd) {
 	return sd.auction_supported;
 }
 
-void clif_auction_send_open_ack(map_session_data& sd, uint8 result, uint8 reason) {
+void clif_auction_send_open_ack(map_session_data& sd, uint8 result, uint8 reason, uint16 my_listings, uint16 my_bids) {
 	if (!sd.auction_supported || sd.fd == 0)
 		return;
 	const int32 fd = sd.fd;
@@ -26547,8 +26547,11 @@ void clif_auction_send_open_ack(map_session_data& sd, uint8 result, uint8 reason
 	packet.packetType = HEADER_ZC_AUCTION_OPEN_ACK;
 	packet.result = result;
 	packet.reason = reason;
-	packet.my_listings = 0;
-	packet.my_bids = 0;
+	// Real counts from the char server (0x30BC/0x38BC round trip); the fields
+	// were always zero, so the player could never see how close to the
+	// listing cap they were (audit P3).
+	packet.my_listings = my_listings;
+	packet.my_bids = my_bids;
 	packet.fee_permille = static_cast<uint16>(battle_config.auction_fee_permille);
 	packet.cash_fee_permille = static_cast<uint16>(battle_config.auction_cash_fee_permille);
 	const int32 durations[AUCTION_MAX_DURATION_SLOTS] = {
@@ -26674,14 +26677,19 @@ void clif_parse_auction_open(int32 fd, map_session_data* sd) {
 	}
 	sd->auction_supported = true;
 	if (!battle_config.auction_enable) {
-		clif_auction_send_open_ack(*sd, AUCTION_RESULT_FAIL, AUCTION_REASON_DISABLED);
+		clif_auction_send_open_ack(*sd, AUCTION_RESULT_FAIL, AUCTION_REASON_DISABLED, 0, 0);
 		return;
 	}
 	if (!pc_has_permission(sd, PC_PERM_TRADE)) {
-		clif_auction_send_open_ack(*sd, AUCTION_RESULT_FAIL, AUCTION_REASON_NO_PERMISSION);
+		clif_auction_send_open_ack(*sd, AUCTION_RESULT_FAIL, AUCTION_REASON_NO_PERMISSION, 0, 0);
 		return;
 	}
-	clif_auction_send_open_ack(*sd, AUCTION_RESULT_OK, AUCTION_REASON_OK);
+	// The OK receipt carries the account's live listing/bid counts (audit P3:
+	// they were hardcoded zero and the player could not see the cap). The
+	// count round trip is one inter packet; with the link down the ack still
+	// goes out, just with zeroed counts.
+	if (!intif_auction_listing_counts(sd->status.char_id))
+		clif_auction_send_open_ack(*sd, AUCTION_RESULT_OK, AUCTION_REASON_OK, 0, 0);
 }
 
 // R1 skeleton: business operations run the capability/permission gate and

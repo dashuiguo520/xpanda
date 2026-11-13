@@ -1625,7 +1625,7 @@ void clif_parse_auction_bid(int32 fd, map_session_data* sd);
 void clif_parse_auction_buy_now(int32 fd, map_session_data* sd);
 void clif_parse_auction_my_listings(int32 fd, map_session_data* sd);
 void clif_parse_auction_my_bids(int32 fd, map_session_data* sd);
-void clif_auction_send_open_ack(map_session_data& sd, uint8 result, uint8 reason);
+void clif_auction_send_open_ack(map_session_data& sd, uint8 result, uint8 reason, uint16 my_listings, uint16 my_bids);
 void clif_auction_send_result(map_session_data& sd, uint8 operation, uint8 result, uint8 reason, uint32 auction_id, uint32 value);
 void clif_auction_send_notify(map_session_data& sd, uint8 event, uint8 reason, uint32 auction_id, uint32 value);
 // v2 atomic batch receipt; the three per-row arrays are `count` entries each.

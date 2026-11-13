@@ -61,6 +61,11 @@
 //   currency.B@15 price_now.L@16
 // 0x38B9 CASH_PAYOUT (variable): len.W char_id.L@4 auction_id.L@8 amount.L@12 reason.B@16
 //
+// Open-handshake count round trip (audit P3: my_listings/my_bids were always
+// zero on the wire):
+// 0x30BC LISTING_COUNTS_REQ (6, fixed): cmd.W char_id.L
+// 0x38BC LISTING_COUNTS (variable): len.W char_id.L@4 listings.L@8 bids.L@12
+//
 // v2 atomic batch:
 // 0x30BA ESCROW_BATCH_REQ (variable): len.W@2 char_id.L@4 batch_id.Q@6
 //   count.B@14 currency.B@15 duration_h.B@16 fee_permille.W@17
@@ -993,6 +998,17 @@ void on_notify_forward(int32 fd) {
 	if (sd == nullptr || !sd->auction_supported)
 		return;
 	clif_auction_send_notify(*sd, event, reason, auction_id, value);
+}
+
+// 0x38BC LISTING_COUNTS reply: finish the open handshake with the account's
+// live listing/bid counts. A session that left between 0x30BC and here just
+// drops the reply.
+void on_listing_counts(uint32 char_id, uint32 listings, uint32 bids) {
+	map_session_data* sd = map_charid2sd(char_id);
+	if (sd == nullptr || !sd->auction_supported)
+		return;
+	clif_auction_send_open_ack(*sd, AUCTION_RESULT_OK, AUCTION_REASON_OK,
+		static_cast<uint16>(listings), static_cast<uint16>(bids));
 }
 
 void on_txid_probe(int32 fd) {
