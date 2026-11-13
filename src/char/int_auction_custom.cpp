@@ -82,6 +82,7 @@ struct PendingPayout { // 0x38B9 handoff awaiting the 0x30B9 verdict
 	uint32 auction_id;
 	uint32 amount;
 	uint32 account_id;
+	uint32 journal_id; // the journal row this handoff owns
 	time_t sent;
 	bool reaped; // the timeout fallback already wrote the wallet
 };
@@ -92,6 +93,38 @@ uint64 payout_key(uint32 char_id, uint32 auction_id) {
 	return (static_cast<uint64>(char_id) << 32) | auction_id;
 }
 std::unordered_map<uint64, PendingPayout> pending_payouts;
+
+// Durable payout journal (audit P0-4 closure, `auction_payout_journal`):
+// every payout decision is recorded BEFORE it is attempted, so a char crash
+// between the decision and the wallet write no longer loses the money — the
+// recovery scan in payout_reap_timer re-drives rows still PENDING. One row
+// per money event (a lot can refund the same bidder several times through
+// re-bidding, so rows are NOT unique per lot+char); the in-memory handoff
+// carries the journal_id and the verdict closes exactly its own row.
+enum e_auction_payout_state : uint8 {
+	AUCTION_PAYOUT_PENDING = 0,
+	AUCTION_PAYOUT_APPLIED = 1,       // the map server applied it online
+	AUCTION_PAYOUT_FALLBACK_DONE = 2, // char wrote the wallet directly
+};
+constexpr uint32 AUCTION_PAYOUT_RECOVER_AFTER = 30; // seconds past updated_at
+
+// Records the decision and returns the journal row id. False on SQL failure:
+// no durable record means no payout (the caller must not move money).
+bool payout_journal_open(uint32 char_id, uint32 auction_id, uint32 account_id, uint32 amount, uint32& out_journal_id) {
+	const uint32 now = static_cast<uint32>(time(nullptr));
+	if (SQL_ERROR == Sql_Query(sql_handle,
+		"INSERT INTO `auction_payout_journal` (`auction_id`,`char_id`,`account_id`,`amount`,`state`,`created_at`,`updated_at`) VALUES ('%u','%u','%u','%u','0','%u','%u')",
+		auction_id, char_id, account_id, amount, now, now))
+		return false;
+	out_journal_id = static_cast<uint32>(Sql_LastInsertId(sql_handle));
+	return out_journal_id != 0;
+}
+
+void payout_journal_close(uint32 journal_id, uint8 state) {
+	Sql_Query(sql_handle,
+		"UPDATE `auction_payout_journal` SET `state`='%u', `updated_at`='%u' WHERE `journal_id`='%u' AND `state`='0'",
+		state, static_cast<uint32>(time(nullptr)), journal_id);
+}
 
 struct ProbeRow { // reconcile rows waiting for their txid probe verdict
 	uint32 auction_id;
@@ -194,10 +227,22 @@ void notify_char(uint32 char_id, uint8 event, uint8 reason, uint32 auction_id, u
 }
 
 // Cash payout per A12: online -> 0x38B9 instruction (the 0x30B9 verdict
-// drives the offline fallback), offline -> direct acc_reg_num write.
+// drives the offline fallback), offline -> direct acc_reg_num write. The
+// decision is journaled FIRST and no journal row means no money moves.
+// The 0x30B9 reply cannot carry a per-event id, so only ONE handoff per
+// (char_id, auction_id) is allowed in flight; a second payout for the same
+// pair (re-bid refunded again, seller+refund pair) skips the 0x38B9 and the
+// journal row is delivered by the recovery scan instead.
 void cash_payout(uint32 char_id, uint32 auction_id, uint32 amount) {
+	const uint32 account_id = account_id_of(char_id);
+	uint32 journal_id = 0;
+	if (account_id == 0 || !payout_journal_open(char_id, auction_id, account_id, amount, journal_id)) {
+		ShowError("auction payout journal refused the payout (no record, no money): char_id=%u auction_id=%u amount=%u\n",
+			char_id, auction_id, amount);
+		return;
+	}
 	const int32 mapfd = mapfd_for_char(char_id);
-	if (mapfd >= 0) {
+	if (mapfd >= 0 && pending_payouts.count(payout_key(char_id, auction_id)) == 0) {
 		uint8 body[13];
 		uint16 o = 0;
 		auto put32 = [&](int32 v) { memcpy(body + o, &v, 4); o += 4; };
@@ -209,33 +254,39 @@ void cash_payout(uint32 char_id, uint32 auction_id, uint32 amount) {
 		PendingPayout pending{};
 		pending.auction_id = auction_id;
 		pending.amount = amount;
-		pending.account_id = account_id_of(char_id);
+		pending.account_id = account_id;
+		pending.journal_id = journal_id;
 		pending.sent = time(nullptr);
 		pending.reaped = false;
 		pending_payouts[payout_key(char_id, auction_id)] = pending;
 		return;
 	}
-	const uint32 account_id = account_id_of(char_id);
+	// Offline, or the same lot+char already has a handoff in flight: deliver
+	// straight from the journal row.
 	int64 new_value = 0;
-	if (account_id == 0 || !acc_cash_add(static_cast<int64>(account_id), static_cast<int64>(amount), &new_value)) {
+	if (!acc_cash_add(static_cast<int64>(account_id), static_cast<int64>(amount), &new_value)) {
+		// The journal row stays PENDING: the recovery scan retries until the
+		// write succeeds (e.g. transient SQL failure).
 		ShowError("auction cash payout failed: char_id=%u auction_id=%u amount=%u\n", char_id, auction_id, amount);
 		return;
 	}
+	payout_journal_close(journal_id, AUCTION_PAYOUT_FALLBACK_DONE);
 	// Event 6 carries the resulting balance, matching the map's online path.
 	notify_char(char_id, AUCTION_NOTIFY_CASH_CHANGED, AUCTION_REASON_OK, auction_id, static_cast<uint32>(new_value));
 }
 
 // Single settlement entry for both the 0x30B9 verdict and the reap timeout,
-// so a payout is written exactly once per lot from THIS process (audit
-// P0-4): map applied -> nothing to do; map failed/timed out -> the offline
-// write plus the balance notification. A verdict that arrives after the reap
-// finds the reaped marker and is dropped with a warning (the map's own late
-// write cannot be undone in-process; a durable ledger would be needed to
-// close that window fully).
+// so a payout is written exactly once per event (audit P0-4): map applied ->
+// its journal row APPLIED; map failed/timed out -> the offline write, the
+// row FALLBACK_DONE, balance notification. The handoff owns exactly one
+// journal row (its own), so a verdict can never close a sibling payout. A
+// verdict with no in-memory handoff (char restart lost the map, or a replay)
+// is dropped: the journal rows it left PENDING belong to the recovery scan,
+// which errs toward paying rather than losing the seller's money.
 void payout_resolve(uint32 char_id, uint32 auction_id, bool map_applied) {
 	auto it = pending_payouts.find(payout_key(char_id, auction_id));
 	if (it == pending_payouts.end())
-		return; // verdict already consumed, or nothing was ever pending
+		return; // nothing to correlate; recovery owns the journal rows
 	PendingPayout& pending = it->second;
 	if (pending.reaped) {
 		// The timeout fallback already credited the wallet; the late verdict
@@ -246,15 +297,16 @@ void payout_resolve(uint32 char_id, uint32 auction_id, bool map_applied) {
 		return;
 	}
 	if (map_applied) {
+		payout_journal_close(pending.journal_id, AUCTION_PAYOUT_APPLIED);
 		pending_payouts.erase(it);
 		return;
 	}
-	const uint32 account_id = account_id_of(char_id);
 	int64 new_value = 0;
-	if (account_id == 0 || !acc_cash_add(static_cast<int64>(account_id), static_cast<int64>(pending.amount), &new_value)) {
+	if (!acc_cash_add(static_cast<int64>(pending.account_id), static_cast<int64>(pending.amount), &new_value)) {
 		ShowError("auction cash payout fallback failed: char_id=%u auction_id=%u amount=%u\n", char_id, auction_id, pending.amount);
-		return;
+		return; // journal stays PENDING; the recovery scan retries
 	}
+	payout_journal_close(pending.journal_id, AUCTION_PAYOUT_FALLBACK_DONE);
 	pending.reaped = true; // wallet credited: a late verdict must not re-add
 	notify_char(char_id, AUCTION_NOTIFY_CASH_CHANGED, AUCTION_REASON_OK, auction_id, static_cast<uint32>(new_value));
 }
@@ -709,6 +761,46 @@ void parse_escrow_batch(int32 fd) {
 		escrow_batch_ack(fd, batch_id, AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, 0, nullptr, count);
 		return;
 	}
+	// Idempotent replay (audit P2-5: the batch had no txid idempotency, the
+	// single-item escrow always had one). The escrow is one all-or-nothing
+	// transaction, so a replayed request finds either every row or none: if
+	// every txid already owns an ESCROWING row, echo the recorded ids (the
+	// first ack, re-delivered) instead of inserting the lot twice. The check
+	// runs BEFORE the listing-cap count, which a replay would otherwise trip
+	// on its own rows.
+	std::unordered_map<uint64, uint32> replayed;
+	{
+		std::string txids;
+		for (uint8 i = 0; i < count; ++i) {
+			const uint64 txid = RFIFOQ(fd, AUCTION_INTER_BATCH_HDR_SIZE + i * AUCTION_INTER_BATCH_ROW_SIZE);
+			txids += (txids.empty() ? "" : ",") + std::to_string(txid);
+		}
+		if (SQL_ERROR == Sql_Query(sql_handle, "SELECT `escrow_txid`,`auction_id` FROM `auction_custom` WHERE `status`='0' AND `escrow_txid` IN (%s)", txids.c_str())) {
+			Sql_Query(sql_handle, "ROLLBACK");
+			escrow_batch_ack(fd, batch_id, AUCTION_RESULT_FAIL, AUCTION_REASON_INTERNAL, 0, nullptr, count);
+			return;
+		}
+		while (SQL_SUCCESS == Sql_NextRow(sql_handle)) {
+			char* data = nullptr; size_t len = 0;
+			Sql_GetData(sql_handle, 0, &data, &len);
+			const uint64 txid = strtoull(data != nullptr ? data : "0", nullptr, 10);
+			Sql_GetData(sql_handle, 1, &data, &len);
+			const uint32 auction_id = data != nullptr ? strtoul(data, nullptr, 10) : 0;
+			replayed[txid] = auction_id;
+		}
+		Sql_FreeResult(sql_handle);
+	}
+	if (replayed.size() == count) {
+		// Full replay: answer with the ids the first ack already carried.
+		Sql_Query(sql_handle, "ROLLBACK");
+		uint32 echo_ids[AUCTION_MAX_BATCH_ITEMS];
+		for (uint8 i = 0; i < count; ++i)
+			echo_ids[i] = replayed[RFIFOQ(fd, AUCTION_INTER_BATCH_HDR_SIZE + i * AUCTION_INTER_BATCH_ROW_SIZE)];
+		ShowInfo("auction batch escrow replay: batch_id=%llu count=%u (ack re-delivered)\n",
+			static_cast<unsigned long long>(batch_id), count);
+		escrow_batch_ack(fd, batch_id, AUCTION_RESULT_OK, AUCTION_REASON_OK, 0xFF, echo_ids, count);
+		return;
+	}
 	uint64 existing = 0;
 	bool ok = SQL_ERROR != Sql_Query(sql_handle, "SELECT COUNT(*) FROM `auction_custom` WHERE `seller_char_id`='%u' AND `status` IN (0,1)", char_id);
 	if (ok && SQL_SUCCESS == Sql_NextRow(sql_handle)) {
@@ -749,6 +841,14 @@ void parse_escrow_batch(int32 fd) {
 		memset(&it, 0, sizeof(it));
 		memcpy(&it, RFIFOP(fd, base + 18), AUCTION_ITEM_BLOB_SIZE);
 		const uint8 item_type = RFIFOB(fd, base + 95);
+		// Belt and braces for a mixed replay (cannot happen through the
+		// all-or-nothing transaction, but a duplicate insert would mint the
+		// item twice): reuse the recorded id instead of inserting again.
+		const auto dup = replayed.find(txid);
+		if (dup != replayed.end()) {
+			auction_ids[i] = dup->second;
+			continue;
+		}
 		if (!insert_auction_row(txid, char_id, seller, price, buy_now, currency, fee_permille, deposit_permille, expire, it, item_type, blob_version, auction_ids[i])) {
 			ShowError("auction batch escrow FAIL: insert row=%u txid=%llu price=%u buynow=%u\n",
 				i, static_cast<unsigned long long>(txid), price, buy_now);
@@ -1666,6 +1766,34 @@ TIMER_FUNC(payout_reap_timer){
 			it = pending_payouts.erase(it);
 		else
 			++it;
+	}
+	// Recovery scan (audit P0-4 crash window): PENDING journal rows older
+	// than the verdict window are settled offline. This re-drives the rows a
+	// char crash left behind between the journal insert and the wallet write
+	// (in-memory handoffs are already consumed by the reap loop above, whose
+	// writes close their journal rows, so the two paths cannot double-pay).
+	if (SQL_ERROR == Sql_Query(sql_handle,
+		"SELECT `journal_id`,`char_id`,`account_id`,`auction_id`,`amount` FROM `auction_payout_journal` WHERE `state`='0' AND `updated_at`<='%u'",
+		static_cast<uint32>(now) - AUCTION_PAYOUT_RECOVER_AFTER)) {
+		Sql_FreeResult(sql_handle);
+	} else {
+		while (SQL_SUCCESS == Sql_NextRow(sql_handle)) {
+			auto col = [&](int32 i) { char* d = nullptr; size_t l = 0; Sql_GetData(sql_handle, i, &d, &l); return d != nullptr ? d : "0"; };
+			const uint32 journal_id = strtoul(col(0), nullptr, 10);
+			const uint32 char_id = strtoul(col(1), nullptr, 10);
+			const uint32 account_id = strtoul(col(2), nullptr, 10);
+			const uint32 auction_id = strtoul(col(3), nullptr, 10);
+			const uint32 amount = strtoul(col(4), nullptr, 10);
+			int64 new_value = 0;
+			if (!acc_cash_add(static_cast<int64>(account_id), static_cast<int64>(amount), &new_value)) {
+				ShowError("auction payout recovery failed: char_id=%u auction_id=%u amount=%u\n", char_id, auction_id, amount);
+				continue; // stays PENDING; retried on the next pass
+			}
+			payout_journal_close(journal_id, AUCTION_PAYOUT_FALLBACK_DONE);
+			notify_char(char_id, AUCTION_NOTIFY_CASH_CHANGED, AUCTION_REASON_OK, auction_id, static_cast<uint32>(new_value));
+			ShowInfo("auction payout recovered from journal: char_id=%u auction_id=%u amount=%u\n", char_id, auction_id, amount);
+		}
+		Sql_FreeResult(sql_handle);
 	}
 }
 

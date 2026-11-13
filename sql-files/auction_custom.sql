@@ -71,3 +71,24 @@ CREATE TABLE IF NOT EXISTS `auction_bid_journal` (
   KEY `idx_auction` (`auction_id`),
   KEY `idx_bidder` (`bidder_char_id`)
 ) ENGINE=InnoDB;
+
+-- 现金派发流水（审计 P0-4 收口：char 在"决定派发"与"写入钱包"之间崩溃
+-- 曾把卖家成交款永久丢失。每笔派发决定先落一行 state=0(PENDING)——同一
+-- 拍品可对同一买家多次退款（反复出价再被超越），故行不按 (char, auction)
+-- 唯一，按自增 journal_id 关联；map 回执→1(APPLIED)，char 离线补写/
+-- 超时回收→2(FALLBACK_DONE)；每 10s 的回收扫描据此补发崩溃残留 PENDING 行。
+-- 存量库需手工执行本段 CREATE。
+-- state: 0 PENDING, 1 APPLIED(map 在线发放), 2 FALLBACK_DONE(char 离线补写)
+CREATE TABLE IF NOT EXISTS `auction_payout_journal` (
+  `journal_id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `auction_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  `char_id` INT UNSIGNED NOT NULL DEFAULT 0,
+  `account_id` INT UNSIGNED NOT NULL DEFAULT 0,
+  `amount` INT UNSIGNED NOT NULL DEFAULT 0,
+  `state` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  `created_at` INT UNSIGNED NOT NULL DEFAULT 0,
+  `updated_at` INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (`journal_id`),
+  KEY `idx_lot_owner` (`char_id`, `auction_id`),
+  KEY `idx_recover` (`state`, `updated_at`)
+) ENGINE=InnoDB;
